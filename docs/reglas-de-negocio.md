@@ -22,7 +22,19 @@ Producción propia del turno =
   − saldo anterior realmente procesado en ese turno
 ```
 
-No se descuenta automáticamente todo el saldo anterior: puede repartirse entre Día y Noche o quedar parcialmente pendiente. La parte no procesada conserva su origen y continúa pendiente.
+La operación normal prioriza que el saldo pendiente al cierre de una jornada sea
+terminado por el turno Día de la jornada siguiente. Por tanto, el saldo realmente
+procesado se descuenta primero del reporte físico de ese turno para obtener su
+producción propia.
+
+Cuando el volumen de producción es excepcionalmente alto, el turno Día puede no
+terminar todo el saldo recibido. En ese caso, la cantidad restante puede ser
+terminada por el turno Noche de la misma jornada. Ese consumo nocturno debe quedar
+registrado explícitamente; nunca se infiere ni se aplica de forma automática.
+
+No se descuenta automáticamente todo el saldo anterior: cada uso se registra en el
+turno que realmente lo procesa y la parte no procesada conserva su jornada de
+origen. La asignación a Noche es una excepción operativa, no el flujo normal.
 
 La interfaz debe mostrar cada operando. No se permiten descuentos, constantes ni ajustes ocultos dentro de fórmulas.
 

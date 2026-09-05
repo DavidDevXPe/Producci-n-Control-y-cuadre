@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --color-brand-50: #eefaff;
@@ -17,6 +19,9 @@
   --color-accent-500: #d9a42c;
   --color-shell: #edf2f3;
   --shadow-panel: 0 1px 2px rgb(15 23 42 / 0.045);
+  --color-sticky-divider: #e2e8f0;
+  --color-family-divider: #cffafe;
+  --color-row-divider: #f1f5f9;
 }
 
 :root {
@@ -27,6 +32,103 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --sidebar-width: 16rem;
+}
+
+html.dark {
+  color: #e7eef1;
+  background: #071117;
+  color-scheme: dark;
+  --color-shell: #071117;
+  --color-slate-50: #152229;
+  --color-slate-100: #1d2d36;
+  --color-slate-200: #2d414b;
+  --color-slate-300: #405964;
+  --color-slate-400: #8299a3;
+  --color-slate-500: #9fb1b9;
+  --color-slate-600: #bdcbd1;
+  --color-slate-700: #d5dfe3;
+  --color-slate-800: #e7edef;
+  --color-slate-900: #f3f6f7;
+  --color-slate-950: #ffffff;
+  --color-brand-50: #10252e;
+  --color-brand-100: #14333f;
+  --color-brand-200: #1b4b5d;
+  --color-emerald-50: #0c291f;
+  --color-emerald-200: #1c5a43;
+  --color-emerald-600: #34d399;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
+  --color-amber-50: #302309;
+  --color-amber-200: #6a4b0d;
+  --color-amber-600: #f59e0b;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+  --color-amber-900: #fde68a;
+  --color-amber-950: #fef3c7;
+  --color-rose-50: #35151d;
+  --color-rose-200: #713044;
+  --color-rose-600: #fb7185;
+  --color-rose-700: #fda4af;
+  --color-rose-800: #fecdd3;
+  --color-rose-900: #ffe4e6;
+  --color-rose-950: #fff1f2;
+  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.22);
+  --color-sticky-divider: #2d414b;
+  --color-family-divider: #1b4b5d;
+  --color-row-divider: #1d2d36;
+}
+
+html.dark [data-theme-sidebar] {
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+}
+
+html.dark body {
+  background: #071117;
+}
+
+html.dark .bg-white:not([data-theme-static="light"]) {
+  background-color: #101c22;
+}
+
+html.dark .theme-surface-translucent {
+  background-color: rgb(16 28 34 / 0.96);
+}
+
+html.dark .hover\:bg-white:hover,
+html.dark .focus\:bg-white:focus {
+  background-color: #17272f;
+}
+
+html.dark :where(main, header) .text-brand-700 {
+  color: #37bae0;
+}
+
+html.dark :where(main, header) .text-brand-800 {
+  color: #79d4ee;
+}
+
+html.dark :where(main, header) .text-brand-900 {
+  color: #b8e7f7;
+}
+
+html.dark :where(main, header) .text-brand-950 {
+  color: #d9f3fc;
+}
+
+html.dark ::selection {
+  color: #eefaff;
+  background: #0b6685;
 }
 
 * {
@@ -98,6 +200,18 @@ summary:focus-visible,
 
 .erp-table tbody tr {
   transition: background-color 140ms ease;
+}
+
+.sticky-column-divider {
+  box-shadow: 2px 0 0 0 var(--color-sticky-divider);
+}
+
+.sticky-family-divider {
+  box-shadow: 2px 0 0 0 var(--color-family-divider);
+}
+
+.sticky-row-divider {
+  box-shadow: 2px 0 0 0 var(--color-row-divider);
 }
 
 @media (prefers-reduced-motion: reduce) {

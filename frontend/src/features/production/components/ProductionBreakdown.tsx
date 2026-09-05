@@ -137,31 +137,31 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
           </caption>
           <thead>
             <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-              <th scope="col" rowSpan={2} className="sticky left-0 top-0 z-50 w-[20rem] bg-slate-50 px-4 py-3 text-left align-bottom shadow-[2px_0_0_0_rgb(226_232_240)]">
+              <th scope="col" rowSpan={2} className="sticky-column-divider sticky left-0 top-14 z-50 w-[20rem] bg-slate-50 px-4 py-3 text-left align-bottom xl:top-0">
                 Familia / producto
               </th>
-              <th scope="colgroup" colSpan={3} className="sticky top-0 z-30 border-l-2 border-brand-200 bg-brand-50 px-2.5 py-2 text-center text-brand-800">
+              <th scope="colgroup" colSpan={3} className="sticky top-14 z-30 border-l-2 border-brand-200 bg-brand-50 px-2.5 py-2 text-center text-brand-800 xl:top-0">
                 Turno Día
               </th>
-              <th scope="colgroup" colSpan={3} className="sticky top-0 z-30 border-l-2 border-slate-300 bg-slate-100 px-2.5 py-2 text-center text-slate-700">
+              <th scope="colgroup" colSpan={3} className="sticky top-14 z-30 border-l-2 border-slate-300 bg-slate-100 px-2.5 py-2 text-center text-slate-700 xl:top-0">
                 Turno Noche
               </th>
-              <th scope="colgroup" colSpan={5} className="sticky top-0 z-30 border-l-2 border-brand-200 bg-brand-50 px-2.5 py-2 text-center text-brand-800">
+              <th scope="colgroup" colSpan={5} className="sticky top-14 z-30 border-l-2 border-brand-200 bg-brand-50 px-2.5 py-2 text-center text-brand-800 xl:top-0">
                 Cuadre
               </th>
             </tr>
             <tr className="border-b border-slate-200 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-slate-500">
-              <th scope="col" className="sticky top-[2.0625rem] z-30 border-l-2 border-brand-200 bg-slate-50 px-2.5 py-2.5 text-right">Reportado</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right">Saldo ant.</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right">Propio</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 border-l-2 border-slate-300 bg-slate-50 px-2.5 py-2.5 text-right">Reportado</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right">Saldo ant.</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right">Propio</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 border-l-2 border-brand-200 bg-slate-50 px-2.5 py-2.5 text-right">Ajustes</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right">Tratamiento</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right">Saldo final</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right">P. terminado</th>
-              <th scope="col" className="sticky top-[2.0625rem] z-30 bg-slate-50 px-4 py-2.5 text-right">Diferencia</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 border-l-2 border-brand-200 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Reportado</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Saldo ant.</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Propio</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 border-l-2 border-slate-300 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Reportado</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Saldo ant.</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Propio</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 border-l-2 border-brand-200 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Ajustes</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Tratamiento</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Saldo final</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">P. terminado</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-4 py-2.5 text-right xl:top-[2.0625rem]">Diferencia</th>
             </tr>
           </thead>
           {filteredGroups.map((group) => {
@@ -176,7 +176,7 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
             return (
               <tbody key={group.familyId} className="border-b border-slate-200 last:border-0">
                 <tr className="bg-brand-50/65">
-                  <th scope="rowgroup" className="sticky left-0 z-20 bg-brand-50 px-4 py-2.5 shadow-[2px_0_0_0_rgb(207_250_254)]">
+                  <th scope="rowgroup" className="sticky-family-divider sticky left-0 z-20 bg-brand-50 px-4 py-2.5">
                     <button
                       type="button"
                       onClick={() => toggleFamily(group.familyId)}
@@ -240,7 +240,7 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
                 {isExpanded
                   ? group.products.map((product) => (
                       <tr key={product.productId} className="group border-t border-slate-100 hover:bg-slate-50/80">
-                        <th scope="row" className="sticky left-0 z-10 max-w-xl bg-white px-4 py-2.5 pl-10 text-xs font-medium leading-4 text-slate-700 shadow-[2px_0_0_0_rgb(241_245_249)] group-hover:bg-slate-50">
+                        <th scope="row" className="sticky-row-divider sticky left-0 z-10 max-w-xl bg-white px-4 py-2.5 pl-10 text-xs font-medium leading-4 text-slate-700 group-hover:bg-slate-50">
                           <span className="line-clamp-2" title={product.productName}>
                             {product.productName}
                           </span>

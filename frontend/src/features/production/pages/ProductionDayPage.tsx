@@ -34,7 +34,7 @@ export function ProductionDayPage() {
     return (
       <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <CalendarDays className="mx-auto size-10 text-slate-300" aria-hidden="true" />
-        <h1 className="mt-4 text-xl font-extrabold text-slate-900">Jornada no encontrada</h1>
+        <h1 className="mt-4 text-xl font-bold text-slate-900">Jornada no encontrada</h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Todavía no existe información registrada para la fecha solicitada.
         </p>

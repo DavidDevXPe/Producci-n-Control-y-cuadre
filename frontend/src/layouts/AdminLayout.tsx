@@ -5,6 +5,7 @@ import {
   History,
   LayoutDashboard,
   Menu,
+  Moon,
   PackageOpen,
   Settings,
   Sun,
@@ -13,29 +14,56 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { WEEK_36_2026_PERIOD } from '../features/production/data/week36'
+import {
+  formatLimaOperationalDate,
+  formatOperationalPeriod,
+  formatOperationalWeek,
+  getLimaShiftLabel,
+} from '../utils/operationalContext'
 
 const brandLogoUrl = `${import.meta.env.BASE_URL}brand/trabunda-logo-white.png`
 
-const operationalDateFormatter = new Intl.DateTimeFormat('es-PE', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'America/Lima',
-})
-
 const operationalContext = {
-  shift: 'Turno Día',
-  week: 'Semana 36',
-  period: '31 AGO — 06 SEP',
-  user: 'Juan Pérez',
+  user: 'Usuario Demo',
   role: 'Supervisor',
 } as const
 
-function formatOperationalDate(date: Date) {
-  return operationalDateFormatter
-    .format(date)
-    .replaceAll('.', '')
-    .toLocaleUpperCase('es-PE')
+type ColorTheme = 'light' | 'dark'
+
+const colorThemeStorageKey = 'trabunda-color-theme'
+
+function getInitialColorTheme(): ColorTheme {
+  if (typeof document === 'undefined') return 'light'
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+}
+
+interface ThemeToggleProps {
+  theme: ColorTheme
+  onToggle: () => void
+  className?: string
+}
+
+function ThemeToggle({ theme, onToggle, className = '' }: ThemeToggleProps) {
+  const isDark = theme === 'dark'
+  const nextThemeLabel = isDark ? 'claro' : 'oscuro'
+
+  return (
+    <button
+      type="button"
+      className={`grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 ${className}`}
+      aria-label={`Cambiar a tema ${nextThemeLabel}`}
+      aria-pressed={isDark}
+      title={`Cambiar a tema ${nextThemeLabel}`}
+      onClick={onToggle}
+    >
+      {isDark ? (
+        <Sun className="size-4" aria-hidden="true" />
+      ) : (
+        <Moon className="size-4" aria-hidden="true" />
+      )}
+    </button>
+  )
 }
 
 type NavigationItem = {
@@ -76,9 +104,9 @@ interface SidebarContentProps {
 
 function SidebarContent({ onNavigate }: SidebarContentProps) {
   return (
-    <div className="flex h-full flex-col bg-brand-950 text-white">
+    <div data-theme-sidebar className="flex h-full flex-col bg-brand-950 text-white">
       <div className="h-[5.5rem] border-b border-white/10 px-4 py-2.5">
-        <div className="flex h-12 items-center justify-center overflow-hidden rounded-lg bg-white px-2">
+        <div data-theme-static="light" className="flex h-12 items-center justify-center overflow-hidden rounded-lg bg-white px-2">
           <img
             src={brandLogoUrl}
             alt="Trabunda Procesos Marinos"
@@ -167,11 +195,40 @@ function getSectionLabel(pathname: string) {
 
 export function AdminLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [colorTheme, setColorTheme] = useState<ColorTheme>(getInitialColorTheme)
+  const [currentTime, setCurrentTime] = useState(() => new Date())
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const mobileNavigationRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const sectionLabel = getSectionLabel(location.pathname)
-  const operationalDate = formatOperationalDate(new Date())
+  const operationalDate = formatLimaOperationalDate(currentTime)
+  const operationalShift = getLimaShiftLabel(currentTime)
+  const operationalWeek = formatOperationalWeek(WEEK_36_2026_PERIOD)
+  const operationalPeriod = formatOperationalPeriod(WEEK_36_2026_PERIOD)
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setCurrentTime(new Date()), 60_000)
+    return () => window.clearInterval(intervalId)
+  }, [])
+
+  useEffect(() => {
+    const isDark = colorTheme === 'dark'
+    document.documentElement.classList.toggle('dark', isDark)
+    document.documentElement.style.colorScheme = colorTheme
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', isDark ? '#071117' : '#123b4a')
+
+    try {
+      window.localStorage.setItem(colorThemeStorageKey, colorTheme)
+    } catch {
+      // La preferencia sigue activa durante la sesión si el navegador bloquea storage.
+    }
+  }, [colorTheme])
+
+  const toggleColorTheme = () => {
+    setColorTheme((current) => (current === 'light' ? 'dark' : 'light'))
+  }
 
   useEffect(() => {
     if (!isMenuOpen) return
@@ -232,7 +289,7 @@ export function AdminLayout() {
         <SidebarContent />
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur xl:hidden">
+      <header className="theme-surface-translucent sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur xl:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -244,7 +301,7 @@ export function AdminLayout() {
           >
             <Menu className="size-5" aria-hidden="true" />
           </button>
-          <div className="flex h-10 w-28 shrink-0 items-center justify-center overflow-hidden bg-white">
+          <div data-theme-static="light" className="flex h-10 w-28 shrink-0 items-center justify-center overflow-hidden bg-white">
             <img
               src={brandLogoUrl}
               alt="Trabunda Procesos Marinos"
@@ -252,14 +309,19 @@ export function AdminLayout() {
             />
           </div>
         </div>
-        <p className="min-w-0 truncate text-sm font-bold text-slate-900">{sectionLabel}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="hidden min-w-0 truncate text-sm font-bold text-slate-900 sm:block">
+            {sectionLabel}
+          </p>
+          <ThemeToggle theme={colorTheme} onToggle={toggleColorTheme} />
+        </div>
       </header>
 
       {isMenuOpen ? (
         <div className="fixed inset-0 z-50 xl:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/65 backdrop-blur-sm"
             aria-label="Cerrar menú de navegación"
             tabIndex={-1}
             onClick={() => setIsMenuOpen(false)}
@@ -306,13 +368,16 @@ export function AdminLayout() {
             </div>
             <div className="flex items-center gap-2 border-r border-slate-200 px-4">
               <Sun className="size-4 text-amber-600" aria-hidden="true" />
-              <span className="font-bold text-slate-800">{operationalContext.shift}</span>
+              <span className="font-bold text-slate-800">{operationalShift}</span>
             </div>
             <div className="border-r border-slate-200 px-4">
-              <p className="font-bold text-slate-800">{operationalContext.week}</p>
+              <p className="font-bold text-slate-800">{operationalWeek}</p>
               <p className="number-tabular mt-0.5 text-[0.625rem] font-semibold tracking-[0.04em] text-slate-500">
-                {operationalContext.period}
+                {operationalPeriod}
               </p>
+            </div>
+            <div className="flex items-center border-r border-slate-200 px-3">
+              <ThemeToggle theme={colorTheme} onToggle={toggleColorTheme} />
             </div>
             <div className="flex items-center gap-2 pl-4">
               <span className="grid size-8 place-items-center rounded-full bg-brand-50 text-brand-800 ring-1 ring-brand-200">

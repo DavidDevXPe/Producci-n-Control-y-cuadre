@@ -9,6 +9,21 @@
     />
     <meta name="theme-color" content="#123b4a" />
     <link rel="icon" type="image/png" href="%BASE_URL%brand/trabunda-logo-white.png" />
+    <script>
+      (() => {
+        let savedTheme = null
+        try {
+          savedTheme = window.localStorage.getItem('trabunda-color-theme')
+        } catch {
+          savedTheme = null
+        }
+
+        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+        const isDark = savedTheme === 'dark' || (savedTheme !== 'light' && prefersDark)
+        document.documentElement.classList.toggle('dark', isDark)
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light'
+      })()
+    </script>
     <title>TRABUNDA Producción | Control y Cuadre Operativo</title>
   </head>
   <body>

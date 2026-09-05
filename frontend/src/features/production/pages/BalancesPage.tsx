@@ -16,14 +16,14 @@ export function BalancesPage() {
   ).length
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       <PageHeader
         eyebrow="Producción"
         title="Saldos"
         description="Producto pendiente identificado por familia, producto y jornada de origen."
       />
 
-      <section className="grid gap-4 sm:grid-cols-3" aria-label="Resumen de saldos">
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de saldos">
         <MetricCard
           label="Saldo total pendiente"
           value={formatCentiKg(calculation.newClosingBalanceKg100)}

@@ -88,19 +88,19 @@ export function DataTableScroll({
         </div>
         {scrollState.canScrollLeft ? (
           <span
-            className="pointer-events-none absolute inset-y-0 left-0 z-40 w-3 bg-gradient-to-r from-slate-950/12 to-transparent"
+            className="pointer-events-none absolute inset-y-0 left-0 z-40 w-3 bg-gradient-to-r from-slate-950/12 to-transparent dark:from-black/35"
             aria-hidden="true"
           />
         ) : null}
         {scrollState.canScrollRight ? (
           <span
-            className="pointer-events-none absolute inset-y-0 right-0 z-40 w-3 bg-gradient-to-l from-slate-950/12 to-transparent"
+            className="pointer-events-none absolute inset-y-0 right-0 z-40 w-3 bg-gradient-to-l from-slate-950/12 to-transparent dark:from-black/35"
             aria-hidden="true"
           />
         ) : null}
       </div>
       {scrollState.isOverflowing ? (
-        <p className="border-t border-slate-100 bg-slate-50/70 px-4 py-2 text-[0.6875rem] text-slate-500 xl:hidden">
+        <p className="border-t border-slate-100 bg-slate-50/70 px-4 py-2 text-[0.6875rem] text-slate-500">
           {hint}
         </p>
       ) : null}
