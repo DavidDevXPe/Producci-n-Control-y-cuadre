@@ -1,4 +1,5 @@
 import { ArrowDownToLine, CheckCircle2, PackageOpen } from 'lucide-react'
+import { DataTableScroll } from '../../../components/ui/DataTableScroll'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { formatCentiKg } from '../../../utils/formatters'
@@ -74,11 +75,11 @@ export function ReceivedBalancePanel({
             ))}
           </dl>
 
-          <div className="scrollbar-subtle overflow-x-auto">
-            <table className="w-full min-w-[54rem] border-collapse text-left">
+          <DataTableScroll label="Saldo anterior recibido y procesado por turno">
+            <table className="erp-table w-full min-w-[54rem] border-collapse text-left">
               <caption className="sr-only">Saldo anterior recibido y procesado por turno</caption>
               <thead>
-                <tr className="border-b border-slate-200 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">
+                <tr className="border-b border-slate-200 bg-slate-50/90 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
                   <th scope="col" className="px-5 py-3.5 sm:px-6">Origen y producto</th>
                   <th scope="col" className="px-3 py-3.5 text-right">Recibido</th>
                   <th scope="col" className="px-3 py-3.5 text-right">Día</th>
@@ -93,17 +94,20 @@ export function ReceivedBalancePanel({
                   return (
                     <tr key={lot.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80">
                       <th scope="row" className="max-w-xl px-5 py-3.5 sm:px-6">
-                        <span className="block text-[0.6875rem] font-extrabold uppercase tracking-wide text-brand-700">
+                        <span className="block text-[0.6875rem] font-bold uppercase tracking-wide text-brand-700">
                           Origen: {lot.originDayId}
                         </span>
-                        <span className="mt-1 block text-xs font-semibold leading-5 text-slate-700">
+                        <span
+                          className="mt-1 line-clamp-2 text-xs font-medium leading-4 text-slate-700"
+                          title={product?.productName ?? lot.productId}
+                        >
                           {product?.productName ?? lot.productId}
                         </span>
                       </th>
                       <td className="number-tabular px-3 py-3.5 text-right text-xs font-semibold text-slate-700">{formatCentiKg(position.originalKg100)}</td>
                       <td className="number-tabular px-3 py-3.5 text-right text-xs text-slate-600">{formatCentiKg(position.processedDayKg100)}</td>
                       <td className="number-tabular px-3 py-3.5 text-right text-xs text-slate-600">{formatCentiKg(position.processedNightKg100)}</td>
-                      <td className="number-tabular px-3 py-3.5 text-right text-xs font-extrabold text-slate-900">{formatCentiKg(position.pendingKg100)}</td>
+                      <td className="number-tabular px-3 py-3.5 text-right text-xs font-semibold text-brand-900">{formatCentiKg(position.pendingKg100)}</td>
                       <td className="px-5 py-3.5 text-right sm:px-6">
                         <StatusBadge tone={position.isValid ? 'success' : 'danger'}>
                           {position.isValid ? 'TRAZABLE' : 'SOBRECONSUMO'}
@@ -114,7 +118,7 @@ export function ReceivedBalancePanel({
                 })}
               </tbody>
             </table>
-          </div>
+          </DataTableScroll>
 
           <div className="flex items-start gap-3 border-t border-slate-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 sm:px-6">
             {calculation.pendingPreviousBalanceKg100 === 0 ? (

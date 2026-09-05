@@ -39,21 +39,21 @@ export function PerformancePanel({
         </StatusBadge>
       }
       className="h-full"
-      contentClassName="p-5 sm:p-6"
+      contentClassName="p-4 sm:p-5"
     >
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">Resultado de la jornada</p>
-          <p className="number-tabular mt-1 text-4xl font-black tracking-tight text-slate-950">
+          <p className="number-tabular mt-1 text-3xl font-bold tracking-tight text-slate-950">
             {formatRatioAsPercent(performance.ratio)}
           </p>
         </div>
-        <span className="grid size-12 place-items-center rounded-2xl bg-amber-50 text-amber-700">
-          <Gauge className="size-6" aria-hidden="true" />
+        <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700">
+          <Gauge className="size-5" aria-hidden="true" />
         </span>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-5">
         <div className="relative h-2.5 overflow-visible rounded-full bg-slate-100">
           <div
             className={`h-full rounded-full ${isOnReference ? 'bg-emerald-500' : 'bg-amber-500'}`}
@@ -73,7 +73,7 @@ export function PerformancePanel({
       </div>
 
       {isPerformanceApplicable && !isOnReference ? (
-        <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-sm leading-5 text-amber-950 ring-1 ring-amber-200">
+        <div className="mt-4 flex gap-3 rounded-xl bg-amber-50 p-3.5 text-sm leading-5 text-amber-950 ring-1 ring-amber-200">
           <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>
             Está por debajo de la referencia del 80%. Esto no implica un
@@ -82,11 +82,11 @@ export function PerformancePanel({
         </div>
       ) : null}
 
-      <div className="mt-5 rounded-xl border border-brand-100 bg-brand-50/60 p-4">
+      <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/60 p-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Droplets className="size-4 text-brand-700" aria-hidden="true" />
-            <h3 className="text-sm font-extrabold text-brand-950">Nuca Bikini</h3>
+            <h3 className="text-sm font-bold text-brand-950">Nuca Bikini</h3>
           </div>
           <StatusBadge tone={nuca.applicable ? 'info' : 'neutral'}>
             {nuca.applicable ? 'LAVADO ACTIVO' : 'NO APLICA'}

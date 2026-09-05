@@ -2,17 +2,17 @@
 
 @theme {
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --color-brand-50: #eff8f8;
-  --color-brand-100: #d8eeee;
-  --color-brand-200: #b6dede;
-  --color-brand-300: #86c7c8;
-  --color-brand-400: #50a7ab;
-  --color-brand-500: #348b91;
-  --color-brand-600: #2b7078;
-  --color-brand-700: #275b63;
-  --color-brand-800: #244b52;
-  --color-brand-900: #213f46;
-  --color-brand-950: #10282f;
+  --color-brand-50: #eefaff;
+  --color-brand-100: #d9f3fc;
+  --color-brand-200: #b8e7f7;
+  --color-brand-300: #79d4ee;
+  --color-brand-400: #37bae0;
+  --color-brand-500: #159cc4;
+  --color-brand-600: #0b7da3;
+  --color-brand-700: #0b6685;
+  --color-brand-800: #10536b;
+  --color-brand-900: #123f51;
+  --color-brand-950: #082a39;
   --color-accent-400: #e8b84d;
   --color-accent-500: #d9a42c;
   --color-shell: #edf2f3;
@@ -68,13 +68,13 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid color-mix(in srgb, #348b91 78%, white);
+  outline: 2px solid color-mix(in srgb, #159cc4 78%, white);
   outline-offset: 2px;
 }
 
 ::selection {
-  color: #10282f;
-  background: #b6dede;
+  color: #082a39;
+  background: #b8e7f7;
 }
 
 .number-tabular {

@@ -1,20 +1,96 @@
-import { ArrowRight, Boxes, Clock3 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowRight, Boxes, ChevronDown, ChevronRight, Clock3 } from 'lucide-react'
+import { DataTableScroll } from '../../../components/ui/DataTableScroll'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { formatCentiKg, formatIsoDate } from '../../../utils/formatters'
 import type { Kg100, ProductReconciliation } from '../model/types'
 
+export interface BalanceProductPosition {
+  readonly productId: string
+  readonly processedDayKg100: Kg100
+  readonly processedNightKg100: Kg100
+  readonly pendingKg100: Kg100
+}
+
 interface BalancePanelProps {
   products: readonly ProductReconciliation[]
   originDate: string
+  /**
+   * Optional display positions supplied by a future multi-day balance source.
+   * The current MVP omits them because it has no later-day consumption records.
+   */
+  positions?: readonly BalanceProductPosition[]
 }
 
-export function BalancePanel({ products, originDate }: BalancePanelProps) {
-  const balances = products.filter((product) => product.newClosingBalanceKg100 > 0)
-  const total = balances.reduce(
-    (sum, product) => sum + product.newClosingBalanceKg100,
-    0,
-  ) as Kg100
+interface BalanceFamilyGroup {
+  readonly familyId: string
+  readonly familyName: string
+  readonly products: readonly ProductReconciliation[]
+}
+
+const zeroKg100 = 0 as Kg100
+
+function currentMvpPosition(product: ProductReconciliation): BalanceProductPosition {
+  return {
+    productId: product.productId,
+    processedDayKg100: zeroKg100,
+    processedNightKg100: zeroKg100,
+    pendingKg100: product.newClosingBalanceKg100,
+  }
+}
+
+function sumBalances(
+  products: readonly ProductReconciliation[],
+  selector: (product: ProductReconciliation) => number,
+): Kg100 {
+  return products.reduce((sum, product) => sum + selector(product), 0) as Kg100
+}
+
+export function BalancePanel({ products, originDate, positions }: BalancePanelProps) {
+  const balances = useMemo(
+    () => products.filter((product) => product.newClosingBalanceKg100 > 0),
+    [products],
+  )
+  const positionsByProduct = useMemo(
+    () => new Map(positions?.map((position) => [position.productId, position] as const)),
+    [positions],
+  )
+  const groups = useMemo<readonly BalanceFamilyGroup[]>(() => {
+    const grouped = new Map<string, BalanceFamilyGroup>()
+
+    for (const product of balances) {
+      const current = grouped.get(product.familyId)
+      grouped.set(product.familyId, {
+        familyId: product.familyId,
+        familyName: product.familyName,
+        products: current ? [...current.products, product] : [product],
+      })
+    }
+
+    return [...grouped.values()]
+  }, [balances])
+  const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
+    () => new Set(groups.map((group) => group.familyId)),
+  )
+
+  const positionFor = (product: ProductReconciliation) =>
+    positionsByProduct.get(product.productId) ?? currentMvpPosition(product)
+
+  const total = sumBalances(balances, (product) => product.newClosingBalanceKg100)
+  const hasSubsequentConsumption = positions?.some(
+    (position) =>
+      position.processedDayKg100 > 0 || position.processedNightKg100 > 0,
+  )
+
+  const toggleFamily = (familyId: string) => {
+    setExpandedFamilies((current) => {
+      const next = new Set(current)
+      if (next.has(familyId)) next.delete(familyId)
+      else next.add(familyId)
+      return next
+    })
+  }
 
   return (
     <SectionCard
@@ -22,67 +98,149 @@ export function BalancePanel({ products, originDate }: BalancePanelProps) {
       description="Producto pendiente que conserva esta jornada como origen."
       action={<StatusBadge tone="info">{balances.length} productos</StatusBadge>}
     >
-      <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-5 sm:px-6">
+      <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-brand-100 text-brand-800">
+            <span className="grid size-10 place-items-center rounded-lg bg-brand-100 text-brand-800">
               <Boxes className="size-5" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-slate-500">
                 Generado el {formatIsoDate(originDate)}
               </p>
-              <p className="number-tabular mt-1 text-2xl font-black text-slate-950">
+              <p className="number-tabular mt-1 whitespace-nowrap text-[1.75rem] font-bold leading-none text-slate-950">
                 {formatCentiKg(total)}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+          <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
             <Clock3 className="size-4 text-brand-600" aria-hidden="true" />
-            Sin consumos posteriores registrados
+            {hasSubsequentConsumption
+              ? 'Consumos posteriores incorporados'
+              : 'Sin consumos posteriores registrados'}
           </div>
         </div>
       </div>
 
-      <div className="scrollbar-subtle overflow-x-auto">
-        <table className="w-full min-w-[50rem] border-collapse text-left">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
+        <p className="text-xs font-medium text-slate-500">
+          {groups.length} familias con producto pendiente
+        </p>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="min-h-8 rounded-lg px-2.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 hover:text-brand-900"
+            onClick={() => setExpandedFamilies(new Set(groups.map((group) => group.familyId)))}
+          >
+            Expandir todo
+          </button>
+          <span className="text-slate-300" aria-hidden="true">·</span>
+          <button
+            type="button"
+            className="min-h-8 rounded-lg px-2.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 hover:text-brand-900"
+            onClick={() => setExpandedFamilies(new Set())}
+          >
+            Contraer todo
+          </button>
+        </div>
+      </div>
+
+      <DataTableScroll label="Saldo final agrupado por familia y producto">
+        <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
           <caption className="sr-only">Detalle del saldo final por producto</caption>
           <thead>
-            <tr className="border-b border-slate-200 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">
-              <th scope="col" className="px-5 py-3.5 sm:px-6">Familia y producto</th>
-              <th scope="col" className="px-3 py-3.5 text-right">Generado</th>
-              <th scope="col" className="px-3 py-3.5 text-right">Procesado Día</th>
-              <th scope="col" className="px-3 py-3.5 text-right">Procesado Noche</th>
-              <th scope="col" className="px-5 py-3.5 text-right sm:px-6">Pendiente</th>
+            <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-slate-500">
+              <th scope="col" className="px-4 py-2.5 sm:px-5">Producto</th>
+              <th scope="col" className="px-3 py-2.5 text-right">Generado</th>
+              <th scope="col" className="px-3 py-2.5 text-right">Procesado Día</th>
+              <th scope="col" className="px-3 py-2.5 text-right">Procesado Noche</th>
+              <th scope="col" className="px-4 py-2.5 text-right text-brand-800 sm:px-5">Pendiente</th>
             </tr>
           </thead>
-          <tbody>
-            {balances.map((product) => (
-              <tr key={product.productId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80">
-                <th scope="row" className="max-w-xl px-5 py-3.5 sm:px-6">
-                  <span className="block text-[0.6875rem] font-extrabold uppercase tracking-wide text-brand-700">
-                    {product.familyName}
-                  </span>
-                  <span className="mt-1 block text-xs font-semibold leading-5 text-slate-700">
-                    {product.productName}
-                  </span>
-                </th>
-                <td className="number-tabular px-3 py-3.5 text-right text-xs font-semibold text-slate-700">
-                  {formatCentiKg(product.newClosingBalanceKg100)}
-                </td>
-                <td className="number-tabular px-3 py-3.5 text-right text-xs text-slate-400">0.00 kg</td>
-                <td className="number-tabular px-3 py-3.5 text-right text-xs text-slate-400">0.00 kg</td>
-                <td className="number-tabular px-5 py-3.5 text-right text-xs font-extrabold text-brand-800 sm:px-6">
-                  <span className="inline-flex items-center gap-1.5">
-                    <ArrowRight className="size-3.5" aria-hidden="true" />
-                    {formatCentiKg(product.newClosingBalanceKg100)}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+          {groups.map((group) => {
+            const isExpanded = expandedFamilies.has(group.familyId)
+            const generatedTotal = sumBalances(
+              group.products,
+              (product) => product.newClosingBalanceKg100,
+            )
+            const pendingTotal = sumBalances(
+              group.products,
+              (product) => positionFor(product).pendingKg100,
+            )
+
+            return (
+              <tbody key={group.familyId} className="border-b border-slate-200 last:border-0">
+                <tr className="bg-brand-50/65">
+                  <th scope="rowgroup" className="px-4 py-2.5 sm:px-5">
+                    <button
+                      type="button"
+                      className="flex max-w-xl items-center gap-2 text-left text-xs font-bold text-brand-950 hover:text-brand-700"
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleFamily(group.familyId)}
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+                      )}
+                      <span>{group.familyName}</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[0.625rem] font-semibold text-slate-500 ring-1 ring-slate-200">
+                        {group.products.length}
+                      </span>
+                    </button>
+                  </th>
+                  <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-slate-700">
+                    {formatCentiKg(generatedTotal)}
+                  </td>
+                  <td colSpan={2} />
+                  <td className="number-tabular whitespace-nowrap px-4 py-2.5 text-right text-xs font-bold text-brand-900 sm:px-5">
+                    <span className="mr-2 text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-brand-600">
+                      Total
+                    </span>
+                    {formatCentiKg(pendingTotal)}
+                  </td>
+                </tr>
+                {isExpanded
+                  ? group.products.map((product) => {
+                      const position = positionFor(product)
+
+                      return (
+                        <tr
+                          key={product.productId}
+                          className="border-t border-slate-100 hover:bg-slate-50/75"
+                        >
+                          <th scope="row" className="max-w-xl px-4 py-2.5 pl-10 sm:px-5 sm:pl-11">
+                            <span
+                              className="line-clamp-2 text-xs font-medium leading-4 text-slate-700"
+                              title={product.productName}
+                            >
+                              {product.productName}
+                            </span>
+                          </th>
+                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-medium text-slate-600">
+                            {formatCentiKg(product.newClosingBalanceKg100)}
+                          </td>
+                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-500">
+                            {formatCentiKg(position.processedDayKg100)}
+                          </td>
+                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-500">
+                            {formatCentiKg(position.processedNightKg100)}
+                          </td>
+                          <td className="number-tabular whitespace-nowrap px-4 py-2.5 text-right text-xs font-semibold text-brand-900 sm:px-5">
+                            <span className="inline-flex items-center gap-1.5">
+                              <ArrowRight className="size-3.5 text-brand-600" aria-hidden="true" />
+                              {formatCentiKg(position.pendingKg100)}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  : null}
+              </tbody>
+            )
+          })}
         </table>
-      </div>
+      </DataTableScroll>
     </SectionCard>
   )
 }

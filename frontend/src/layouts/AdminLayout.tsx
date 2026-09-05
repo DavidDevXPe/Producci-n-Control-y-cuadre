@@ -146,9 +146,11 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
       </div>
 
       <div className="border-t border-white/10 px-5 py-3.5">
-        <p className="text-xs font-bold text-slate-300">TRABUNDA Producción</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
+        <p className="text-[0.6875rem] font-semibold text-slate-400">
           Control y Cuadre Operativo
+        </p>
+        <p className="mt-0.5 text-[0.625rem] leading-4 text-slate-600">
+          Sistema interno de planta
         </p>
       </div>
     </div>

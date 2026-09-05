@@ -9,6 +9,7 @@ import {
   Waves,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { ActionLink } from '../../../components/ui/ActionLink'
 import { MetricCard } from '../../../components/ui/MetricCard'
 import { PageHeader } from '../../../components/ui/PageHeader'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
@@ -37,13 +38,13 @@ export function ProductionDayPage() {
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Todavía no existe información registrada para la fecha solicitada.
         </p>
-        <Link
+        <ActionLink
           to="/jornadas"
-          className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-800 px-4 py-2 text-sm font-bold text-white hover:bg-brand-900"
+          className="mt-6"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
           Volver a jornadas
-        </Link>
+        </ActionLink>
       </div>
     )
   }
@@ -51,7 +52,7 @@ export function ProductionDayPage() {
   const isBalanced = calculation.status === 'BALANCED'
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       <Link
         to="/jornadas"
         className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-800"
@@ -71,13 +72,16 @@ export function ProductionDayPage() {
         }
       />
 
-      <nav aria-label="Secciones de la jornada" className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-3">
-        <a href="#cuadre" className="shrink-0 rounded-lg bg-brand-100 px-3 py-2 text-sm font-extrabold text-brand-900">Cuadre</a>
-        <a href="#produccion" className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-white">Producción</a>
-        <a href="#saldos" className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-white">Saldos</a>
+      <nav
+        aria-label="Secciones de la jornada"
+        className="flex gap-1 overflow-x-auto border-b border-slate-200 pb-2"
+      >
+        <a href="#cuadre" className="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-white hover:text-brand-800">Cuadre</a>
+        <a href="#produccion" className="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-white hover:text-brand-800">Producción</a>
+        <a href="#saldos" className="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-white hover:text-brand-800">Saldos</a>
       </nav>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6" aria-label="Indicadores de la jornada">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Indicadores de la jornada">
         <MetricCard
           label="Materia prima"
           value={formatCentiKg(WEDNESDAY_PRODUCTION_DAY.declaredRawMaterialKg100)}
@@ -112,7 +116,7 @@ export function ProductionDayPage() {
         />
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Producción por turno">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Producción por turno">
         <MetricCard label="Turno Día" value={formatCentiKg(calculation.day.ownProductionKg100)} icon={<Sun className="size-5" />} />
         <MetricCard label="Turno Noche" value={formatCentiKg(calculation.night.ownProductionKg100)} icon={<Moon className="size-5" />} />
         <MetricCard label="Saldo anterior procesado" value={formatCentiKg(calculation.processedPreviousBalanceKg100)} icon={<Boxes className="size-5" />} />
