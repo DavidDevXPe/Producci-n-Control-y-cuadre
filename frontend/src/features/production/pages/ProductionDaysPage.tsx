@@ -1,5 +1,6 @@
 import { ArrowRight, CalendarDays, CheckCircle2, Gauge } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { ActionLink } from '../../../components/ui/ActionLink'
+import { DataTableScroll } from '../../../components/ui/DataTableScroll'
 import { MetricCard } from '../../../components/ui/MetricCard'
 import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
@@ -18,26 +19,34 @@ export function ProductionDaysPage() {
     calculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       <PageHeader
         eyebrow="Producción"
         title="Jornadas de producción"
         description="Consulta el cuadre diario sin mezclarlo con el rendimiento operativo."
+        actions={<StatusBadge tone="info">SEMANA 36 · PARCIAL</StatusBadge>}
       />
 
       <section className="grid gap-4 sm:grid-cols-3" aria-label="Resumen de jornadas">
-        <MetricCard label="Jornadas registradas" value="1" icon={<CalendarDays className="size-5" />} />
+        <MetricCard
+          label="Jornadas registradas"
+          value="1"
+          icon={<CalendarDays className="size-5" />}
+          description="1 de 7 días de la semana"
+        />
         <MetricCard
           label="Cuadradas"
           value={isBalanced ? '1' : '0'}
           icon={<CheckCircle2 className="size-5" />}
           tone={isBalanced ? 'success' : 'danger'}
+          description={isBalanced ? 'Sin diferencias pendientes' : 'Requiere revisión'}
         />
         <MetricCard
           label="Bajo referencia"
           value={isPerformanceOnReference ? '0' : '1'}
           icon={<Gauge className="size-5" />}
           tone={isPerformanceOnReference ? 'success' : 'warning'}
+          description="Referencia operativa: 80%"
         />
       </section>
 
@@ -46,68 +55,71 @@ export function ProductionDaysPage() {
         description="Del 31 de agosto al 6 de septiembre de 2026 · Semana parcial"
         action={<StatusBadge tone="info">1 REGISTRO</StatusBadge>}
       >
-        <div className="scrollbar-subtle overflow-x-auto">
-          <table className="w-full min-w-[64rem] border-collapse text-left">
+        <DataTableScroll label="Jornadas de producción de la semana 36">
+          <table className="erp-table w-full min-w-[61rem] border-collapse text-left">
             <caption className="sr-only">Jornadas de producción registradas</caption>
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">
-                <th scope="col" className="px-5 py-3.5 sm:px-6">Jornada</th>
-                <th scope="col" className="px-3 py-3.5 text-right">Materia prima</th>
-                <th scope="col" className="px-3 py-3.5 text-right">Producto terminado</th>
-                <th scope="col" className="px-3 py-3.5 text-right">Saldo final</th>
-                <th scope="col" className="px-3 py-3.5 text-right">Diferencia</th>
-                <th scope="col" className="px-3 py-3.5">Cuadre</th>
-                <th scope="col" className="px-3 py-3.5">Rendimiento</th>
-                <th scope="col" className="px-5 py-3.5 sm:px-6"><span className="sr-only">Acciones</span></th>
+              <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-extrabold uppercase tracking-[0.07em] text-slate-500">
+                <th scope="col" className="px-4 py-2.5 sm:px-5">Jornada</th>
+                <th scope="col" className="px-3 py-2.5 text-right">Materia prima</th>
+                <th scope="col" className="px-3 py-2.5 text-right">Producto terminado</th>
+                <th scope="col" className="px-3 py-2.5 text-right">Saldo final</th>
+                <th scope="col" className="px-3 py-2.5 text-right">Diferencia</th>
+                <th scope="col" className="px-3 py-2.5">Cuadre</th>
+                <th scope="col" className="px-3 py-2.5">Rendimiento</th>
+                <th scope="col" className="px-4 py-2.5 text-right sm:px-5"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
             <tbody>
-              <tr className="hover:bg-slate-50/80">
-                <th scope="row" className="px-5 py-4 sm:px-6">
+              <tr className="border-l-4 border-emerald-500 bg-white hover:bg-brand-50/35">
+                <th scope="row" className="px-4 py-3 sm:px-5">
                   <span className="block text-sm font-extrabold text-slate-900">
                     {formatIsoDate(WEDNESDAY_PRODUCTION_DAY.date)}
                   </span>
-                  <span className="mt-1 block text-xs font-medium text-slate-500">Jornada validada</span>
+                  <span className="mt-0.5 block text-[0.6875rem] font-medium text-slate-500">
+                    Jornada validada · Último cierre disponible
+                  </span>
                 </th>
-                <td className="number-tabular px-3 py-4 text-right text-sm text-slate-700">
+                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
                   {formatCentiKg(WEDNESDAY_PRODUCTION_DAY.declaredRawMaterialKg100)}
                 </td>
-                <td className="number-tabular px-3 py-4 text-right text-sm font-bold text-slate-900">
+                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-extrabold text-slate-950">
                   {formatCentiKg(calculation.declaredFinishedKg100)}
                 </td>
-                <td className="number-tabular px-3 py-4 text-right text-sm text-slate-700">
+                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
                   {formatCentiKg(calculation.newClosingBalanceKg100)}
                 </td>
                 <td
-                  className={`number-tabular px-3 py-4 text-right text-sm font-bold ${
+                  className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-extrabold ${
                     isBalanced ? 'text-emerald-700' : 'text-rose-700'
                   }`}
                 >
                   {formatCentiKg(calculation.differenceKg100)}
                 </td>
-                <td className="px-3 py-4">
+                <td className="px-3 py-3">
                   <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
                     {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                   </StatusBadge>
                 </td>
-                <td className="px-3 py-4">
+                <td className="px-3 py-3">
                   <StatusBadge tone={isPerformanceOnReference ? 'success' : 'warning'}>
                     {formatRatioAsPercent(calculation.performance.ratio)}
                   </StatusBadge>
                 </td>
-                <td className="px-5 py-4 text-right sm:px-6">
-                  <Link
+                <td className="px-4 py-3 text-right sm:px-5">
+                  <ActionLink
                     to={`/jornadas/${WEDNESDAY_PRODUCTION_DAY.date}`}
-                    className="inline-flex items-center gap-1.5 text-sm font-extrabold text-brand-700 hover:text-brand-900"
+                    variant="ghost"
+                    size="sm"
                   >
                     Ver detalle
                     <ArrowRight className="size-4" aria-hidden="true" />
-                  </Link>
+                  </ActionLink>
                 </td>
               </tr>
             </tbody>
           </table>
-        </div>
+        </DataTableScroll>
       </SectionCard>
     </div>
   )

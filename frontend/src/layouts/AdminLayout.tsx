@@ -40,10 +40,9 @@ const upcomingNavigation: readonly UpcomingNavigationItem[] = [
 
 const navLinkClassName = ({ isActive }: { isActive: boolean }) =>
   [
-    'group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+    'group flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
     isActive
-      ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
+      ? 'bg-brand-600 text-white shadow-sm shadow-black/15'
       : 'text-slate-300 hover:bg-white/8 hover:text-white',
   ].join(' ')
 
@@ -53,23 +52,23 @@ interface SidebarContentProps {
 
 function SidebarContent({ onNavigate }: SidebarContentProps) {
   return (
-    <div className="flex h-full flex-col bg-slate-950 text-white">
-      <div className="h-28 border-b border-white/10 px-4 py-3">
-        <div className="flex h-16 items-center justify-center overflow-hidden rounded-xl bg-white px-2 shadow-lg shadow-black/20">
+    <div className="flex h-full flex-col bg-brand-950 text-white">
+      <div className="h-24 border-b border-white/10 px-4 py-3">
+        <div className="flex h-14 items-center justify-center overflow-hidden rounded-lg bg-white px-2 shadow-md shadow-black/20">
           <img
             src={brandLogoUrl}
             alt="Trabunda Procesos Marinos"
-            className="h-auto w-full max-w-none"
+            className="h-auto w-[13.5rem] max-w-none"
           />
         </div>
-        <p className="mt-2 text-center text-[0.625rem] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+        <p className="mt-1.5 text-center text-[0.5625rem] font-extrabold uppercase tracking-[0.14em] text-slate-400">
           Producción · Control y cuadre
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-3 py-5">
         <nav aria-label="Navegación principal">
-          <p className="mb-2 px-3 text-[0.6875rem] font-bold uppercase tracking-[0.16em] text-slate-500">
+          <p className="mb-2 px-3 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-slate-500">
             Operación
           </p>
           <ul className="space-y-1">
@@ -93,8 +92,8 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
           </ul>
         </nav>
 
-        <nav className="mt-8" aria-label="Módulos próximos">
-          <p className="mb-2 px-3 text-[0.6875rem] font-bold uppercase tracking-[0.16em] text-slate-500">
+        <nav className="mt-7" aria-label="Módulos próximos">
+          <p className="mb-2 px-3 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-slate-500">
             Administración
           </p>
           <ul className="space-y-1">
@@ -106,7 +105,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
                   <button
                     type="button"
                     disabled
-                    className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-500"
+                    className="flex min-h-10 w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-500"
                     title="Disponible próximamente"
                   >
                     <Icon className="size-5 shrink-0" aria-hidden="true" />
@@ -122,7 +121,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
         </nav>
       </div>
 
-      <div className="border-t border-white/10 px-6 py-4">
+      <div className="border-t border-white/10 px-5 py-3.5">
         <p className="text-xs font-bold text-slate-300">TRABUNDA Producción</p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
           Control y Cuadre Operativo
@@ -143,6 +142,7 @@ function getSectionLabel(pathname: string) {
 export function AdminLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const mobileNavigationRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const sectionLabel = getSectionLabel(location.pathname)
 
@@ -155,21 +155,45 @@ export function AdminLayout() {
     document.body.style.overflow = 'hidden'
     closeButtonRef.current?.focus()
 
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsMenuOpen(false)
+    const handleDrawerKeyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMenuOpen(false)
+        return
+      }
+
+      if (event.key !== 'Tab') return
+
+      const focusableElements = Array.from(
+        mobileNavigationRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      )
+
+      const firstElement = focusableElements.at(0)
+      const lastElement = focusableElements.at(-1)
+
+      if (!firstElement || !lastElement) return
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
     }
 
-    document.addEventListener('keydown', closeOnEscape)
+    document.addEventListener('keydown', handleDrawerKeyboard)
 
     return () => {
-      document.removeEventListener('keydown', closeOnEscape)
+      document.removeEventListener('keydown', handleDrawerKeyboard)
       document.body.style.overflow = previousOverflow
       previouslyFocusedElement?.focus()
     }
   }, [isMenuOpen])
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-950">
+    <div className="min-h-dvh bg-shell text-slate-950">
       <a
         href="#contenido-principal"
         className="fixed left-4 top-3 z-[70] -translate-y-24 rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-950 shadow-lg focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-sky-500"
@@ -177,15 +201,15 @@ export function AdminLayout() {
         Saltar al contenido principal
       </a>
 
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 xl:block">
         <SidebarContent />
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur xl:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            className="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-700 transition-colors hover:bg-slate-50"
             aria-label="Abrir menú de navegación"
             aria-controls="mobile-navigation"
             aria-expanded={isMenuOpen}
@@ -205,24 +229,29 @@ export function AdminLayout() {
       </header>
 
       {isMenuOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 xl:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             aria-label="Cerrar menú de navegación"
+            tabIndex={-1}
             onClick={() => setIsMenuOpen(false)}
           />
           <aside
+            ref={mobileNavigationRef}
             id="mobile-navigation"
             className="relative h-full w-[min(20rem,88vw)] shadow-2xl"
             role="dialog"
             aria-modal="true"
-            aria-label="Menú de navegación"
+            aria-labelledby="mobile-navigation-title"
           >
+            <h2 id="mobile-navigation-title" className="sr-only">
+              Menú de navegación
+            </h2>
             <button
               ref={closeButtonRef}
               type="button"
-              className="absolute right-3 top-5 z-10 grid size-10 place-items-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+              className="absolute right-3 top-4 z-10 grid size-10 place-items-center rounded-lg text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
               aria-label="Cerrar menú"
               onClick={() => setIsMenuOpen(false)}
             >
@@ -233,13 +262,13 @@ export function AdminLayout() {
         </div>
       ) : null}
 
-      <div className="min-w-0 lg:pl-72">
-        <div className="hidden h-20 items-center justify-between border-b border-slate-200 bg-white px-6 lg:flex xl:px-8">
+      <div className="min-w-0 xl:pl-64">
+        <div className="hidden h-16 items-center justify-between border-b border-slate-200 bg-white px-6 xl:flex 2xl:px-8">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-700">
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.16em] text-brand-700">
               TRABUNDA Producción
             </p>
-            <p className="mt-1 text-lg font-bold text-slate-900">{sectionLabel}</p>
+            <p className="mt-0.5 text-base font-extrabold text-slate-950">{sectionLabel}</p>
           </div>
           <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
             Operación semanal
@@ -249,7 +278,7 @@ export function AdminLayout() {
         <main
           id="contenido-principal"
           tabIndex={-1}
-          className="mx-auto min-w-0 w-full max-w-[100rem] px-4 py-6 focus:outline-none sm:px-6 lg:px-8 lg:py-8"
+          className="mx-auto w-full min-w-0 max-w-[108rem] px-4 py-5 focus:outline-none sm:px-5 lg:px-6 lg:py-6 2xl:px-8"
         >
           <Outlet />
         </main>

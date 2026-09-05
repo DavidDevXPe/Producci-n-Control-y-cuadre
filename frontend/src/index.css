@@ -15,16 +15,18 @@
   --color-brand-950: #10282f;
   --color-accent-400: #e8b84d;
   --color-accent-500: #d9a42c;
+  --color-shell: #edf2f3;
+  --shadow-panel: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px rgb(15 23 42 / 0.035);
 }
 
 :root {
   color: #17272d;
-  background: #f2f5f6;
+  background: #edf2f3;
   font-family: var(--font-sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --sidebar-width: 17rem;
+  --sidebar-width: 16rem;
 }
 
 * {
@@ -33,19 +35,22 @@
 
 html {
   min-width: 320px;
-  background: #f2f5f6;
+  background: #edf2f3;
 }
 
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  background: #edf2f3;
 }
 
 button,
 a,
 input,
-select {
+select,
+textarea,
+summary {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -58,8 +63,11 @@ a {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible {
-  outline: 3px solid color-mix(in srgb, #348b91 32%, transparent);
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid color-mix(in srgb, #348b91 78%, white);
   outline-offset: 2px;
 }
 
@@ -75,6 +83,20 @@ select:focus-visible {
 .scrollbar-subtle {
   scrollbar-color: #b7c6ca transparent;
   scrollbar-width: thin;
+}
+
+.data-scroll {
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.erp-table th,
+.erp-table td {
+  vertical-align: middle;
+}
+
+.erp-table tbody tr {
+  transition: background-color 140ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

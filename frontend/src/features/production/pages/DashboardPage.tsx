@@ -9,6 +9,7 @@ import {
   Waves,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { ActionLink } from '../../../components/ui/ActionLink'
 import { MetricCard } from '../../../components/ui/MetricCard'
 import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
@@ -37,19 +38,21 @@ export function DashboardPage() {
     dayCalculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       <PageHeader
         eyebrow="Vista operativa"
         title="Control de producción"
         description="Seguimiento del último cierre disponible y consistencia de la semana en curso."
         actions={
-          <Link
-            to={`/jornadas/${WEDNESDAY_PRODUCTION_DAY.date}`}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-800 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-brand-900"
-          >
-            Ver jornada
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
+          <>
+            <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
+              {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+            </StatusBadge>
+            <ActionLink to={`/jornadas/${WEDNESDAY_PRODUCTION_DAY.date}`}>
+              Ver jornada
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </ActionLink>
+          </>
         }
       />
 
@@ -65,14 +68,14 @@ export function DashboardPage() {
           label="Saldo final"
           value={formatCentiKg(dayCalculation.newClosingBalanceKg100)}
           icon={<Boxes className="size-5" />}
-          description="13 productos con saldo"
+          description="13 productos pendientes"
         />
         <MetricCard
           label="Diferencia de cuadre"
           value={formatCentiKg(dayCalculation.differenceKg100)}
           icon={<Scale className="size-5" />}
           tone={isBalanced ? 'success' : 'danger'}
-          description={isBalanced ? 'Detalle y total coinciden' : 'Requiere revisión'}
+          description={isBalanced ? 'CUADRADO · Detalle y total coinciden' : 'NO CUADRADO · Requiere revisión'}
         />
         <MetricCard
           label="Rendimiento"
@@ -83,16 +86,16 @@ export function DashboardPage() {
         />
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
         <SectionCard
           title="Última jornada registrada"
           description="Miércoles es la fuente operativa validada para este MVP."
-          contentClassName="p-5 sm:p-6"
+          contentClassName="p-4 sm:p-5"
         >
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4">
-              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
-                <CalendarCheck2 className="size-6" aria-hidden="true" />
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
+                <CalendarCheck2 className="size-5" aria-hidden="true" />
               </span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -103,31 +106,32 @@ export function DashboardPage() {
                     {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                   </StatusBadge>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
+                <p className="mt-1.5 text-xs leading-5 text-slate-600">
                   Día {formatCentiKg(dayCalculation.day.ownProductionKg100)} · Noche{' '}
                   {formatCentiKg(dayCalculation.night.ownProductionKg100)} · Tratamiento{' '}
                   {formatCentiKg(dayCalculation.treatmentKg100)}
                 </p>
               </div>
             </div>
-            <Link
+            <ActionLink
               to={`/jornadas/${WEDNESDAY_PRODUCTION_DAY.date}`}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-brand-800 hover:border-brand-200 hover:bg-brand-50"
+              variant="secondary"
+              size="sm"
             >
               Abrir detalle
               <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
+            </ActionLink>
           </div>
         </SectionCard>
 
         <SectionCard
           title="Validación semanal"
           description="Comparación por dos caminos independientes."
-          contentClassName="p-5 sm:p-6"
+          contentClassName="p-4 sm:p-5"
         >
           <div className="flex items-center gap-3">
             <span
-              className={`grid size-11 place-items-center rounded-xl ${
+              className={`grid size-10 place-items-center rounded-lg ${
                 isWeekValid
                   ? 'bg-emerald-50 text-emerald-700'
                   : 'bg-rose-50 text-rose-700'
@@ -144,17 +148,14 @@ export function DashboardPage() {
               </p>
             </div>
           </div>
-          <Link
-            to="/resumen"
-            className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold text-brand-700 hover:text-brand-900"
-          >
+          <ActionLink to="/resumen" variant="ghost" size="sm" className="mt-3 -ml-3">
             Revisar resumen de la semana
             <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
+          </ActionLink>
         </SectionCard>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-3" aria-label="Accesos operativos">
         {[
           {
             to: '/jornadas',
@@ -180,17 +181,24 @@ export function DashboardPage() {
             <Link
               key={item.to}
               to={item.to}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md"
+              className="group flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-panel hover:border-brand-200 hover:bg-brand-50/30"
             >
-              <Icon className="size-5 text-brand-700" aria-hidden="true" />
-              <h2 className="mt-4 font-extrabold text-slate-900 group-hover:text-brand-800">
-                {item.title}
-              </h2>
-              <p className="mt-1.5 text-sm leading-5 text-slate-500">{item.text}</p>
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
+                <Icon className="size-4.5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-extrabold text-slate-900 group-hover:text-brand-800">
+                  {item.title}
+                </span>
+                <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                  {item.text}
+                </span>
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-700" aria-hidden="true" />
             </Link>
           )
         })}
-      </div>
+      </section>
     </div>
   )
 }
