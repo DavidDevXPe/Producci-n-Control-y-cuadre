@@ -14,6 +14,16 @@ function renderWednesdayPage() {
   )
 }
 
+function renderThursdayPage() {
+  return render(
+    <MemoryRouter initialEntries={['/jornadas/2026-09-03']}>
+      <Routes>
+        <Route path="/jornadas/:date" element={<ProductionDayPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('Wednesday production day page', () => {
   it('shows a zero difference and a balanced reconciliation', () => {
     renderWednesdayPage()
@@ -65,5 +75,30 @@ describe('Wednesday production day page', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('NO CUADRADO')).not.toBeInTheDocument()
     expect(screen.getAllByText('CUADRADO').length).toBeGreaterThan(0)
+  })
+})
+
+describe('Thursday production day page', () => {
+  it('shows the closed Thursday production and fully processed prior balance', () => {
+    renderThursdayPage()
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: /jueves/i }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('CUADRADO').length).toBeGreaterThan(0)
+
+    const receivedBalanceHeading = screen.getByRole('heading', {
+      name: 'Saldo recibido de jornadas anteriores',
+    })
+    const receivedBalance = receivedBalanceHeading.closest('section')
+
+    expect(receivedBalance).not.toBeNull()
+    expect(
+      within(receivedBalance!).getAllByText('40,298.30 kg').length,
+    ).toBeGreaterThanOrEqual(2)
+    expect(within(receivedBalance!).getByText('Procesado Día')).toBeInTheDocument()
+    expect(
+      within(receivedBalance!).getAllByText('0.00 kg').length,
+    ).toBeGreaterThan(0)
   })
 })

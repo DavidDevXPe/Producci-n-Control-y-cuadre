@@ -41,7 +41,7 @@ export function MetricCard({
     <article
       {...props}
       className={[
-        'min-h-[6.75rem] min-w-0 rounded-xl border border-l-[3px] border-slate-200 bg-white p-4 shadow-panel',
+        'min-h-[6.5rem] min-w-0 rounded-xl border border-l-[3px] border-slate-200 bg-white p-[1.125rem] shadow-panel',
         cardToneClasses[tone],
         className,
       ]
@@ -54,7 +54,7 @@ export function MetricCard({
           <p className="mt-1.5 flex min-w-0 flex-nowrap items-baseline gap-x-1.5 whitespace-nowrap text-[1.75rem] font-bold leading-none tracking-tight text-slate-950 lg:text-[1.875rem]">
             <span className="number-tabular whitespace-nowrap">{value}</span>
             {unit ? (
-              <span className="whitespace-nowrap text-xs font-bold tracking-normal text-slate-500">
+              <span className="whitespace-nowrap text-sm font-bold tracking-normal text-slate-500">
                 {unit}
               </span>
             ) : null}

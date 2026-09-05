@@ -12,16 +12,23 @@ import {
   formatIsoWeekday,
   formatRatioAsPercent,
 } from '../../../utils/formatters'
-import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
+import { WEEK_36_2026_PRODUCTION_DAYS } from '../data/week36'
 import { calculateProductionDay } from '../model/calculations'
 
-const calculation = calculateProductionDay(WEDNESDAY_PRODUCTION_DAY)
+const registeredDays = WEEK_36_2026_PRODUCTION_DAYS.map((day) => ({
+  day,
+  calculation: calculateProductionDay(day),
+}))
+const balancedCount = registeredDays.filter(
+  ({ calculation }) => calculation.status === 'BALANCED',
+).length
+const belowReferenceCount = registeredDays.filter(
+  ({ calculation }) => calculation.performance.status === 'BELOW_REFERENCE',
+).length
+const latestDay = WEEK_36_2026_PRODUCTION_DAYS.at(-1)!
 
 export function ProductionDaysPage() {
   usePageTitle('Jornadas de producción')
-  const isBalanced = calculation.status === 'BALANCED'
-  const isPerformanceOnReference =
-    calculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
 
   return (
     <div className="space-y-5">
@@ -34,22 +41,26 @@ export function ProductionDaysPage() {
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de jornadas">
         <MetricCard
           label="Jornadas registradas"
-          value="1"
+          value={registeredDays.length}
           icon={<CalendarDays className="size-5" />}
-          description="1 de 7 días de la semana"
+          description={`${registeredDays.length} de 7 días de la semana`}
         />
         <MetricCard
           label="Cuadradas"
-          value={isBalanced ? '1' : '0'}
+          value={balancedCount}
           icon={<CheckCircle2 className="size-5" />}
-          tone={isBalanced ? 'success' : 'danger'}
-          description={isBalanced ? 'Sin diferencias pendientes' : 'Requiere revisión'}
+          tone={balancedCount === registeredDays.length ? 'success' : 'danger'}
+          description={
+            balancedCount === registeredDays.length
+              ? 'Sin diferencias pendientes'
+              : 'Requiere revisión'
+          }
         />
         <MetricCard
           label="Bajo referencia"
-          value={isPerformanceOnReference ? '0' : '1'}
+          value={belowReferenceCount}
           icon={<Gauge className="size-5" />}
-          tone={isPerformanceOnReference ? 'success' : 'warning'}
+          tone={belowReferenceCount === 0 ? 'success' : 'warning'}
           description="Referencia operativa: 80%"
         />
       </section>
@@ -57,9 +68,9 @@ export function ProductionDaysPage() {
       <SectionCard
         title="Semana 36"
         description="Del 31 de agosto al 6 de septiembre de 2026 · Semana parcial"
-        action={<StatusBadge tone="info">1 REGISTRO</StatusBadge>}
+        action={<StatusBadge tone="info">{registeredDays.length} REGISTROS</StatusBadge>}
       >
-        <DataTableScroll label="Jornadas de producción de la semana 36">
+        <DataTableScroll label="Jornadas de producción registradas en la semana 36">
           <table className="erp-table w-full min-w-[61rem] border-collapse text-left">
             <caption className="sr-only">Jornadas de producción registradas</caption>
             <thead>
@@ -75,64 +86,85 @@ export function ProductionDaysPage() {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-l-4 border-emerald-500 bg-white hover:bg-brand-50/35">
-                <th scope="row" className="px-4 py-3 sm:px-5">
-                  <span className="block text-xs font-bold tracking-[0.04em] text-slate-950">
-                    {formatIsoWeekday(WEDNESDAY_PRODUCTION_DAY.date)}
-                  </span>
-                  <span className="number-tabular mt-0.5 block text-xs font-semibold text-slate-600">
-                    {formatIsoDateCompact(WEDNESDAY_PRODUCTION_DAY.date)}
-                  </span>
-                  <span className="mt-0.5 block text-[0.625rem] font-medium text-slate-400">
-                    Último cierre disponible
-                  </span>
-                </th>
-                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
-                  {formatCentiKg(WEDNESDAY_PRODUCTION_DAY.declaredRawMaterialKg100)}
-                </td>
-                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
-                  {formatCentiKg(calculation.declaredFinishedKg100)}
-                </td>
-                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
-                  {formatCentiKg(calculation.newClosingBalanceKg100)}
-                </td>
-                <td
-                  className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${
-                    isBalanced ? 'text-emerald-700' : 'text-rose-700'
-                  }`}
-                >
-                  {formatCentiKg(calculation.differenceKg100)}
-                </td>
-                <td className="px-3 py-3">
-                  <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
-                    {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
-                  </StatusBadge>
-                </td>
-                <td className="px-3 py-3">
-                  <div className="flex flex-col items-start gap-1">
-                    <span
-                      className={`number-tabular whitespace-nowrap text-xs font-bold ${
-                        isPerformanceOnReference ? 'text-emerald-700' : 'text-amber-800'
+              {registeredDays.map(({ day, calculation }) => {
+                const isBalanced = calculation.status === 'BALANCED'
+                const isPerformanceOnReference =
+                  calculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
+
+                return (
+                  <tr
+                    key={day.id}
+                    className={`border-l-4 bg-white hover:bg-brand-50/35 ${
+                      isBalanced ? 'border-emerald-500' : 'border-rose-500'
+                    }`}
+                  >
+                    <th scope="row" className="px-4 py-3 sm:px-5">
+                      <span className="block text-xs font-bold tracking-[0.04em] text-slate-950">
+                        {formatIsoWeekday(day.date)}
+                      </span>
+                      <span className="number-tabular mt-0.5 block text-xs font-semibold text-slate-600">
+                        {formatIsoDateCompact(day.date)}
+                      </span>
+                      {day.date === latestDay.date ? (
+                        <span className="mt-0.5 block text-[0.625rem] font-medium text-slate-400">
+                          Último cierre disponible
+                        </span>
+                      ) : null}
+                    </th>
+                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
+                      {formatCentiKg(day.declaredRawMaterialKg100)}
+                    </td>
+                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
+                      {formatCentiKg(calculation.declaredFinishedKg100)}
+                    </td>
+                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
+                      {formatCentiKg(calculation.newClosingBalanceKg100)}
+                    </td>
+                    <td
+                      className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${
+                        isBalanced ? 'text-emerald-700' : 'text-rose-700'
                       }`}
                     >
-                      {formatRatioAsPercent(calculation.performance.ratio)}
-                    </span>
-                    <StatusBadge tone={isPerformanceOnReference ? 'success' : 'warning'}>
-                      {isPerformanceOnReference ? 'EN REFERENCIA' : 'BAJO REFERENCIA'}
-                    </StatusBadge>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-right sm:px-5">
-                  <ActionLink
-                    to={`/jornadas/${WEDNESDAY_PRODUCTION_DAY.date}`}
-                    variant="ghost"
-                    size="sm"
-                  >
-                    Ver detalle
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </ActionLink>
-                </td>
-              </tr>
+                      {formatCentiKg(calculation.differenceKg100)}
+                    </td>
+                    <td className="px-3 py-3">
+                      <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
+                        {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                      </StatusBadge>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          className={`number-tabular whitespace-nowrap text-xs font-bold ${
+                            isPerformanceOnReference
+                              ? 'text-emerald-700'
+                              : 'text-amber-800'
+                          }`}
+                        >
+                          {formatRatioAsPercent(calculation.performance.ratio)}
+                        </span>
+                        <StatusBadge
+                          tone={isPerformanceOnReference ? 'success' : 'warning'}
+                        >
+                          {isPerformanceOnReference
+                            ? 'EN REFERENCIA'
+                            : 'BAJO REFERENCIA'}
+                        </StatusBadge>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right sm:px-5">
+                      <ActionLink
+                        to={`/jornadas/${day.date}`}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        Ver detalle
+                        <ArrowRight className="size-4" aria-hidden="true" />
+                      </ActionLink>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </DataTableScroll>
@@ -140,3 +172,5 @@ export function ProductionDaysPage() {
     </div>
   )
 }
+
+export default ProductionDaysPage

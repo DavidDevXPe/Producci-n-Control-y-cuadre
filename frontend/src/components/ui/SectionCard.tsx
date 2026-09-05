@@ -26,7 +26,7 @@ export function SectionCard({
         <div className="flex flex-col gap-2.5 border-b border-slate-200 bg-white px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="min-w-0">
             {title ? (
-              <h2 className="text-[0.9375rem] font-bold leading-5 text-slate-950">
+              <h2 className="text-base font-semibold leading-5 text-slate-950">
                 {title}
               </h2>
             ) : null}

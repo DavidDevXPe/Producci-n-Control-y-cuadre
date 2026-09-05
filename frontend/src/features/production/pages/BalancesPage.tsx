@@ -4,10 +4,11 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import { formatCentiKg } from '../../../utils/formatters'
 import { BalancePanel } from '../components/BalancePanel'
-import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
+import { WEEK_36_2026_PRODUCTION_DAYS } from '../data/week36'
 import { calculateProductionDay } from '../model/calculations'
 
-const calculation = calculateProductionDay(WEDNESDAY_PRODUCTION_DAY)
+const latestDay = WEEK_36_2026_PRODUCTION_DAYS.at(-1)!
+const calculation = calculateProductionDay(latestDay)
 
 export function BalancesPage() {
   usePageTitle('Saldos de producción')
@@ -34,8 +35,9 @@ export function BalancesPage() {
         <MetricCard label="Jornadas de origen" value="1" icon={<CalendarClock className="size-5" />} />
       </section>
 
-      <BalancePanel products={calculation.products} originDate={WEDNESDAY_PRODUCTION_DAY.date} />
+      <BalancePanel products={calculation.products} originDate={latestDay.date} />
     </div>
   )
 }
 
+export default BalancesPage

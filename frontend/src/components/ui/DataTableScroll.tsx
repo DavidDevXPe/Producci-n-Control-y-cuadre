@@ -88,13 +88,13 @@ export function DataTableScroll({
         </div>
         {scrollState.canScrollLeft ? (
           <span
-            className="pointer-events-none absolute inset-y-0 left-0 z-40 w-3 bg-gradient-to-r from-slate-950/12 to-transparent dark:from-black/35"
+            className="pointer-events-none absolute inset-y-0 left-0 z-40 w-3 bg-gradient-to-r from-slate-950/12 to-transparent dark:w-px dark:bg-slate-300/70 dark:bg-none dark:from-transparent"
             aria-hidden="true"
           />
         ) : null}
         {scrollState.canScrollRight ? (
           <span
-            className="pointer-events-none absolute inset-y-0 right-0 z-40 w-3 bg-gradient-to-l from-slate-950/12 to-transparent dark:from-black/35"
+            className="pointer-events-none absolute inset-y-0 right-0 z-40 w-3 bg-gradient-to-l from-slate-950/12 to-transparent dark:w-px dark:bg-slate-300/70 dark:bg-none dark:from-transparent"
             aria-hidden="true"
           />
         ) : null}

@@ -34,7 +34,7 @@ type ColorTheme = 'light' | 'dark'
 const colorThemeStorageKey = 'trabunda-color-theme'
 
 function getInitialColorTheme(): ColorTheme {
-  if (typeof document === 'undefined') return 'light'
+  if (typeof document === 'undefined') return 'dark'
   return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
 }
 
@@ -51,7 +51,7 @@ function ThemeToggle({ theme, onToggle, className = '' }: ThemeToggleProps) {
   return (
     <button
       type="button"
-      className={`grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 ${className}`}
+      className={`grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 dark:hover:border-slate-300 dark:hover:bg-slate-100 dark:hover:text-slate-900 ${className}`}
       aria-label={`Cambiar a tema ${nextThemeLabel}`}
       aria-pressed={isDark}
       title={`Cambiar a tema ${nextThemeLabel}`}
@@ -92,10 +92,10 @@ const upcomingNavigation: readonly UpcomingNavigationItem[] = [
 
 const navLinkClassName = ({ isActive }: { isActive: boolean }) =>
   [
-    'group flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+    'group flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors dark:border-l-[3px]',
     isActive
-      ? 'bg-brand-700 text-white'
-      : 'text-slate-300 hover:bg-white/6 hover:text-white',
+      ? 'bg-brand-700 text-white dark:border-[#169fd0] dark:bg-[#12344a] dark:text-[#eef4f8] dark:[&>svg]:text-[#50b9dd]'
+      : 'text-slate-300 hover:bg-white/6 hover:text-white dark:border-transparent dark:text-[#a4b4c3] dark:[&>svg]:text-[#6f8798] dark:hover:bg-[#101f2c] dark:hover:text-[#eef4f8] dark:hover:[&>svg]:text-[#94a9b8]',
   ].join(' ')
 
 interface SidebarContentProps {
@@ -104,7 +104,7 @@ interface SidebarContentProps {
 
 function SidebarContent({ onNavigate }: SidebarContentProps) {
   return (
-    <div data-theme-sidebar className="flex h-full flex-col bg-brand-950 text-white">
+    <div data-theme-sidebar className="flex h-full flex-col bg-brand-950 text-white dark:bg-[#07111d] dark:text-[#eef4f8]">
       <div className="h-[5.5rem] border-b border-white/10 px-4 py-2.5">
         <div data-theme-static="light" className="flex h-12 items-center justify-center overflow-hidden rounded-lg bg-white px-2">
           <img
@@ -113,14 +113,14 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
             className="h-auto w-[12.75rem] max-w-none"
           />
         </div>
-        <p className="mt-1 text-center text-[0.5625rem] font-semibold uppercase tracking-[0.13em] text-slate-500">
+        <p className="mt-1 text-center text-[0.5625rem] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-[#6f8798]">
           Producción · Control y cuadre
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-5">
         <nav aria-label="Navegación principal">
-          <p className="mb-2 px-3 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-slate-500">
+          <p className="mb-2 px-3 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-[#6f8798]">
             Operación
           </p>
           <ul className="space-y-1">
@@ -145,7 +145,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
         </nav>
 
         <nav className="mt-7" aria-label="Módulos próximos">
-          <p className="mb-2 px-3 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-slate-500">
+          <p className="mb-2 px-3 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-[#6f8798]">
             Administración
           </p>
           <ul className="space-y-1">
@@ -157,12 +157,12 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
                   <button
                     type="button"
                     disabled
-                    className="flex min-h-10 w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-500"
+                    className="flex min-h-10 w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-500 dark:border-l-[3px] dark:border-transparent dark:text-[#526274]"
                     title="Disponible próximamente"
                   >
                     <Icon className="size-[1.125rem] shrink-0" aria-hidden="true" />
                     <span className="flex-1">{item.label}</span>
-                    <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-slate-500">
+                    <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-slate-500 dark:border-[#244052] dark:text-[#6f8798]">
                       Próximamente
                     </span>
                   </button>
@@ -174,10 +174,10 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
       </div>
 
       <div className="border-t border-white/10 px-5 py-3.5">
-        <p className="text-[0.6875rem] font-semibold text-slate-400">
+        <p className="text-[0.6875rem] font-semibold text-slate-400 dark:text-[#94a9b8]">
           Control y Cuadre Operativo
         </p>
-        <p className="mt-0.5 text-[0.625rem] leading-4 text-slate-600">
+        <p className="mt-0.5 text-[0.625rem] leading-4 text-slate-600 dark:text-[#6f8798]">
           Sistema interno de planta
         </p>
       </div>
@@ -217,7 +217,7 @@ export function AdminLayout() {
     document.documentElement.style.colorScheme = colorTheme
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', isDark ? '#071117' : '#123b4a')
+      ?.setAttribute('content', isDark ? '#09121B' : '#123b4a')
 
     try {
       window.localStorage.setItem(colorThemeStorageKey, colorTheme)
@@ -285,7 +285,7 @@ export function AdminLayout() {
         Saltar al contenido principal
       </a>
 
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 xl:block">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-transparent dark:border-[#1b3444] xl:block">
         <SidebarContent />
       </aside>
 
@@ -352,7 +352,7 @@ export function AdminLayout() {
       ) : null}
 
       <div className="min-w-0 xl:pl-64">
-        <div className="hidden h-14 items-center justify-between border-b border-slate-200 bg-white px-7 xl:flex 2xl:px-8">
+        <div className="theme-surface-translucent hidden h-14 items-center justify-between border-b border-slate-200 bg-white px-7 xl:flex 2xl:px-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.13em] text-brand-800">
               TRABUNDA Producción
@@ -361,25 +361,25 @@ export function AdminLayout() {
               Control y cuadre operativo
             </p>
           </div>
-          <div className="flex h-full items-center text-xs text-slate-600">
-            <div className="flex items-center gap-2 border-r border-slate-200 px-4">
+          <div className="flex h-full items-center text-xs text-slate-600 dark:gap-5">
+            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-r-0 dark:px-0">
               <CalendarDays className="size-4 text-brand-700" aria-hidden="true" />
               <span className="number-tabular font-bold text-slate-800">{operationalDate}</span>
             </div>
-            <div className="flex items-center gap-2 border-r border-slate-200 px-4">
+            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-r-0 dark:px-0">
               <Sun className="size-4 text-amber-600" aria-hidden="true" />
               <span className="font-bold text-slate-800">{operationalShift}</span>
             </div>
-            <div className="border-r border-slate-200 px-4">
+            <div className="border-r border-slate-200 px-4 dark:border-r-0 dark:px-0">
               <p className="font-bold text-slate-800">{operationalWeek}</p>
               <p className="number-tabular mt-0.5 text-[0.625rem] font-semibold tracking-[0.04em] text-slate-500">
                 {operationalPeriod}
               </p>
             </div>
-            <div className="flex items-center border-r border-slate-200 px-3">
+            <div className="flex items-center border-r border-slate-200 px-3 dark:border-r-0 dark:px-0">
               <ThemeToggle theme={colorTheme} onToggle={toggleColorTheme} />
             </div>
-            <div className="flex items-center gap-2 pl-4">
+            <div className="flex items-center gap-2 pl-4 dark:border-l dark:border-slate-200 dark:pl-5">
               <span className="grid size-8 place-items-center rounded-full bg-brand-50 text-brand-800 ring-1 ring-brand-200">
                 <UserRound className="size-4" aria-hidden="true" />
               </span>

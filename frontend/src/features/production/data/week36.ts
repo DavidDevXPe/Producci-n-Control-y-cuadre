@@ -1,4 +1,5 @@
 import type { ProductionDay, WeeklySummaryPeriod } from '../model/types'
+import { THURSDAY_PRODUCTION_DAY } from './thursday'
 import { WEDNESDAY_PRODUCTION_DAY } from './wednesday'
 
 export const WEEK_36_2026_PERIOD: WeeklySummaryPeriod = {
@@ -8,6 +9,7 @@ export const WEEK_36_2026_PERIOD: WeeklySummaryPeriod = {
 
 export const WEEK_36_2026_PRODUCTION_DAYS: readonly ProductionDay[] = [
   WEDNESDAY_PRODUCTION_DAY,
+  THURSDAY_PRODUCTION_DAY,
 ]
 
 export const WEEK_36_2026_CALENDAR_DAYS = [

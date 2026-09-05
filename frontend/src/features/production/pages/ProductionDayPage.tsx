@@ -20,17 +20,19 @@ import { PerformancePanel } from '../components/PerformancePanel'
 import { ProductionBreakdown } from '../components/ProductionBreakdown'
 import { ReceivedBalancePanel } from '../components/ReceivedBalancePanel'
 import { ReconciliationPanel } from '../components/ReconciliationPanel'
-import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
+import { WEEK_36_2026_PRODUCTION_DAYS } from '../data/week36'
 import { calculateProductionDay } from '../model/calculations'
-
-const calculation = calculateProductionDay(WEDNESDAY_PRODUCTION_DAY)
 
 export function ProductionDayPage() {
   const { date } = useParams()
-  const isKnownDay = date === WEDNESDAY_PRODUCTION_DAY.date
-  usePageTitle(isKnownDay ? 'Detalle del miércoles' : 'Jornada no encontrada')
+  const productionDay = WEEK_36_2026_PRODUCTION_DAYS.find(
+    (day) => day.date === date,
+  )
+  usePageTitle(
+    productionDay ? `Detalle del ${productionDay.displayName}` : 'Jornada no encontrada',
+  )
 
-  if (!isKnownDay) {
+  if (!productionDay) {
     return (
       <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <CalendarDays className="mx-auto size-10 text-slate-300" aria-hidden="true" />
@@ -38,10 +40,7 @@ export function ProductionDayPage() {
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Todavía no existe información registrada para la fecha solicitada.
         </p>
-        <ActionLink
-          to="/jornadas"
-          className="mt-6"
-        >
+        <ActionLink to="/jornadas" className="mt-6">
           <ArrowLeft className="size-4" aria-hidden="true" />
           Volver a jornadas
         </ActionLink>
@@ -49,7 +48,9 @@ export function ProductionDayPage() {
     )
   }
 
+  const calculation = calculateProductionDay(productionDay)
   const isBalanced = calculation.status === 'BALANCED'
+  const sourceSheet = productionDay.lines.at(0)?.source.sheet ?? 'la hoja operativa'
 
   return (
     <div className="space-y-5">
@@ -63,8 +64,8 @@ export function ProductionDayPage() {
 
       <PageHeader
         eyebrow="Detalle de jornada"
-        title={formatIsoDate(WEDNESDAY_PRODUCTION_DAY.date)}
-        description="Datos reconstruidos exclusivamente desde la hoja MIÉRCOLES y validados producto por producto."
+        title={formatIsoDate(productionDay.date)}
+        description={`Datos reconstruidos exclusivamente desde la hoja ${sourceSheet} y validados producto por producto.`}
         actions={
           <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
             {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
@@ -84,7 +85,7 @@ export function ProductionDayPage() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Indicadores de la jornada">
         <MetricCard
           label="Materia prima"
-          value={formatCentiKg(WEDNESDAY_PRODUCTION_DAY.declaredRawMaterialKg100)}
+          value={formatCentiKg(productionDay.declaredRawMaterialKg100)}
           icon={<Waves className="size-5" />}
           className="xl:col-span-2"
         />
@@ -112,7 +113,7 @@ export function ProductionDayPage() {
         <ReconciliationPanel calculation={calculation} />
         <PerformancePanel
           calculation={calculation}
-          washAuthorization={WEDNESDAY_PRODUCTION_DAY.nucaWashAuthorization}
+          washAuthorization={productionDay.nucaWashAuthorization}
         />
       </section>
 
@@ -129,11 +130,13 @@ export function ProductionDayPage() {
 
       <div id="saldos" className="scroll-mt-28 space-y-5">
         <ReceivedBalancePanel
-          productionDay={WEDNESDAY_PRODUCTION_DAY}
+          productionDay={productionDay}
           calculation={calculation}
         />
-        <BalancePanel products={calculation.products} originDate={WEDNESDAY_PRODUCTION_DAY.date} />
+        <BalancePanel products={calculation.products} originDate={productionDay.date} />
       </div>
     </div>
   )
 }
+
+export default ProductionDayPage

@@ -35,48 +35,59 @@
 }
 
 html.dark {
-  color: #e7eef1;
-  background: #071117;
+  color: #eef4f8;
+  background: #09121b;
   color-scheme: dark;
-  --color-shell: #071117;
-  --color-slate-50: #152229;
-  --color-slate-100: #1d2d36;
-  --color-slate-200: #2d414b;
-  --color-slate-300: #405964;
-  --color-slate-400: #8299a3;
-  --color-slate-500: #9fb1b9;
-  --color-slate-600: #bdcbd1;
-  --color-slate-700: #d5dfe3;
-  --color-slate-800: #e7edef;
-  --color-slate-900: #f3f6f7;
-  --color-slate-950: #ffffff;
-  --color-brand-50: #10252e;
-  --color-brand-100: #14333f;
-  --color-brand-200: #1b4b5d;
-  --color-emerald-50: #0c291f;
-  --color-emerald-200: #1c5a43;
-  --color-emerald-600: #34d399;
-  --color-emerald-700: #6ee7b7;
-  --color-emerald-800: #a7f3d0;
-  --color-emerald-900: #d1fae5;
-  --color-amber-50: #302309;
-  --color-amber-200: #6a4b0d;
-  --color-amber-600: #f59e0b;
-  --color-amber-700: #fbbf24;
-  --color-amber-800: #fcd34d;
-  --color-amber-900: #fde68a;
-  --color-amber-950: #fef3c7;
-  --color-rose-50: #35151d;
-  --color-rose-200: #713044;
-  --color-rose-600: #fb7185;
-  --color-rose-700: #fda4af;
-  --color-rose-800: #fecdd3;
-  --color-rose-900: #ffe4e6;
-  --color-rose-950: #fff1f2;
-  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.22);
-  --color-sticky-divider: #2d414b;
-  --color-family-divider: #1b4b5d;
-  --color-row-divider: #1d2d36;
+  --color-shell: #09121b;
+  --color-slate-50: #122534;
+  --color-slate-100: #1b3444;
+  --color-slate-200: #244052;
+  --color-slate-300: #365568;
+  --color-slate-400: #6f8798;
+  --color-slate-500: #94a9b8;
+  --color-slate-600: #a4b4c3;
+  --color-slate-700: #bac9d4;
+  --color-slate-800: #d8e2e9;
+  --color-slate-900: #e8f0f5;
+  --color-slate-950: #eef4f8;
+  --color-brand-50: #0e2a3b;
+  --color-brand-100: #12344a;
+  --color-brand-200: #1c526c;
+  --color-brand-300: #267394;
+  --color-brand-400: #50b9dd;
+  --color-brand-500: #169fd0;
+  --color-brand-600: #1288b4;
+  --color-brand-700: #1288b4;
+  --color-brand-800: #0d7098;
+  --color-brand-900: #095b7b;
+  --color-brand-950: #07445d;
+  --color-emerald-50: #0d3025;
+  --color-emerald-200: #1d634a;
+  --color-emerald-500: #29b47e;
+  --color-emerald-600: #29b47e;
+  --color-emerald-700: #42c994;
+  --color-emerald-800: #66dda8;
+  --color-emerald-900: #acebd1;
+  --color-amber-50: #332813;
+  --color-amber-200: #765d20;
+  --color-amber-500: #dea936;
+  --color-amber-600: #dea936;
+  --color-amber-700: #e8ba51;
+  --color-amber-800: #efca77;
+  --color-amber-900: #f4dba1;
+  --color-amber-950: #faeac2;
+  --color-rose-50: #35191c;
+  --color-rose-200: #743138;
+  --color-rose-500: #dc6262;
+  --color-rose-600: #dc6262;
+  --color-rose-700: #e77979;
+  --color-rose-800: #f08080;
+  --color-rose-900: #f7bcbc;
+  --color-rose-950: #fadddd;
+  --shadow-panel: 0 1px 1px rgb(0 0 0 / 0.1);
+  --color-sticky-divider: #244052;
+  --color-family-divider: #1c526c;
+  --color-row-divider: #1b3444;
 }
 
 html.dark [data-theme-sidebar] {
@@ -94,41 +105,73 @@ html.dark [data-theme-sidebar] {
 }
 
 html.dark body {
-  background: #071117;
+  background: #09121b;
 }
 
 html.dark .bg-white:not([data-theme-static="light"]) {
-  background-color: #101c22;
+  background-color: #0e1d29;
 }
 
 html.dark .theme-surface-translucent {
-  background-color: rgb(16 28 34 / 0.96);
+  background-color: rgb(11 24 36 / 0.97);
 }
 
 html.dark .hover\:bg-white:hover,
 html.dark .focus\:bg-white:focus {
-  background-color: #17272f;
+  background-color: #152b3b;
 }
 
 html.dark :where(main, header) .text-brand-700 {
-  color: #37bae0;
+  color: #169fd0;
 }
 
 html.dark :where(main, header) .text-brand-800 {
-  color: #79d4ee;
+  color: #50b9dd;
 }
 
 html.dark :where(main, header) .text-brand-900 {
-  color: #b8e7f7;
+  color: #84d0e9;
 }
 
 html.dark :where(main, header) .text-brand-950 {
-  color: #d9f3fc;
+  color: #c8eaf4;
+}
+
+html.dark .shadow-sm {
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.12);
+}
+
+html.dark .scrollbar-subtle {
+  scrollbar-color: #365568 transparent;
+}
+
+html.dark button:focus-visible,
+html.dark a:focus-visible,
+html.dark input:focus-visible,
+html.dark select:focus-visible,
+html.dark textarea:focus-visible,
+html.dark summary:focus-visible,
+html.dark [tabindex]:focus-visible {
+  outline-color: color-mix(in srgb, #169fd0 78%, white);
 }
 
 html.dark ::selection {
-  color: #eefaff;
-  background: #0b6685;
+  color: #eef4f8;
+  background: #12344a;
+}
+
+html.dark .dashboard-industrial-asset {
+  opacity: 0.1;
+}
+
+html.dark .dashboard-industrial-overlay {
+  background: linear-gradient(
+    90deg,
+    #09121b 0%,
+    rgb(9 18 27 / 0.96) 25%,
+    rgb(9 18 27 / 0.75) 55%,
+    rgb(9 18 27 / 0.3) 100%
+  );
 }
 
 * {

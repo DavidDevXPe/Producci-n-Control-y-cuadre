@@ -15,7 +15,6 @@ import {
   formatCentiKg,
   formatRatioAsPercent,
 } from '../../../utils/formatters'
-import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
 import { WeeklyConsistencyPanel } from '../components/WeeklyConsistencyPanel'
 import { WeeklyDaysTable } from '../components/WeeklyDaysTable'
 import {
@@ -32,7 +31,9 @@ import type { Kg100, SummaryGroupId, WeeklyProductTotal } from '../model/types'
 
 const productionDays = WEEK_36_2026_PRODUCTION_DAYS
 const summary = calculateWeeklySummary(productionDays, WEEK_36_2026_PERIOD)
-const wednesday = calculateProductionDay(WEDNESDAY_PRODUCTION_DAY)
+const calculationsByDate = new Map(
+  productionDays.map((day) => [day.date, calculateProductionDay(day)] as const),
+)
 
 const groupOrder: readonly SummaryGroupId[] = [
   'ALETA',
@@ -64,7 +65,7 @@ const groupLabels: Record<SummaryGroupId, string> = {
 
 const weekDays = WEEK_36_2026_CALENDAR_DAYS.map((day) => ({
   ...day,
-  calculation: day.isoDate === WEDNESDAY_PRODUCTION_DAY.date ? wednesday : null,
+  calculation: calculationsByDate.get(day.isoDate) ?? null,
 }))
 
 function getGroupTotal(groupId: SummaryGroupId): Kg100 {
@@ -139,8 +140,8 @@ export function WeeklySummaryPage() {
       <PageHeader
         eyebrow="Reportes"
         title="Resumen semanal"
-        description="Semana 36 · Del 31 de agosto al 6 de septiembre de 2026. Validación acumulada con una jornada registrada."
-        actions={<StatusBadge tone="info">SEMANA PARCIAL · 1 DE 7</StatusBadge>}
+        description="Semana 36 · Del 31 de agosto al 6 de septiembre de 2026. Validación acumulada con dos jornadas registradas."
+        actions={<StatusBadge tone="info">SEMANA PARCIAL · 2 DE 7</StatusBadge>}
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores semanales">

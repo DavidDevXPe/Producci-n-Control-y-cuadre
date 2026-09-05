@@ -7,7 +7,7 @@
       name="description"
       content="TRABUNDA Producción: control y cuadre operativo diario y semanal"
     />
-    <meta name="theme-color" content="#123b4a" />
+    <meta name="theme-color" content="#09121B" />
     <link rel="icon" type="image/png" href="%BASE_URL%brand/trabunda-logo-white.png" />
     <script>
       (() => {
@@ -18,8 +18,7 @@
           savedTheme = null
         }
 
-        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
-        const isDark = savedTheme === 'dark' || (savedTheme !== 'light' && prefersDark)
+        const isDark = savedTheme !== 'light'
         document.documentElement.classList.toggle('dark', isDark)
         document.documentElement.style.colorScheme = isDark ? 'dark' : 'light'
       })()

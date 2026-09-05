@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { WeeklySummaryPage } from './WeeklySummaryPage'
 
 describe('weekly summary page', () => {
-  it('validates the declared weekly total against the independent product detail', () => {
+  it('validates Wednesday and Thursday against the independent product detail', () => {
     render(<WeeklySummaryPage />)
 
     const validationHeading = screen.getByRole('heading', {
@@ -19,15 +19,15 @@ describe('weekly summary page', () => {
     expect(within(validation!).getByText('PT por jornadas')).toBeInTheDocument()
     expect(within(validation!).getByText('PT por productos')).toBeInTheDocument()
     expect(
-      within(validation!).getAllByText('243,818.00 kg'),
+      within(validation!).getAllByText('559,795.50 kg'),
     ).toHaveLength(2)
     expect(within(validation!).getByText('0.00 kg')).toBeInTheDocument()
     expect(
-      within(validation!).getByText(/23 líneas con movimiento/),
+      within(validation!).getByText(/28 líneas con movimiento/),
     ).toBeInTheDocument()
   })
 
-  it('shows the 7% Nuca Bikini reference when washing applies by order', () => {
+  it('shows the 7% Nuca Bikini reference for both closed days', () => {
     render(<WeeklySummaryPage />)
 
     const nucaHeading = screen.getByRole('heading', {
@@ -38,10 +38,10 @@ describe('weekly summary page', () => {
     expect(nucaSection).not.toBeNull()
     expect(within(nucaSection!).getByText('LAVADO ACTIVO')).toBeInTheDocument()
     expect(within(nucaSection!).getByText('Referencia 7%')).toBeInTheDocument()
-    expect(within(nucaSection!).getByText('22,640.80 kg')).toBeInTheDocument()
-    expect(within(nucaSection!).getByText('22,750.00 kg')).toBeInTheDocument()
+    expect(within(nucaSection!).getByText('51,348.92 kg')).toBeInTheDocument()
+    expect(within(nucaSection!).getByText('51,260.00 kg')).toBeInTheDocument()
     expect(
-      within(nucaSection!).getByText('Participación real: 7.03% de la MP.'),
+      within(nucaSection!).getByText('Participación real: 6.99% de la MP.'),
     ).toBeInTheDocument()
   })
 })

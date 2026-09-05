@@ -44,6 +44,10 @@ export function formatCentiKg(value: number): string {
   return `${kgFormatter.format(value / 100)} kg`
 }
 
+export function formatCentiKgValue(value: number): string {
+  return kgFormatter.format(value / 100)
+}
+
 export function formatCentiKgCompact(value: number): string {
   return `${integerFormatter.format(Math.round(value / 100))} kg`
 }
