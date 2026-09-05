@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --color-brand-50: #eff8f8;
+  --color-brand-100: #d8eeee;
+  --color-brand-200: #b6dede;
+  --color-brand-300: #86c7c8;
+  --color-brand-400: #50a7ab;
+  --color-brand-500: #348b91;
+  --color-brand-600: #2b7078;
+  --color-brand-700: #275b63;
+  --color-brand-800: #244b52;
+  --color-brand-900: #213f46;
+  --color-brand-950: #10282f;
+  --color-accent-400: #e8b84d;
+  --color-accent-500: #d9a42c;
+}
+
+:root {
+  color: #17272d;
+  background: #f2f5f6;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --sidebar-width: 17rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: #f2f5f6;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  transition-duration: 160ms;
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid color-mix(in srgb, #348b91 32%, transparent);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: #10282f;
+  background: #b6dede;
+}
+
+.number-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.scrollbar-subtle {
+  scrollbar-color: #b7c6ca transparent;
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+

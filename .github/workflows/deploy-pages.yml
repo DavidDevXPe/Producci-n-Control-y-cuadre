@@ -1,0 +1,70 @@
+name: Desplegar TRABUNDA Produccion
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v6
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: frontend
+        run: npm ci
+
+      - name: Validar TypeScript y ESLint
+        working-directory: frontend
+        run: npm run check
+
+      - name: Ejecutar pruebas
+        working-directory: frontend
+        run: npm test
+
+      - name: Construir sitio
+        working-directory: frontend
+        run: npm run build
+
+      - name: Preparar rutas de aplicacion
+        shell: bash
+        run: |
+          cp frontend/dist/index.html frontend/dist/404.html
+          touch frontend/dist/.nojekyll
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir sitio generado
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: frontend/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

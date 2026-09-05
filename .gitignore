@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.vite/
+*.local
+*.log
+.DS_Store
+Thumbs.db
+
+# Fuente operativa local: no publicar datos del Excel de referencia
+PARTE_DE_PRODUCCION_02-09-2026.xlsx
