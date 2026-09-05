@@ -6,7 +6,12 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
-import { formatCentiKg, formatIsoDate, formatRatioAsPercent } from '../../../utils/formatters'
+import {
+  formatCentiKg,
+  formatIsoDateCompact,
+  formatIsoWeekday,
+  formatRatioAsPercent,
+} from '../../../utils/formatters'
 import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
 import { calculateProductionDay } from '../model/calculations'
 
@@ -24,10 +29,9 @@ export function ProductionDaysPage() {
         eyebrow="Producción"
         title="Jornadas de producción"
         description="Consulta el cuadre diario sin mezclarlo con el rendimiento operativo."
-        actions={<StatusBadge tone="info">SEMANA 36 · PARCIAL</StatusBadge>}
       />
 
-      <section className="grid gap-4 sm:grid-cols-3" aria-label="Resumen de jornadas">
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de jornadas">
         <MetricCard
           label="Jornadas registradas"
           value="1"
@@ -59,7 +63,7 @@ export function ProductionDaysPage() {
           <table className="erp-table w-full min-w-[61rem] border-collapse text-left">
             <caption className="sr-only">Jornadas de producción registradas</caption>
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-extrabold uppercase tracking-[0.07em] text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-slate-500">
                 <th scope="col" className="px-4 py-2.5 sm:px-5">Jornada</th>
                 <th scope="col" className="px-3 py-2.5 text-right">Materia prima</th>
                 <th scope="col" className="px-3 py-2.5 text-right">Producto terminado</th>
@@ -73,24 +77,27 @@ export function ProductionDaysPage() {
             <tbody>
               <tr className="border-l-4 border-emerald-500 bg-white hover:bg-brand-50/35">
                 <th scope="row" className="px-4 py-3 sm:px-5">
-                  <span className="block text-sm font-extrabold text-slate-900">
-                    {formatIsoDate(WEDNESDAY_PRODUCTION_DAY.date)}
+                  <span className="block text-xs font-bold tracking-[0.04em] text-slate-950">
+                    {formatIsoWeekday(WEDNESDAY_PRODUCTION_DAY.date)}
                   </span>
-                  <span className="mt-0.5 block text-[0.6875rem] font-medium text-slate-500">
-                    Jornada validada · Último cierre disponible
+                  <span className="number-tabular mt-0.5 block text-xs font-semibold text-slate-600">
+                    {formatIsoDateCompact(WEDNESDAY_PRODUCTION_DAY.date)}
+                  </span>
+                  <span className="mt-0.5 block text-[0.625rem] font-medium text-slate-400">
+                    Último cierre disponible
                   </span>
                 </th>
                 <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
                   {formatCentiKg(WEDNESDAY_PRODUCTION_DAY.declaredRawMaterialKg100)}
                 </td>
-                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-extrabold text-slate-950">
+                <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
                   {formatCentiKg(calculation.declaredFinishedKg100)}
                 </td>
                 <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
                   {formatCentiKg(calculation.newClosingBalanceKg100)}
                 </td>
                 <td
-                  className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-extrabold ${
+                  className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${
                     isBalanced ? 'text-emerald-700' : 'text-rose-700'
                   }`}
                 >
@@ -102,9 +109,18 @@ export function ProductionDaysPage() {
                   </StatusBadge>
                 </td>
                 <td className="px-3 py-3">
-                  <StatusBadge tone={isPerformanceOnReference ? 'success' : 'warning'}>
-                    {formatRatioAsPercent(calculation.performance.ratio)}
-                  </StatusBadge>
+                  <div className="flex flex-col items-start gap-1">
+                    <span
+                      className={`number-tabular whitespace-nowrap text-xs font-bold ${
+                        isPerformanceOnReference ? 'text-emerald-700' : 'text-amber-800'
+                      }`}
+                    >
+                      {formatRatioAsPercent(calculation.performance.ratio)}
+                    </span>
+                    <StatusBadge tone={isPerformanceOnReference ? 'success' : 'warning'}>
+                      {isPerformanceOnReference ? 'EN REFERENCIA' : 'BAJO REFERENCIA'}
+                    </StatusBadge>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right sm:px-5">
                   <ActionLink

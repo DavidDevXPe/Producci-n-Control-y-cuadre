@@ -46,7 +46,7 @@ export function StatusBadge({
     <span
       {...props}
       className={[
-        'inline-flex min-h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[0.6875rem] font-extrabold leading-none tracking-[0.02em] ring-1 ring-inset',
+        'inline-flex min-h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[0.6875rem] font-bold leading-none tracking-[0.025em] ring-1 ring-inset',
         toneClasses[tone],
         className,
       ]

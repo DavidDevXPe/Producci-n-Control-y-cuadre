@@ -13,7 +13,7 @@ export interface MetricCardProps extends Omit<HTMLAttributes<HTMLElement>, 'titl
 
 const cardToneClasses: Record<MetricCardTone, string> = {
   neutral: 'border-l-slate-300',
-  brand: 'border-l-sky-500',
+  brand: 'border-l-brand-500',
   success: 'border-l-emerald-500',
   warning: 'border-l-amber-500',
   danger: 'border-l-rose-500',
@@ -41,7 +41,7 @@ export function MetricCard({
     <article
       {...props}
       className={[
-        'min-w-0 rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-panel',
+        'min-h-[6.75rem] min-w-0 rounded-xl border border-l-[3px] border-slate-200 bg-white p-4 shadow-panel',
         cardToneClasses[tone],
         className,
       ]
@@ -50,8 +50,8 @@ export function MetricCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xs font-bold leading-5 text-slate-600">{label}</h2>
-          <p className="mt-1.5 flex min-w-0 flex-nowrap items-baseline gap-x-1.5 whitespace-nowrap text-2xl font-extrabold leading-none tracking-tight text-slate-950 sm:text-[1.625rem]">
+          <h2 className="text-xs font-semibold leading-5 text-slate-600">{label}</h2>
+          <p className="mt-1.5 flex min-w-0 flex-nowrap items-baseline gap-x-1.5 whitespace-nowrap text-[1.75rem] font-bold leading-none tracking-tight text-slate-950 lg:text-[1.875rem]">
             <span className="number-tabular whitespace-nowrap">{value}</span>
             {unit ? (
               <span className="whitespace-nowrap text-xs font-bold tracking-normal text-slate-500">
@@ -63,7 +63,7 @@ export function MetricCard({
 
         {icon ? (
           <span
-            className={`grid size-9 shrink-0 place-items-center rounded-lg ${iconToneClasses[tone]}`}
+            className={`grid size-8 shrink-0 place-items-center rounded-lg ${iconToneClasses[tone]}`}
             aria-hidden="true"
           >
             {icon}

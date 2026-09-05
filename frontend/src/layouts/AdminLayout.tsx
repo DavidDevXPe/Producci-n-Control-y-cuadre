@@ -7,12 +7,36 @@ import {
   Menu,
   PackageOpen,
   Settings,
+  Sun,
+  UserRound,
   X,
   type LucideIcon,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
 const brandLogoUrl = `${import.meta.env.BASE_URL}brand/trabunda-logo-white.png`
+
+const operationalDateFormatter = new Intl.DateTimeFormat('es-PE', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'America/Lima',
+})
+
+const operationalContext = {
+  shift: 'Turno Día',
+  week: 'Semana 36',
+  period: '31 AGO — 06 SEP',
+  user: 'Juan Pérez',
+  role: 'Supervisor',
+} as const
+
+function formatOperationalDate(date: Date) {
+  return operationalDateFormatter
+    .format(date)
+    .replaceAll('.', '')
+    .toLocaleUpperCase('es-PE')
+}
 
 type NavigationItem = {
   label: string
@@ -42,8 +66,8 @@ const navLinkClassName = ({ isActive }: { isActive: boolean }) =>
   [
     'group flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
     isActive
-      ? 'bg-brand-600 text-white shadow-sm shadow-black/15'
-      : 'text-slate-300 hover:bg-white/8 hover:text-white',
+      ? 'bg-brand-700 text-white'
+      : 'text-slate-300 hover:bg-white/6 hover:text-white',
   ].join(' ')
 
 interface SidebarContentProps {
@@ -53,15 +77,15 @@ interface SidebarContentProps {
 function SidebarContent({ onNavigate }: SidebarContentProps) {
   return (
     <div className="flex h-full flex-col bg-brand-950 text-white">
-      <div className="h-24 border-b border-white/10 px-4 py-3">
-        <div className="flex h-14 items-center justify-center overflow-hidden rounded-lg bg-white px-2 shadow-md shadow-black/20">
+      <div className="h-[5.5rem] border-b border-white/10 px-4 py-2.5">
+        <div className="flex h-12 items-center justify-center overflow-hidden rounded-lg bg-white px-2">
           <img
             src={brandLogoUrl}
             alt="Trabunda Procesos Marinos"
-            className="h-auto w-[13.5rem] max-w-none"
+            className="h-auto w-[12.75rem] max-w-none"
           />
         </div>
-        <p className="mt-1.5 text-center text-[0.5625rem] font-extrabold uppercase tracking-[0.14em] text-slate-400">
+        <p className="mt-1 text-center text-[0.5625rem] font-semibold uppercase tracking-[0.13em] text-slate-500">
           Producción · Control y cuadre
         </p>
       </div>
@@ -83,7 +107,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
                     className={navLinkClassName}
                     onClick={() => onNavigate?.()}
                   >
-                    <Icon className="size-5 shrink-0" aria-hidden="true" />
+                    <Icon className="size-[1.125rem] shrink-0" aria-hidden="true" />
                     <span>{item.label}</span>
                   </NavLink>
                 </li>
@@ -108,7 +132,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
                     className="flex min-h-10 w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-500"
                     title="Disponible próximamente"
                   >
-                    <Icon className="size-5 shrink-0" aria-hidden="true" />
+                    <Icon className="size-[1.125rem] shrink-0" aria-hidden="true" />
                     <span className="flex-1">{item.label}</span>
                     <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-slate-500">
                       Próximamente
@@ -145,6 +169,7 @@ export function AdminLayout() {
   const mobileNavigationRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const sectionLabel = getSectionLabel(location.pathname)
+  const operationalDate = formatOperationalDate(new Date())
 
   useEffect(() => {
     if (!isMenuOpen) return
@@ -263,22 +288,48 @@ export function AdminLayout() {
       ) : null}
 
       <div className="min-w-0 xl:pl-64">
-        <div className="hidden h-16 items-center justify-between border-b border-slate-200 bg-white px-6 xl:flex 2xl:px-8">
+        <div className="hidden h-14 items-center justify-between border-b border-slate-200 bg-white px-7 xl:flex 2xl:px-8">
           <div>
-            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.16em] text-brand-700">
+            <p className="text-xs font-bold uppercase tracking-[0.13em] text-brand-800">
               TRABUNDA Producción
             </p>
-            <p className="mt-0.5 text-base font-extrabold text-slate-950">{sectionLabel}</p>
+            <p className="mt-0.5 text-[0.6875rem] font-medium text-slate-500">
+              Control y cuadre operativo
+            </p>
           </div>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-            Operación semanal
-          </span>
+          <div className="flex h-full items-center text-xs text-slate-600">
+            <div className="flex items-center gap-2 border-r border-slate-200 px-4">
+              <CalendarDays className="size-4 text-brand-700" aria-hidden="true" />
+              <span className="number-tabular font-bold text-slate-800">{operationalDate}</span>
+            </div>
+            <div className="flex items-center gap-2 border-r border-slate-200 px-4">
+              <Sun className="size-4 text-amber-600" aria-hidden="true" />
+              <span className="font-bold text-slate-800">{operationalContext.shift}</span>
+            </div>
+            <div className="border-r border-slate-200 px-4">
+              <p className="font-bold text-slate-800">{operationalContext.week}</p>
+              <p className="number-tabular mt-0.5 text-[0.625rem] font-semibold tracking-[0.04em] text-slate-500">
+                {operationalContext.period}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pl-4">
+              <span className="grid size-8 place-items-center rounded-full bg-brand-50 text-brand-800 ring-1 ring-brand-200">
+                <UserRound className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-bold text-slate-800">{operationalContext.user}</p>
+                <p className="mt-0.5 text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  {operationalContext.role}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <main
           id="contenido-principal"
           tabIndex={-1}
-          className="mx-auto w-full min-w-0 max-w-[108rem] px-4 py-5 focus:outline-none sm:px-5 lg:px-6 lg:py-6 2xl:px-8"
+          className="mx-auto w-full min-w-0 max-w-[92.5rem] px-4 py-5 focus:outline-none sm:px-5 lg:px-6 lg:py-6 xl:px-7 2xl:px-8"
         >
           <Outlet />
         </main>
