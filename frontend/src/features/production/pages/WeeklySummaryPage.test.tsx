@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { WeeklySummaryPage } from './WeeklySummaryPage'
 
 describe('weekly summary page', () => {
-  it('validates Wednesday and Thursday against the independent product detail', () => {
+  it('validates Wednesday through Saturday against the independent product detail', () => {
     render(<WeeklySummaryPage />)
 
     const validationHeading = screen.getByRole('heading', {
@@ -19,15 +19,15 @@ describe('weekly summary page', () => {
     expect(within(validation!).getByText('PT por jornadas')).toBeInTheDocument()
     expect(within(validation!).getByText('PT por productos')).toBeInTheDocument()
     expect(
-      within(validation!).getAllByText('559,795.50 kg'),
+      within(validation!).getAllByText('1,422,629.90 kg'),
     ).toHaveLength(2)
     expect(within(validation!).getByText('0.00 kg')).toBeInTheDocument()
     expect(
-      within(validation!).getByText(/28 líneas con movimiento/),
+      within(validation!).getByText(/35 líneas de producto en 4 jornadas/),
     ).toBeInTheDocument()
   })
 
-  it('shows the 7% Nuca Bikini reference for both closed days', () => {
+  it('shows the 7% Nuca Bikini reference for all closed days', () => {
     render(<WeeklySummaryPage />)
 
     const nucaHeading = screen.getByRole('heading', {
@@ -38,10 +38,10 @@ describe('weekly summary page', () => {
     expect(nucaSection).not.toBeNull()
     expect(within(nucaSection!).getByText('LAVADO ACTIVO')).toBeInTheDocument()
     expect(within(nucaSection!).getByText('Referencia 7%')).toBeInTheDocument()
-    expect(within(nucaSection!).getByText('51,348.92 kg')).toBeInTheDocument()
-    expect(within(nucaSection!).getByText('51,260.00 kg')).toBeInTheDocument()
+    expect(within(nucaSection!).getByText('122,097.15 kg')).toBeInTheDocument()
+    expect(within(nucaSection!).getByText('138,020.00 kg')).toBeInTheDocument()
     expect(
-      within(nucaSection!).getByText('Participación real: 6.99% de la MP.'),
+      within(nucaSection!).getByText('Participación real: 7.91% de la MP.'),
     ).toBeInTheDocument()
   })
 })

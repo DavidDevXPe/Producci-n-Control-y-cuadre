@@ -2,10 +2,10 @@
 
 ## Fuentes autorizadas
 
-- `MIÉRCOLES` es la fuente principal para la estructura del cuadre, productos, familias, turnos, tratamiento, producto terminado y saldo final.
-- `RESUMEN` aporta las fórmulas y la validación acumulada de la semana.
-- `JUEVES` solo ilustra que un reporte físico puede incluir saldo procesado de una jornada anterior. No se usa para deducir datos, fórmulas ni reglas.
-- Las demás hojas quedan fuera del alcance inicial.
+- `MIÉRCOLES`, `JUEVES`, `VIERNES` y `SÁBADO` aportan los cierres registrados de la semana, incluyendo materia prima, producción, tratamiento, producto terminado y saldo final.
+- `RESUMEN` aporta las fórmulas y la validación acumulada independiente de la semana.
+- `DOMINGO` no se incorpora mientras conserve una fecha histórica, carezca de producción válida y contenga errores de fórmula.
+- Una hoja solo se incorpora cuando su fecha, totales y fórmulas corresponden al periodo operativo solicitado.
 
 El Excel se interpreta como fuente operativa, no como plantilla visual.
 
@@ -134,6 +134,10 @@ Aprovechamiento del grupo = subtotal del grupo ÷ materia prima semanal
 ```
 
 Una semana parcial debe identificarse como tal; no se completan jornadas ni cantidades inexistentes.
+
+Los saldos abiertos se consolidan entre todas las jornadas registradas. Una cantidad generada al cierre permanece pendiente hasta que un uso posterior explícito, vinculado al mismo producto y jornada de origen, la descuente. El último saldo diario y el saldo total pendiente acumulado son indicadores diferentes.
+
+Un procesamiento posterior compuesto totalmente por saldo no vuelve a sumarse como producto terminado del nuevo día: únicamente liquida la posición abierta de su jornada de origen. Para el periodo actual, los 44,660.00 kg generados el sábado fueron envasados el domingo como saldo y se registran como consumo durante el turno Día, conforme al flujo operativo normal confirmado.
 
 ## Fuera del MVP
 

@@ -371,11 +371,11 @@ describe('weekly summary validation', () => {
     expect(summary.declaredFinishedKg100).toBe(kg(243_818))
     expect(summary.differenceKg100).toBe(kg(0))
     expect(summary.status).toBe('VALID')
-    expect(summary.productTotalsById['anillas-iqf-tratamiento-usa']).toBe(
+    expect(summary.productTotalsById['anillas-iqf-tratamiento-usa-sm-cp-st']).toBe(
       kg(151.7),
     )
-    expect(summary.productTotalsById['boton-usa-tratamiento']).toBe(kg(25))
-    expect(summary.productTotalsById['boton-espana-iqf']).toBe(kg(2_130))
+    expect(summary.productTotalsById['boton-usa-sm-cp-tratamiento']).toBe(kg(25))
+    expect(summary.productTotalsById['boton-usa-cm-sp-tratamiento']).toBe(kg(2_130))
   })
 
   it('sums matching products instead of relying on row positions', () => {
@@ -402,9 +402,9 @@ describe('weekly summary validation', () => {
 
   it('detects the 2,306.70 kg omitted by the positional RESUMEN formulas', () => {
     const legacyOmittedProductIds = new Set([
-      'anillas-iqf-tratamiento-usa',
-      'boton-usa-tratamiento',
-      'boton-espana-iqf',
+      'anillas-iqf-tratamiento-usa-sm-cp-st',
+      'boton-usa-sm-cp-tratamiento',
+      'boton-usa-cm-sp-tratamiento',
     ])
     const incompleteDay: ProductionDay = {
       ...WEDNESDAY_PRODUCTION_DAY,

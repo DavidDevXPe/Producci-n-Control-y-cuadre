@@ -1,45 +1,62 @@
-# Preparación para nuevas jornadas
+# Estado de soporte para nuevas jornadas
 
-Este reporte identifica los acoplamientos actuales al miércoles del MVP. No
-incorpora datos de Jueves o Viernes ni modifica los cálculos existentes.
+La aplicación ya trabaja con una colección semanal de jornadas y actualmente
+incluye los cierres válidos del miércoles 2 al sábado 5 de septiembre de 2026.
+Dashboard, Jornadas, detalle, Saldos y Resumen consumen esa misma colección.
 
 ## Regla operativa de saldos
 
-El saldo pendiente de una jornada se procesa normalmente durante el turno Día de
-la jornada siguiente. Si el volumen de producción es demasiado alto y el turno
-Día no logra terminarlo, el saldo restante puede ser procesado por el turno Noche
-de esa misma jornada.
+El saldo pendiente se procesa normalmente durante el turno Día de una jornada
+posterior. Si el volumen de producción es excepcionalmente alto, el remanente
+puede procesarse durante Noche, pero ese uso debe estar registrado explícitamente.
 
-El modelo actual puede representar ambos casos mediante `BalanceUse.shift`. La
-asignación nocturna debe proceder siempre de un registro explícito; no debe
-inferirse ni aplicarse automáticamente.
+El consolidado de Saldos reconstruye las posiciones abiertas desde cada cierre y
+descuenta únicamente los consumos posteriores registrados para el mismo producto
+y jornada de origen. Los 440.00 kg de Recorte Crudo de Aleta originados el jueves
+fueron envasados y descontados el viernes, por lo que esa posición queda liquidada.
 
-| Archivo | Dependencia actual del miércoles | Cambio necesario para varias jornadas |
-| --- | --- | --- |
-| `DashboardPage.tsx` | Calcula directamente `WEDNESDAY_PRODUCTION_DAY` y construye el resumen semanal con un arreglo que solo contiene esa jornada. | Recibir o consultar una colección de jornadas, seleccionar la última por fecha y calcular el resumen con todas las jornadas del periodo. |
-| `ProductionDaysPage.tsx` | Calcula una sola jornada y renderiza una única fila enlazada a la fecha del miércoles. | Ordenar y recorrer la colección de jornadas para generar una fila por fecha sin duplicar la estructura de la tabla. |
-| `ProductionDayPage.tsx` | La ruta se considera válida solo cuando coincide con la fecha del miércoles y todos los paneles reciben esa constante. | Buscar la jornada solicitada por fecha en un registro central y calcular los paneles a partir de la jornada encontrada. |
-| `BalancesPage.tsx` | Obtiene productos, saldo y jornada de origen exclusivamente desde el cálculo del miércoles. | Consolidar posiciones de saldo de las jornadas disponibles y pasar a `BalancePanel` los consumos posteriores registrados por lote y producto. |
-| `WeeklySummaryPage.tsx` | Asocia cálculo únicamente cuando una fecha del calendario coincide con el miércoles. | Construir un índice de cálculos por fecha desde `WEEK_36_2026_PRODUCTION_DAYS` y asociar cada día del calendario con su jornada correspondiente. |
+Los 44,660.00 kg generados como saldo el sábado fueron envasados completamente el
+domingo. Este hecho se registra como un consumo de saldo durante el turno Día y
+no como nueva producción, por lo que no altera el producto terminado ni el
+rendimiento del resumen semanal.
 
-## Impacto futuro en la captura de saldos
+Con ambos movimientos registrados, no quedan saldos pendientes al cierre del
+periodo disponible.
 
-- La opción normal de captura debe asignar el saldo recibido al turno Día.
-- Noche debe seguir disponible como excepción explícita por volumen operativo.
-- Los cálculos deben descontar únicamente la cantidad registrada en cada turno.
-- La interfaz de captura futura debería solicitar una observación cuando se use
-  saldo durante Noche; el modelo actual registra el turno, pero no el motivo.
-- Para validar que el origen es realmente la jornada anterior se necesitará una
-  validación entre jornadas. El cálculo aislado actual solo conoce sus
-  identificadores de origen y destino.
+## Estado de las vistas
 
-## Elementos que permanecen fijos en el MVP
+| Archivo | Estado actual para varias jornadas |
+| --- | --- |
+| `DashboardPage.tsx` | Selecciona el último cierre disponible y resume todas las jornadas registradas. |
+| `ProductionDaysPage.tsx` | Recorre la colección semanal y genera una fila por jornada real. |
+| `ProductionDayPage.tsx` | Resuelve la jornada solicitada mediante la fecha de la ruta. |
+| `BalancesPage.tsx` | Consolida saldos nuevos y heredados pendientes por jornada de origen. |
+| `WeeklySummaryPage.tsx` | Calcula el consolidado semanal con todas las jornadas disponibles. |
 
-- `WEDNESDAY_PRODUCTION_DAY` continúa siendo la única jornada con datos.
-- `WEEK_36_2026_PRODUCTION_DAYS` continúa conteniendo solo el miércoles.
-- El calendario y el periodo de la semana 36 permanecen definidos en `week36.ts`.
-- El detalle de jornada reconoce únicamente la fecha disponible del miércoles.
+## Incorporación de una jornada posterior
+
+1. Confirmar que la fecha pertenece al periodo configurado.
+2. Transcribir únicamente valores respaldados por la hoja operativa.
+3. Registrar cada saldo recibido con su jornada de origen y sus usos reales.
+4. Agregar la jornada a `WEEK_36_2026_PRODUCTION_DAYS` en orden cronológico.
+5. Conciliar materia prima, turnos, tratamiento, producto terminado, saldo y
+   diferencia diaria.
+6. Comparar nuevamente el acumulado por jornadas y por productos con `RESUMEN`.
+7. Ejecutar comprobaciones estáticas, pruebas y compilación.
+
+## Datos todavía no incorporados
+
+- `DOMINGO` no se incorpora como jornada de producción porque la hoja
+  inspeccionada corresponde al 26/07/2026 y presenta errores `#DIV/0!`. Solo se
+  registra el procesamiento de saldo confirmado por el supervisor.
+- No se inventan lunes o martes; el periodo continúa identificado como semana
+  parcial de cuatro jornadas registradas.
 - `Usuario Demo / Supervisor` continúa como identidad temporal hasta que exista
   autenticación.
-- `BalancePanel` conserva su posición visual de cierre cuando todavía no recibe
-  consumos de jornadas posteriores.
+
+## Desglose por turno
+
+Los totales diarios por turno y los totales por producto están conciliados. Cuando
+la hoja no etiqueta cada sumando por turno, el detalle individual se conserva con
+confianza `RECONCILED_INFERENCE`. Una futura captura operacional debería registrar
+ese desglose explícitamente si se necesita como dato auditado.

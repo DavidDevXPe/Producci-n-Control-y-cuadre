@@ -16,11 +16,8 @@ export interface BalanceProductPosition {
 interface BalancePanelProps {
   products: readonly ProductReconciliation[]
   originDate: string
-  /**
-   * Optional display positions supplied by a future multi-day balance source.
-   * The current MVP omits them because it has no later-day consumption records.
-   */
   positions?: readonly BalanceProductPosition[]
+  view?: 'closing' | 'outstanding'
 }
 
 interface BalanceFamilyGroup {
@@ -47,14 +44,25 @@ function sumBalances(
   return products.reduce((sum, product) => sum + selector(product), 0) as Kg100
 }
 
-export function BalancePanel({ products, originDate, positions }: BalancePanelProps) {
-  const balances = useMemo(
-    () => products.filter((product) => product.newClosingBalanceKg100 > 0),
-    [products],
-  )
+export function BalancePanel({
+  products,
+  originDate,
+  positions,
+  view = 'closing',
+}: BalancePanelProps) {
   const positionsByProduct = useMemo(
     () => new Map(positions?.map((position) => [position.productId, position] as const)),
     [positions],
+  )
+  const balances = useMemo(
+    () =>
+      products.filter((product) => {
+        if (product.newClosingBalanceKg100 <= 0) return false
+        if (view === 'closing') return true
+
+        return (positionsByProduct.get(product.productId)?.pendingKg100 ?? zeroKg100) > 0
+      }),
+    [positionsByProduct, products, view],
   )
   const groups = useMemo<readonly BalanceFamilyGroup[]>(() => {
     const grouped = new Map<string, BalanceFamilyGroup>()
@@ -77,7 +85,14 @@ export function BalancePanel({ products, originDate, positions }: BalancePanelPr
   const positionFor = (product: ProductReconciliation) =>
     positionsByProduct.get(product.productId) ?? currentMvpPosition(product)
 
-  const total = sumBalances(balances, (product) => product.newClosingBalanceKg100)
+  const isOutstandingView = view === 'outstanding'
+  const total = sumBalances(
+    balances,
+    (product) =>
+      isOutstandingView
+        ? (positionsByProduct.get(product.productId)?.pendingKg100 ?? zeroKg100)
+        : product.newClosingBalanceKg100,
+  )
   const hasSubsequentConsumption = positions?.some(
     (position) =>
       position.processedDayKg100 > 0 || position.processedNightKg100 > 0,
@@ -94,8 +109,12 @@ export function BalancePanel({ products, originDate, positions }: BalancePanelPr
 
   return (
     <SectionCard
-      title="Saldo final por producto"
-      description="Producto pendiente que conserva esta jornada como origen."
+      title={isOutstandingView ? 'Saldo pendiente por producto' : 'Saldo final por producto'}
+      description={
+        isOutstandingView
+          ? 'Posiciones aún abiertas que conservan esta jornada como origen.'
+          : 'Producto pendiente que conserva esta jornada como origen.'
+      }
       action={<StatusBadge tone="info">{balances.length} productos</StatusBadge>}
     >
       <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-5">
@@ -106,7 +125,7 @@ export function BalancePanel({ products, originDate, positions }: BalancePanelPr
             </span>
             <div>
               <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-slate-500">
-                Generado el {formatIsoDate(originDate)}
+                {isOutstandingView ? 'Pendiente desde' : 'Generado el'} {formatIsoDate(originDate)}
               </p>
               <p className="number-tabular mt-1 whitespace-nowrap text-[1.75rem] font-bold leading-none text-slate-950">
                 {formatCentiKg(total)}
@@ -117,7 +136,9 @@ export function BalancePanel({ products, originDate, positions }: BalancePanelPr
             <Clock3 className="size-4 text-brand-600" aria-hidden="true" />
             {hasSubsequentConsumption
               ? 'Consumos posteriores incorporados'
-              : 'Sin consumos posteriores registrados'}
+              : isOutstandingView
+                ? 'Saldo aún sin consumo posterior'
+                : 'Sin consumos posteriores registrados'}
           </div>
         </div>
       </div>
@@ -145,9 +166,19 @@ export function BalancePanel({ products, originDate, positions }: BalancePanelPr
         </div>
       </div>
 
-      <DataTableScroll label="Saldo final agrupado por familia y producto">
+      <DataTableScroll
+        label={
+          isOutstandingView
+            ? 'Saldo pendiente agrupado por familia y producto'
+            : 'Saldo final agrupado por familia y producto'
+        }
+      >
         <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
-          <caption className="sr-only">Detalle del saldo final por producto</caption>
+          <caption className="sr-only">
+            {isOutstandingView
+              ? 'Detalle del saldo pendiente por producto'
+              : 'Detalle del saldo final por producto'}
+          </caption>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-slate-500">
               <th scope="col" className="px-4 py-2.5 sm:px-5">Producto</th>
@@ -244,4 +275,3 @@ export function BalancePanel({ products, originDate, positions }: BalancePanelPr
     </SectionCard>
   )
 }
-

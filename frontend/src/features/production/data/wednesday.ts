@@ -104,7 +104,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 33_000,
   }),
   createLine({
-    cell: 'B25',
+    cell: 'B27',
     familyId: 'anillas',
     familyName: 'ANILLAS',
     productId: 'anillas-espana-polar-mixta',
@@ -118,10 +118,10 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 2_513_830,
   }),
   createLine({
-    cell: 'B26',
+    cell: 'B30',
     familyId: 'anillas',
     familyName: 'ANILLAS',
-    productId: 'anillas-iqf-tratamiento-usa',
+    productId: 'anillas-iqf-tratamiento-usa-sm-cp-st',
     productName: 'ANILLAS CRUDAS CONGELADAS IQF C/TTO USA SM CP ST',
     summaryGroupId: 'ANILLAS',
     dayKg100: 0,
@@ -131,10 +131,10 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 15_170,
   }),
   createLine({
-    cell: 'B32',
+    cell: 'B36',
     familyId: 'boton',
     familyName: 'BOTÓN',
-    productId: 'boton-usa-tratamiento',
+    productId: 'boton-usa-sm-cp-tratamiento',
     productName: 'BOTÓN USA SM CP ST (TRATAMIENTO)',
     summaryGroupId: 'BOTON',
     dayKg100: 0,
@@ -144,11 +144,11 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 2_500,
   }),
   createLine({
-    cell: 'B33',
+    cell: 'B37',
     familyId: 'boton',
     familyName: 'BOTÓN',
-    productId: 'boton-espana-iqf',
-    productName: 'BOTÓN ESPAÑA SM SP ST (IQF)',
+    productId: 'boton-usa-cm-sp-tratamiento',
+    productName: 'BOTÓN USA CM SP ST (TRATAMIENTO)',
     summaryGroupId: 'BOTON',
     dayKg100: 0,
     nightKg100: 0,
@@ -158,7 +158,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 213_000,
   }),
   createLine({
-    cell: 'B38',
+    cell: 'B42',
     familyId: 'recorte-crudo',
     familyName: 'RECORTE CRUDO',
     productId: 'recorte-crudo-manto-japones',
@@ -172,7 +172,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 316_000,
   }),
   createLine({
-    cell: 'B41',
+    cell: 'B45',
     familyId: 'recorte-crudo',
     familyName: 'RECORTE CRUDO',
     productId: 'recorte-crudo-anillas-sm-sp-st',
@@ -186,7 +186,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 1_596_000,
   }),
   createLine({
-    cell: 'B44',
+    cell: 'B48',
     familyId: 'recorte-crudo',
     familyName: 'RECORTE CRUDO',
     productId: 'recortes-crudos-labios',
@@ -199,7 +199,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 101_000,
   }),
   createLine({
-    cell: 'B50',
+    cell: 'B54',
     familyId: 'membrana',
     familyName: 'MEMBRANA',
     productId: 'membranas-cocidas',
@@ -212,7 +212,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 185_000,
   }),
   createLine({
-    cell: 'B62',
+    cell: 'B66',
     familyId: 'rejos-crudo',
     familyName: 'REJOS CRUDO',
     productId: 'rejo-baa-2-3',
@@ -225,7 +225,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 15_000,
   }),
   createLine({
-    cell: 'B65',
+    cell: 'B69',
     familyId: 'rejos-crudo',
     familyName: 'REJOS CRUDO',
     productId: 'rejo-bailarina-500-1000',
@@ -239,7 +239,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 1_240_000,
   }),
   createLine({
-    cell: 'B70',
+    cell: 'B74',
     familyId: 'rejos-crudo',
     familyName: 'REJOS CRUDO',
     productId: 'rejos-seccionados-1-2-corona-tratamiento',
@@ -252,7 +252,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 1_300_200,
   }),
   createLine({
-    cell: 'B71',
+    cell: 'B75',
     familyId: 'rejos-crudo',
     familyName: 'REJOS CRUDO',
     productId: 'rejos-seccionados-1-2-media-tratamiento',
@@ -265,7 +265,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 585_800,
   }),
   createLine({
-    cell: 'B72',
+    cell: 'B76',
     familyId: 'rejos-crudo',
     familyName: 'REJOS CRUDO',
     productId: 'rejos-seccionados-1-2-terminal-tratamiento',
@@ -279,7 +279,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 29_800,
   }),
   createLine({
-    cell: 'B75',
+    cell: 'B79',
     familyId: 'reproductor-crudo',
     familyName: 'REPRODUCTOR CRUDO',
     productId: 'rejos-reproductor-tratamiento',
@@ -293,7 +293,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 4_500,
   }),
   createLine({
-    cell: 'B80',
+    cell: 'B84',
     familyId: 'reproductor-crudo',
     familyName: 'REPRODUCTOR CRUDO',
     productId: 'reproductor-50-70',
@@ -307,7 +307,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 350_000,
   }),
   createLine({
-    cell: 'B81',
+    cell: 'B85',
     familyId: 'reproductor-crudo',
     familyName: 'REPRODUCTOR CRUDO',
     productId: 'reproductor-70-up',
@@ -321,7 +321,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 901_000,
   }),
   createLine({
-    cell: 'B93',
+    cell: 'B97',
     familyId: 'nuca-bikini',
     familyName: 'NUCA BIKINI',
     productId: 'nuca-bikini-300-500',
@@ -335,7 +335,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 271_000,
   }),
   createLine({
-    cell: 'B94',
+    cell: 'B98',
     familyId: 'nuca-bikini',
     familyName: 'NUCA BIKINI',
     productId: 'nuca-bikini-500-700',
@@ -349,7 +349,7 @@ export const WEDNESDAY_LINES: readonly ProductionLine[] = [
     finishedKg100: 1_062_000,
   }),
   createLine({
-    cell: 'B95',
+    cell: 'B99',
     familyId: 'nuca-bikini',
     familyName: 'NUCA BIKINI',
     productId: 'nuca-bikini-700-up',
@@ -368,7 +368,7 @@ export const WEDNESDAY_PRODUCTION_DAY: ProductionDay = {
   id: 'production-day-2026-09-02',
   date: '2026-09-02',
   displayName: 'Miércoles 02/09/2026',
-  status: 'BALANCED',
+  status: 'CLOSED',
   rawMaterialEntries: [
     {
       id: 'raw-material-2026-09-02-1',
@@ -399,7 +399,7 @@ export const WEDNESDAY_PRODUCTION_DAY: ProductionDay = {
   performanceReferenceBasisPoints: 8_000,
   nucaBikiniReferenceBasisPoints: 700,
   rawMaterialAllocationOverridesKg100: {
-    // MIÉRCOLES!C84. Kept explicit because its source formula is not established.
+    // MIÉRCOLES!C88. Kept explicit because its source formula is not established.
     REPRODUCTOR: kg100(1_371_202),
   },
 }

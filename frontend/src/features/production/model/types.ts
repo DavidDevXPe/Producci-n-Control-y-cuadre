@@ -237,6 +237,20 @@ export interface BalancePosition {
   readonly isValid: boolean
 }
 
+export interface OutstandingBalancePosition {
+  readonly originDayId: string
+  readonly originDate: string
+  readonly familyId: string
+  readonly familyName: string
+  readonly productId: string
+  readonly productName: string
+  readonly generatedKg100: Kg100
+  readonly processedDayKg100: Kg100
+  readonly processedNightKg100: Kg100
+  readonly processedTotalKg100: Kg100
+  readonly pendingKg100: Kg100
+}
+
 export interface WeeklyProductTotal {
   readonly familyId: string
   readonly familyName: string

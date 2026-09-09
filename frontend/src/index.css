@@ -161,17 +161,48 @@ html.dark ::selection {
 }
 
 html.dark .dashboard-industrial-asset {
-  opacity: 0.1;
+  opacity: 0.16;
+}
+
+.dashboard-industrial-asset {
+  transform: translateY(-25%);
+  transform-origin: right top;
 }
 
 html.dark .dashboard-industrial-overlay {
   background: linear-gradient(
     90deg,
     #09121b 0%,
-    rgb(9 18 27 / 0.96) 25%,
-    rgb(9 18 27 / 0.75) 55%,
-    rgb(9 18 27 / 0.3) 100%
+    rgb(9 18 27 / 0.98) 10%,
+    rgb(9 18 27 / 0.9) 28%,
+    rgb(9 18 27 / 0.58) 55%,
+    rgb(9 18 27 / 0.18) 78%,
+    rgb(9 18 27 / 0.08) 100%
   );
+}
+
+.dashboard-industrial-shell {
+  width: 54%;
+}
+
+@media (min-width: 80rem) {
+  .dashboard-industrial-shell {
+    width: 66%;
+  }
+
+  html.dark .dashboard-industrial-asset {
+    opacity: 0.28;
+  }
+}
+
+@media (min-width: 90rem) {
+  .dashboard-industrial-shell {
+    width: 70%;
+  }
+
+  html.dark .dashboard-industrial-asset {
+    opacity: 0.32;
+  }
 }
 
 * {
@@ -224,6 +255,67 @@ summary:focus-visible,
 
 .number-tabular {
   font-variant-numeric: tabular-nums;
+}
+
+.metric-card {
+  container-name: metric-card;
+  container-type: inline-size;
+  position: relative;
+}
+
+.metric-card__layout {
+  display: block;
+}
+
+.metric-card__label {
+  padding-right: 2.75rem;
+}
+
+.metric-card__value {
+  font-size: 1.625rem;
+}
+
+.metric-card__icon {
+  position: absolute;
+  right: 1.125rem;
+  top: 1.125rem;
+}
+
+@container metric-card (min-width: 15rem) {
+  html.dark .metric-card__layout {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    column-gap: 0.75rem;
+    align-items: start;
+  }
+
+  html.dark .metric-card__content {
+    grid-column: 2;
+  }
+
+  html.dark .metric-card__label {
+    padding-right: 0;
+  }
+
+  html.dark .metric-card__icon {
+    position: static;
+    grid-column: 1;
+    grid-row: 1;
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+@container metric-card (min-width: 16.5rem) {
+  .metric-card__value {
+    font-size: 1.8rem;
+  }
+}
+
+@container metric-card (min-width: 19rem) {
+  .metric-card__value {
+    font-size: 1.9rem;
+  }
 }
 
 .scrollbar-subtle {

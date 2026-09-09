@@ -33,7 +33,7 @@ describe('Thursday production source', () => {
     expect(calculation.performance.percent).toBeCloseTo(77.04588457899862)
   })
 
-  it('keeps the Wednesday and Thursday weekly summary consistent', () => {
+  it('keeps the Wednesday-to-Saturday weekly summary consistent', () => {
     const summary = calculateWeeklySummary(
       WEEK_36_2026_PRODUCTION_DAYS,
       WEEK_36_2026_PERIOD,
@@ -41,10 +41,10 @@ describe('Thursday production source', () => {
 
     expect(summary.integrityIssues).toEqual([])
     expect(summary.status).toBe('VALID')
-    expect(summary.rawMaterialKg100).toBe(kg100(73_355_600))
-    expect(summary.declaredFinishedKg100).toBe(kg100(55_979_550))
-    expect(summary.detailFinishedKg100).toBe(kg100(55_979_550))
+    expect(summary.rawMaterialKg100).toBe(kg100(174_424_500))
+    expect(summary.declaredFinishedKg100).toBe(kg100(142_262_990))
+    expect(summary.detailFinishedKg100).toBe(kg100(142_262_990))
     expect(summary.differenceKg100).toBe(kg100(0))
-    expect(summary.productTotals).toHaveLength(28)
+    expect(summary.productTotals).toHaveLength(35)
   })
 })

@@ -361,25 +361,25 @@ export function AdminLayout() {
               Control y cuadre operativo
             </p>
           </div>
-          <div className="flex h-full items-center text-xs text-slate-600 dark:gap-5">
-            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-r-0 dark:px-0">
+          <div className="flex h-full items-center text-xs text-slate-600">
+            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-[#244052]">
               <CalendarDays className="size-4 text-brand-700" aria-hidden="true" />
               <span className="number-tabular font-bold text-slate-800">{operationalDate}</span>
             </div>
-            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-r-0 dark:px-0">
+            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-[#244052]">
               <Sun className="size-4 text-amber-600" aria-hidden="true" />
               <span className="font-bold text-slate-800">{operationalShift}</span>
             </div>
-            <div className="border-r border-slate-200 px-4 dark:border-r-0 dark:px-0">
+            <div className="border-r border-slate-200 px-4 dark:border-[#244052]">
               <p className="font-bold text-slate-800">{operationalWeek}</p>
               <p className="number-tabular mt-0.5 text-[0.625rem] font-semibold tracking-[0.04em] text-slate-500">
                 {operationalPeriod}
               </p>
             </div>
-            <div className="flex items-center border-r border-slate-200 px-3 dark:border-r-0 dark:px-0">
+            <div className="flex items-center border-r border-slate-200 px-3 dark:border-[#244052]">
               <ThemeToggle theme={colorTheme} onToggle={toggleColorTheme} />
             </div>
-            <div className="flex items-center gap-2 pl-4 dark:border-l dark:border-slate-200 dark:pl-5">
+            <div className="flex items-center gap-2 pl-4">
               <span className="grid size-8 place-items-center rounded-full bg-brand-50 text-brand-800 ring-1 ring-brand-200">
                 <UserRound className="size-4" aria-hidden="true" />
               </span>

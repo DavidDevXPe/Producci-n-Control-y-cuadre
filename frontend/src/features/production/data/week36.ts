@@ -1,4 +1,8 @@
+import { kg100 } from '../model/calculations'
 import type { ProductionDay, WeeklySummaryPeriod } from '../model/types'
+import { FRIDAY_PRODUCTION_DAY } from './friday'
+import { SATURDAY_PRODUCTION_DAY } from './saturday'
+import { SUNDAY_PROCESSED_SATURDAY_BALANCE_LOTS } from './sundayBalance'
 import { THURSDAY_PRODUCTION_DAY } from './thursday'
 import { WEDNESDAY_PRODUCTION_DAY } from './wednesday'
 
@@ -7,10 +11,18 @@ export const WEEK_36_2026_PERIOD: WeeklySummaryPeriod = {
   endDate: '2026-09-06',
 }
 
+/** Explicit allocation documented by RESUMEN!C88. */
+export const WEEK_36_2026_REPRODUCTOR_ALLOCATION_KG100 = kg100(4_987_167)
+
 export const WEEK_36_2026_PRODUCTION_DAYS: readonly ProductionDay[] = [
   WEDNESDAY_PRODUCTION_DAY,
   THURSDAY_PRODUCTION_DAY,
+  FRIDAY_PRODUCTION_DAY,
+  SATURDAY_PRODUCTION_DAY,
 ]
+
+export const WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS =
+  SUNDAY_PROCESSED_SATURDAY_BALANCE_LOTS
 
 export const WEEK_36_2026_CALENDAR_DAYS = [
   { label: 'Lunes', date: '31/08/2026', isoDate: '2026-08-31' },

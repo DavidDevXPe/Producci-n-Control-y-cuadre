@@ -7,15 +7,15 @@ import type {
   SummaryGroupId,
 } from '../model/types'
 
-const THURSDAY_DAY_ID = 'production-day-2026-09-03'
-const WEDNESDAY_DAY_ID = 'production-day-2026-09-02'
+const SATURDAY_DAY_ID = 'production-day-2026-09-05'
+const FRIDAY_DAY_ID = 'production-day-2026-09-04'
 
 const emptyShiftEntry = (reportedKg100: number): ShiftProductEntry => ({
   reportedKg100: kg100(reportedKg100),
   adjustments: [],
 })
 
-interface ThursdayLineSeed {
+interface SaturdayLineSeed {
   readonly cell: string
   readonly familyId: string
   readonly familyName: string
@@ -30,19 +30,20 @@ interface ThursdayLineSeed {
   readonly finishedKg100: number
 }
 
-const createLine = (seed: ThursdayLineSeed): ProductionLine => ({
+const createLine = (seed: SaturdayLineSeed): ProductionLine => ({
   familyId: seed.familyId,
   familyName: seed.familyName,
   productId: seed.productId,
   productName: seed.productName,
   summaryGroupId: seed.summaryGroupId,
-  source: { sheet: 'JUEVES', cell: seed.cell },
-  // JUEVES exposes the shift totals and the arithmetic addends but does not
-  // label every product addend by shift. This split reconciles exactly with
-  // JUEVES!B103:C105; the complete prior balance was processed during Día.
+  source: { sheet: 'SÁBADO', cell: seed.cell },
+  // The product-level shift split is inferred from the worksheet addends and
+  // reconciled exactly with the aggregate Día and Noche controls.
   shiftBreakdownConfidence: 'RECONCILED_INFERENCE',
   shifts: {
-    DAY: emptyShiftEntry(seed.dayOwnKg100 + (seed.previousBalanceKg100 ?? 0)),
+    DAY: emptyShiftEntry(
+      seed.dayOwnKg100 + (seed.previousBalanceKg100 ?? 0),
+    ),
     NIGHT: emptyShiftEntry(seed.nightOwnKg100),
   },
   treatmentKg100: kg100(seed.treatmentKg100 ?? 0),
@@ -50,7 +51,7 @@ const createLine = (seed: ThursdayLineSeed): ProductionLine => ({
   declaredFinishedKg100: kg100(seed.finishedKg100),
 })
 
-const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
+const saturdayLineSeeds: readonly SaturdayLineSeed[] = [
   {
     cell: 'B10',
     familyId: 'aleta-cruda',
@@ -58,10 +59,11 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'aleta-cruda-codificada',
     productName: 'ALETA CRUDA CONGELADA BLOCK S/TTO CODIFICADA',
     summaryGroupId: 'ALETA',
-    dayOwnKg100: 2_719_000,
-    nightOwnKg100: 4_689_000,
-    previousBalanceKg100: 221_000,
-    finishedKg100: 7_408_000,
+    dayOwnKg100: 3_822_000,
+    nightOwnKg100: 4_997_000,
+    previousBalanceKg100: 600_000,
+    balanceKg100: 513_000,
+    finishedKg100: 9_332_000,
   },
   {
     cell: 'B15',
@@ -71,10 +73,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'MANTO JAPONÉS CRUDO CONGELADO BLOCK S/TTO 0.5-1 / 1-2 / 2-4 BLANCO + SB + CH',
     summaryGroupId: 'MANTO',
-    dayOwnKg100: 1_705_000,
-    nightOwnKg100: 3_580_000,
-    balanceKg100: 174_000,
-    finishedKg100: 5_459_000,
+    dayOwnKg100: 3_168_000,
+    nightOwnKg100: 4_115_000,
+    balanceKg100: 113_000,
+    finishedKg100: 7_396_000,
   },
   {
     cell: 'B16',
@@ -84,9 +86,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'MANTO ESTÁNDAR CRUDO CONGELADO BLOCK S/TTO 2-4 BLANCO + SB + C/2 MEMB. + CH',
     summaryGroupId: 'MANTO',
-    dayOwnKg100: 3_712_000,
-    nightOwnKg100: 2_023_000,
-    finishedKg100: 5_735_000,
+    dayOwnKg100: 3_147_000,
+    nightOwnKg100: 4_673_000,
+    balanceKg100: 39_000,
+    finishedKg100: 7_859_000,
   },
   {
     cell: 'B24',
@@ -96,10 +99,36 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'ANILLAS CRUDAS CONGELADAS BLOCK S/TTO ESPAÑA SM 2DA MIXTA 100% P.N.',
     summaryGroupId: 'ANILLAS',
+    dayOwnKg100: 29_000,
+    nightOwnKg100: 2_000,
+    balanceKg100: 26_000,
+    finishedKg100: 57_000,
+  },
+  {
+    cell: 'B25',
+    familyId: 'anillas',
+    familyName: 'ANILLAS',
+    productId: 'anillas-espana-p-sm-sp-st-mixta',
+    productName:
+      'ANILLAS CRUDAS CONGELADAS BLOCK S/TTO ESPAÑA P SM SP ST MIXTA 100% P.N.',
+    summaryGroupId: 'ANILLAS',
     dayOwnKg100: 0,
-    nightOwnKg100: 25_000,
-    previousBalanceKg100: 25_000,
-    finishedKg100: 25_000,
+    nightOwnKg100: 0,
+    balanceKg100: 3_000,
+    finishedKg100: 3_000,
+  },
+  {
+    cell: 'B26',
+    familyId: 'anillas',
+    familyName: 'ANILLAS',
+    productId: 'anillas-espana-p-cm-sp-st-mixta',
+    productName:
+      'ANILLAS CRUDAS CONGELADAS BLOCK S/TTO ESPAÑA P CM SP ST MIXTA 100% P.N.',
+    summaryGroupId: 'ANILLAS',
+    dayOwnKg100: 19_000,
+    nightOwnKg100: 32_000,
+    balanceKg100: 38_000,
+    finishedKg100: 89_000,
   },
   {
     cell: 'B27',
@@ -109,11 +138,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'ANILLAS CRUDAS CONGELADAS BLOCK S/TTO ESPAÑA POLAR SM SP ST MIXTA 100% P.N.',
     summaryGroupId: 'ANILLAS',
-    dayOwnKg100: 261_170,
-    nightOwnKg100: 1_229_000,
-    previousBalanceKg100: 1_108_830,
-    balanceKg100: 807_000,
-    finishedKg100: 2_297_170,
+    dayOwnKg100: 1_733_000,
+    nightOwnKg100: 1_007_000,
+    balanceKg100: 1_302_000,
+    finishedKg100: 4_042_000,
   },
   {
     cell: 'B28',
@@ -124,31 +152,8 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     summaryGroupId: 'ANILLAS',
     dayOwnKg100: 0,
     nightOwnKg100: 0,
-    treatmentKg100: 860,
-    finishedKg100: 860,
-  },
-  {
-    cell: 'B29',
-    familyId: 'anillas',
-    familyName: 'ANILLAS',
-    productId: 'anillas-block-tratamiento-usa-cm-sp-st',
-    productName: 'ANILLAS CRUDAS CONGELADAS BLOCK C/TTO USA CM SP ST',
-    summaryGroupId: 'ANILLAS',
-    dayOwnKg100: 62_000,
-    nightOwnKg100: 0,
-    finishedKg100: 62_000,
-  },
-  {
-    cell: 'B36',
-    familyId: 'boton',
-    familyName: 'BOTÓN',
-    productId: 'boton-usa-sm-cp-tratamiento',
-    productName: 'BOTÓN USA SM CP ST (TRATAMIENTO)',
-    summaryGroupId: 'BOTON',
-    dayOwnKg100: 0,
-    nightOwnKg100: 0,
-    treatmentKg100: 1_420,
-    finishedKg100: 1_420,
+    treatmentKg100: 49_500,
+    finishedKg100: 49_500,
   },
   {
     cell: 'B42',
@@ -158,10 +163,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'RECORTE CRUDO CONGELADO BLOCK S/TTO MANTO JAPONÉS 100% P.N.',
     summaryGroupId: 'RECORTE_CRUDO',
-    dayOwnKg100: 139_000,
-    nightOwnKg100: 0,
-    previousBalanceKg100: 113_000,
-    finishedKg100: 139_000,
+    dayOwnKg100: 269_000,
+    nightOwnKg100: 81_000,
+    balanceKg100: 233_000,
+    finishedKg100: 583_000,
   },
   {
     cell: 'B44',
@@ -170,10 +175,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'recorte-crudo-aleta',
     productName: 'RECORTE CRUDO CONGELADO BLOCK S/TTO ALETA 100% P.N.',
     summaryGroupId: 'RECORTE_CRUDO',
-    dayOwnKg100: 0,
+    dayOwnKg100: 30_000,
     nightOwnKg100: 0,
-    balanceKg100: 44_000,
-    finishedKg100: 44_000,
+    balanceKg100: 38_000,
+    finishedKg100: 68_000,
   },
   {
     cell: 'B45',
@@ -183,10 +188,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'RECORTE CRUDO CONGELADO BLOCK S/TTO ANILLAS SM SP ST 100% P.N.',
     summaryGroupId: 'RECORTE_CRUDO',
-    dayOwnKg100: 1_228_000,
-    nightOwnKg100: 0,
-    previousBalanceKg100: 655_000,
-    finishedKg100: 1_228_000,
+    dayOwnKg100: 984_000,
+    nightOwnKg100: 724_000,
+    balanceKg100: 811_000,
+    finishedKg100: 2_519_000,
   },
   {
     cell: 'B48',
@@ -195,10 +200,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'recortes-crudos-labios',
     productName: 'RECORTES CRUDOS-LABIOS CONGELADOS BLOCK S/TTO 100% P.N.',
     summaryGroupId: 'RECORTE_CRUDO',
-    dayOwnKg100: 104_000,
-    nightOwnKg100: 0,
-    previousBalanceKg100: 35_000,
-    finishedKg100: 104_000,
+    dayOwnKg100: 156_000,
+    nightOwnKg100: 19_000,
+    balanceKg100: 67_000,
+    finishedKg100: 242_000,
   },
   {
     cell: 'B52',
@@ -207,9 +212,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'recorte-cocido-pb',
     productName: 'RECORTE COCIDO BLOCK S/TTO P.B 100% P.N.',
     summaryGroupId: 'RECORTE_COCIDO',
-    dayOwnKg100: 0,
-    nightOwnKg100: 178_000,
-    finishedKg100: 178_000,
+    dayOwnKg100: 171_000,
+    nightOwnKg100: 175_000,
+    balanceKg100: 230_000,
+    finishedKg100: 576_000,
   },
   {
     cell: 'B54',
@@ -218,10 +224,23 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'membranas-cocidas',
     productName: 'MEMBRANAS COCIDAS CONGELADAS 100% P.N.',
     summaryGroupId: 'RECORTE_COCIDO',
+    dayOwnKg100: 246_000,
+    nightOwnKg100: 206_000,
+    balanceKg100: 249_000,
+    finishedKg100: 701_000,
+  },
+  {
+    cell: 'B64',
+    familyId: 'rejos-crudo',
+    familyName: 'REJOS CRUDO',
+    productId: 'rejo-baa-500-1000',
+    productName:
+      'REJO CRUDO CONGELADO BLOCK S/TTO BAA S/R 500-1000 100% P.N.',
+    summaryGroupId: 'REJOS',
     dayOwnKg100: 0,
     nightOwnKg100: 0,
-    previousBalanceKg100: 185_000,
-    finishedKg100: 0,
+    balanceKg100: 58_000,
+    finishedKg100: 58_000,
   },
   {
     cell: 'B65',
@@ -230,9 +249,11 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'rejo-baa-1-2',
     productName: 'REJO CRUDO CONGELADO BLOCK S/TTO BAA S/R 1-2 100% P.N.',
     summaryGroupId: 'REJOS',
-    dayOwnKg100: 1_721_000,
-    nightOwnKg100: 1_081_000,
-    finishedKg100: 2_802_000,
+    dayOwnKg100: 1_238_000,
+    nightOwnKg100: 1_883_000,
+    previousBalanceKg100: 282_000,
+    balanceKg100: 191_000,
+    finishedKg100: 3_312_000,
   },
   {
     cell: 'B66',
@@ -241,9 +262,23 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'rejo-baa-2-3',
     productName: 'REJO CRUDO CONGELADO BLOCK S/TTO BAA S/R 2-3 100% P.N.',
     summaryGroupId: 'REJOS',
-    dayOwnKg100: 7_000,
-    nightOwnKg100: 10_000,
-    finishedKg100: 17_000,
+    dayOwnKg100: 53_000,
+    nightOwnKg100: 27_000,
+    balanceKg100: 33_000,
+    finishedKg100: 113_000,
+  },
+  {
+    cell: 'B68',
+    familyId: 'rejos-crudo',
+    familyName: 'REJOS CRUDO',
+    productId: 'rejo-bailarina-0-500',
+    productName:
+      'REJO CRUDO CONGELADO BLOCK S/TTO BAILARINA S/R 0-500 G SEMI LIMPIOS 100% P.N.',
+    summaryGroupId: 'REJOS',
+    dayOwnKg100: 0,
+    nightOwnKg100: 0,
+    balanceKg100: 12_000,
+    finishedKg100: 12_000,
   },
   {
     cell: 'B69',
@@ -253,10 +288,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'REJO CRUDO CONGELADO BLOCK S/TTO BAILARINA S/R 500-1000 G SEMI LIMPIOS 100% P.N.',
     summaryGroupId: 'REJOS',
-    dayOwnKg100: 542_000,
-    nightOwnKg100: 1_164_000,
-    previousBalanceKg100: 200_000,
-    finishedKg100: 1_706_000,
+    dayOwnKg100: 752_000,
+    nightOwnKg100: 1_420_000,
+    balanceKg100: 80_000,
+    finishedKg100: 2_252_000,
   },
   {
     cell: 'B74',
@@ -267,8 +302,8 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     summaryGroupId: 'REJOS',
     dayOwnKg100: 0,
     nightOwnKg100: 0,
-    treatmentKg100: 312_400,
-    finishedKg100: 312_400,
+    treatmentKg100: 468_800,
+    finishedKg100: 468_800,
   },
   {
     cell: 'B75',
@@ -279,8 +314,8 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     summaryGroupId: 'REJOS',
     dayOwnKg100: 0,
     nightOwnKg100: 0,
-    treatmentKg100: 289_400,
-    finishedKg100: 289_400,
+    treatmentKg100: 154_100,
+    finishedKg100: 154_100,
   },
   {
     cell: 'B76',
@@ -292,8 +327,8 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     summaryGroupId: 'REJOS',
     dayOwnKg100: 0,
     nightOwnKg100: 0,
-    treatmentKg100: 55_500,
-    finishedKg100: 55_500,
+    treatmentKg100: 17_900,
+    finishedKg100: 17_900,
   },
   {
     cell: 'B84',
@@ -303,10 +338,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'REJO REPRODUCTOR CRUDO CONGELADO BLOCK S/TTO S/U S/V C/T 50-70 CM 100% P.N.',
     summaryGroupId: 'REPRODUCTOR',
-    dayOwnKg100: 0,
-    nightOwnKg100: 517_000,
-    previousBalanceKg100: 118_000,
-    finishedKg100: 517_000,
+    dayOwnKg100: 87_000,
+    nightOwnKg100: 8_000,
+    balanceKg100: 1_000,
+    finishedKg100: 96_000,
   },
   {
     cell: 'B85',
@@ -316,10 +351,11 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'REJO REPRODUCTOR CRUDO CONGELADO BLOCK S/TTO S/U S/V C/T 70 CM-UP 100% P.N.',
     summaryGroupId: 'REPRODUCTOR',
-    dayOwnKg100: 0,
-    nightOwnKg100: 366_000,
+    dayOwnKg100: 591_000,
+    nightOwnKg100: 588_000,
     previousBalanceKg100: 200_000,
-    finishedKg100: 366_000,
+    balanceKg100: 232_000,
+    finishedKg100: 1_411_000,
   },
   {
     cell: 'B95',
@@ -328,10 +364,23 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productId: 'nuca-semilimpia-codificada',
     productName: 'NUCAS CRUDAS CONGELADAS BLOCK S/TTO SEMI LIMPIAS CODIFICADA',
     summaryGroupId: 'NUCA_BIKINI',
-    dayOwnKg100: 0,
+    dayOwnKg100: 968_000,
+    nightOwnKg100: 632_000,
+    balanceKg100: 117_000,
+    finishedKg100: 1_717_000,
+  },
+  {
+    cell: 'B96',
+    familyId: 'nuca-bikini',
+    familyName: 'NUCA BIKINI',
+    productId: 'nuca-bikini-100-300',
+    productName:
+      'NUCAS CRUDAS CONGELADAS BLOCK S/TTO BIKINI 100-300 100% P.N.',
+    summaryGroupId: 'NUCA_BIKINI',
+    dayOwnKg100: 1_000,
     nightOwnKg100: 0,
-    balanceKg100: 1_200_000,
-    finishedKg100: 1_200_000,
+    balanceKg100: 11_000,
+    finishedKg100: 12_000,
   },
   {
     cell: 'B97',
@@ -341,11 +390,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'NUCAS CRUDAS CONGELADAS BLOCK S/TTO BIKINI 300-500 100% P.N.',
     summaryGroupId: 'NUCA_BIKINI',
-    dayOwnKg100: 0,
-    nightOwnKg100: 280_000,
-    previousBalanceKg100: 126_000,
-    balanceKg100: 38_000,
-    finishedKg100: 318_000,
+    dayOwnKg100: 161_000,
+    nightOwnKg100: 154_000,
+    balanceKg100: 21_000,
+    finishedKg100: 336_000,
   },
   {
     cell: 'B98',
@@ -355,11 +403,10 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'NUCAS CRUDAS CONGELADAS BLOCK S/TTO BIKINI 500-700 100% P.N.',
     summaryGroupId: 'NUCA_BIKINI',
-    dayOwnKg100: 0,
-    nightOwnKg100: 614_000,
-    previousBalanceKg100: 548_000,
-    balanceKg100: 79_000,
-    finishedKg100: 693_000,
+    dayOwnKg100: 592_000,
+    nightOwnKg100: 603_000,
+    balanceKg100: 46_000,
+    finishedKg100: 1_241_000,
   },
   {
     cell: 'B99',
@@ -369,79 +416,74 @@ const thursdayLineSeeds: readonly ThursdayLineSeed[] = [
     productName:
       'NUCAS CRUDAS CONGELADAS BLOCK S/TTO BIKINI 700-UP 100% P.N.',
     summaryGroupId: 'NUCA_BIKINI',
-    dayOwnKg100: 0,
-    nightOwnKg100: 605_000,
-    previousBalanceKg100: 495_000,
-    balanceKg100: 35_000,
-    finishedKg100: 640_000,
+    dayOwnKg100: 345_000,
+    nightOwnKg100: 634_000,
+    balanceKg100: 2_000,
+    finishedKg100: 981_000,
   },
 ]
 
-export const THURSDAY_LINES: readonly ProductionLine[] =
-  thursdayLineSeeds.map(createLine)
+export const SATURDAY_LINES: readonly ProductionLine[] =
+  saturdayLineSeeds.map(createLine)
 
-const createReceivedBalanceLot = (seed: ThursdayLineSeed): BalanceLot => ({
-  id: `balance-${WEDNESDAY_DAY_ID}-${seed.productId}`,
-  originDayId: WEDNESDAY_DAY_ID,
+const createReceivedBalanceLot = (seed: SaturdayLineSeed): BalanceLot => ({
+  id: `balance-${FRIDAY_DAY_ID}-${seed.productId}`,
+  originDayId: FRIDAY_DAY_ID,
   familyId: seed.familyId,
   productId: seed.productId,
   originalKg100: kg100(seed.previousBalanceKg100 ?? 0),
   uses: [
     {
-      id: `balance-use-${THURSDAY_DAY_ID}-${seed.productId}`,
-      targetDayId: THURSDAY_DAY_ID,
+      id: `balance-use-${SATURDAY_DAY_ID}-${seed.productId}`,
+      targetDayId: SATURDAY_DAY_ID,
       shift: 'DAY',
       kg100: kg100(seed.previousBalanceKg100 ?? 0),
     },
   ],
 })
 
-export const THURSDAY_RECEIVED_BALANCE_LOTS: readonly BalanceLot[] =
-  thursdayLineSeeds
+export const SATURDAY_RECEIVED_BALANCE_LOTS: readonly BalanceLot[] =
+  saturdayLineSeeds
     .filter((seed) => (seed.previousBalanceKg100 ?? 0) > 0)
     .map(createReceivedBalanceLot)
 
-/**
- * Closed production day reconstructed from JUEVES. Quantities are integer
- * hundredths of kg; no value from another weekday is introduced.
- */
-export const THURSDAY_PRODUCTION_DAY: ProductionDay = {
-  id: THURSDAY_DAY_ID,
-  date: '2026-09-03',
-  displayName: 'Jueves 03/09/2026',
+export const SATURDAY_PRODUCTION_DAY: ProductionDay = {
+  id: SATURDAY_DAY_ID,
+  date: '2026-09-05',
+  displayName: 'Sábado 05/09/2026',
   status: 'CLOSED',
   rawMaterialEntries: [
     {
-      id: 'raw-material-2026-09-03-1',
-      kg100: kg100(20_494_700),
+      id: 'raw-material-2026-09-05-1',
+      kg100: kg100(22_414_200),
       shift: null,
     },
     {
-      id: 'raw-material-2026-09-03-2',
-      kg100: kg100(20_516_900),
+      id: 'raw-material-2026-09-05-2',
+      kg100: kg100(26_433_400),
       shift: null,
     },
   ],
-  declaredRawMaterialKg100: kg100(41_011_600),
+  declaredRawMaterialKg100: kg100(48_847_600),
   declaredShiftTotalsKg100: {
-    DAY: kg100(16_230_000),
-    NIGHT: kg100(16_361_000),
+    DAY: kg100(19_644_000),
+    NIGHT: kg100(21_980_000),
   },
-  declaredFinishedTotalKg100: kg100(31_597_750),
-  lines: THURSDAY_LINES,
-  receivedBalanceLots: THURSDAY_RECEIVED_BALANCE_LOTS,
+  declaredFinishedTotalKg100: kg100(45_698_300),
+  lines: SATURDAY_LINES,
+  receivedBalanceLots: SATURDAY_RECEIVED_BALANCE_LOTS,
   nucaWashAuthorization: {
     kind: 'USER_CONFIRMED_ORDER',
     reference: null,
     reason:
-      'La jornada cerrada del jueves registra producción de Nuca Bikini; el Excel no expone el número de pedido.',
+      'La jornada cerrada del sábado registra producción de Nuca Bikini; el Excel no expone el número de pedido.',
   },
   performanceReferenceBasisPoints: 8_000,
   nucaBikiniReferenceBasisPoints: 700,
   rawMaterialAllocationOverridesKg100: {
-    // JUEVES!C88, asignación explícita del bloque Reproductor.
-    REPRODUCTOR: kg100(895_584),
+    // SÁBADO!C88, asignación explícita del bloque Reproductor.
+    REPRODUCTOR: kg100(1_280_877),
   },
 }
 
-export const thursdayProductionDay = THURSDAY_PRODUCTION_DAY
+export const saturdayProductionDay = SATURDAY_PRODUCTION_DAY

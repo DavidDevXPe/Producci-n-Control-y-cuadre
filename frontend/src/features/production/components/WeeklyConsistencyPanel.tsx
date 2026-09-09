@@ -80,7 +80,7 @@ export function WeeklyConsistencyPanel({ summary }: WeeklyConsistencyPanelProps)
         />
         <p>
           {isValid
-            ? `Se incluyeron las ${summary.productTotals.length} líneas con movimiento de Miércoles y Jueves. La validación no depende de posiciones de fila y conserva el control independiente del detalle.`
+            ? `Se consolidaron ${summary.productTotals.length} líneas de producto en ${summary.days.length} jornadas registradas. La validación no depende de posiciones de fila y conserva el control independiente del detalle.`
             : 'Los dos caminos de validación o la integridad de una jornada requieren revisión.'}
         </p>
       </div>

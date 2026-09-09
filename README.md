@@ -12,13 +12,15 @@ El MVP es un frontend en React, TypeScript, Vite y Tailwind CSS que incluye:
 
 - dashboard operativo;
 - listado y detalle de jornadas;
-- cuadre de la jornada del miércoles por turno, producto y familia;
+- cuadre de las jornadas registradas de miércoles a sábado por turno, producto y familia;
 - consulta de saldos y su trazabilidad;
 - separación explícita entre cuadre matemático y rendimiento;
 - resumen y validación semanal con las fórmulas confirmadas del Excel;
 - pruebas unitarias y de componentes para los cálculos principales.
 
-Los datos del MVP están estructurados a partir de `MIÉRCOLES`. `RESUMEN` define la validación semanal. La hoja `JUEVES` no se usa como fuente de datos o reglas.
+Los datos actuales corresponden a los cierres válidos de `MIÉRCOLES`, `JUEVES`, `VIERNES` y `SÁBADO`. `RESUMEN` aporta la comprobación semanal independiente. La hoja `DOMINGO` permanece fuera del conjunto porque conserva una fecha histórica, no registra producción de la semana y contiene errores de fórmula.
+
+La aplicación identifica la semana como parcial y no completa jornadas ni cantidades inexistentes. Los saldos pendientes se conservan por jornada de origen hasta que exista un uso posterior explícito. El procesamiento confirmado de los 44,660.00 kg de saldo del sábado durante el domingo se registra como movimiento de saldo y no como nueva producción dominical.
 
 Backend, base de datos, mantenimiento de catálogos y auditoría persistente corresponden a las siguientes etapas.
 
@@ -58,7 +60,7 @@ npm run build
 | --- | --- |
 | `/` | Dashboard |
 | `/jornadas` | Listado de jornadas |
-| `/jornadas/:date` | Detalle de una jornada; el MVP incluye `2026-09-02` |
+| `/jornadas/:date` | Detalle de una jornada registrada; actualmente del `2026-09-02` al `2026-09-05` |
 | `/saldos` | Saldos por producto y trazabilidad |
 | `/resumen` | Resumen y validación semanal |
 | Cualquier otra | Página no encontrada |
@@ -75,7 +77,7 @@ npm run build
 │   │   ├── components/ui/        # Componentes reutilizables
 │   │   ├── features/production/
 │   │   │   ├── components/       # Paneles de producción
-│   │   │   ├── data/             # Datos estructurados del miércoles
+│   │   │   ├── data/             # Jornadas y periodo semanal estructurados
 │   │   │   ├── model/            # Tipos y cálculos de dominio
 │   │   │   └── pages/            # Vistas del módulo
 │   │   ├── hooks/
@@ -84,7 +86,6 @@ npm run build
 │   │   ├── test/
 │   │   └── utils/
 │   └── package.json
-└── PARTE_DE_PRODUCCION_02-09-2026.xlsx
 ```
 
 Las reglas confirmadas y los límites de interpretación están documentados en [docs/reglas-de-negocio.md](docs/reglas-de-negocio.md).

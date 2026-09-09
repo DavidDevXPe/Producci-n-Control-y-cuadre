@@ -25,6 +25,7 @@ import {
   WEEK_36_2026_CALENDAR_DAYS,
   WEEK_36_2026_PERIOD,
   WEEK_36_2026_PRODUCTION_DAYS,
+  WEEK_36_2026_REPRODUCTOR_ALLOCATION_KG100,
 } from '../data/week36'
 import { calculateProductionDay, calculateWeeklySummary, kg100 } from '../model/calculations'
 import type { Kg100, SummaryGroupId, WeeklyProductTotal } from '../model/types'
@@ -73,13 +74,7 @@ function getGroupTotal(groupId: SummaryGroupId): Kg100 {
 }
 
 function getWeeklyReproductorAllocation(): Kg100 {
-  return kg100(
-    productionDays.reduce(
-      (total, day) =>
-        total + (day.rawMaterialAllocationOverridesKg100.REPRODUCTOR ?? 0),
-      0,
-    ),
-  )
+  return WEEK_36_2026_REPRODUCTOR_ALLOCATION_KG100
 }
 
 function getGroupAllocation(groupId: SummaryGroupId): Kg100 | null {
@@ -140,8 +135,12 @@ export function WeeklySummaryPage() {
       <PageHeader
         eyebrow="Reportes"
         title="Resumen semanal"
-        description="Semana 36 · Del 31 de agosto al 6 de septiembre de 2026. Validación acumulada con dos jornadas registradas."
-        actions={<StatusBadge tone="info">SEMANA PARCIAL · 2 DE 7</StatusBadge>}
+        description={`Semana 36 · Del 31 de agosto al 6 de septiembre de 2026. Validación acumulada con ${productionDays.length} jornadas registradas.`}
+        actions={
+          <StatusBadge tone="info">
+            SEMANA PARCIAL · {productionDays.length} DE 7
+          </StatusBadge>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores semanales">

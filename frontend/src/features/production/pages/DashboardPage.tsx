@@ -12,6 +12,7 @@ import {
   Sun,
   Waves,
 } from 'lucide-react'
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { ActionLink } from '../../../components/ui/ActionLink'
 import { DataTableScroll } from '../../../components/ui/DataTableScroll'
@@ -31,8 +32,18 @@ import {
 import {
   WEEK_36_2026_PERIOD,
   WEEK_36_2026_PRODUCTION_DAYS,
+  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
 } from '../data/week36'
-import { calculateProductionDay, calculateWeeklySummary } from '../model/calculations'
+import {
+  calculateOutstandingBalances,
+  calculateProductionDay,
+  calculateWeeklySummary,
+  sumKg100,
+} from '../model/calculations'
+
+const WeeklyProductionChart = lazy(
+  () => import('../components/WeeklyProductionChart'),
+)
 
 const industrialBackgroundUrl = `${import.meta.env.BASE_URL}brand/trabunda-industrial-bg.png`
 const productionDays = WEEK_36_2026_PRODUCTION_DAYS
@@ -43,23 +54,22 @@ const calculatedDays = productionDays.map((day) => ({
 const latestDay = productionDays.at(-1)!
 const latestCalculation = calculateProductionDay(latestDay)
 const weekSummary = calculateWeeklySummary(productionDays, WEEK_36_2026_PERIOD)
-
-const weeklyProductionRows = calculatedDays.map(({ day, calculation }) => ({
-  day,
-  calculation,
-  chartTotal:
-    calculation.day.ownProductionKg100 +
-    calculation.night.ownProductionKg100 +
-    calculation.treatmentKg100,
-}))
-const maximumChartTotal = Math.max(
-  ...weeklyProductionRows.map((row) => row.chartTotal),
-  1,
+const latestBalancePositions = calculateOutstandingBalances(
+  productionDays,
+  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
+).filter((position) => position.originDayId === latestDay.id)
+const latestPendingBalanceKg100 = sumKg100(
+  latestBalancePositions.map((position) => position.pendingKg100),
 )
 
-function segmentWidth(value: number): string {
-  return `${(value / maximumChartTotal) * 100}%`
-}
+const weeklyProductionData = calculatedDays.map(({ day, calculation }) => ({
+  id: day.id,
+  label: day.displayName.split(' ')[0] ?? formatIsoWeekday(day.date),
+  dateLabel: formatIsoDateCompact(day.date),
+  dayKg100: calculation.day.ownProductionKg100,
+  nightKg100: calculation.night.ownProductionKg100,
+  treatmentKg100: calculation.treatmentKg100,
+}))
 
 export function DashboardPage() {
   usePageTitle('Dashboard')
@@ -67,8 +77,8 @@ export function DashboardPage() {
   const isWeekValid = weekSummary.status === 'VALID'
   const isPerformanceOnReference =
     latestCalculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
-  const pendingProductCount = latestCalculation.products.filter(
-    (product) => product.newClosingBalanceKg100 > 0,
+  const pendingProductCount = latestBalancePositions.filter(
+    (position) => position.pendingKg100 > 0,
   ).length
   const performancePercent = Math.max(
     0,
@@ -76,34 +86,37 @@ export function DashboardPage() {
   )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <section className="relative isolate overflow-hidden" aria-label="Resumen operativo">
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 -z-10 hidden w-[55%] overflow-hidden dark:lg:block"
+          className="dashboard-industrial-shell pointer-events-none absolute inset-y-0 right-0 -z-10 hidden overflow-hidden dark:lg:block"
           aria-hidden="true"
         >
           <img
             src={industrialBackgroundUrl}
             alt=""
-            className="dashboard-industrial-asset absolute inset-0 size-full object-cover object-right opacity-0"
+            className="dashboard-industrial-asset absolute right-0 top-0 h-auto w-full max-w-none opacity-0"
           />
           <span className="dashboard-industrial-overlay absolute inset-0" />
         </div>
 
-        <div className="space-y-3">
-          <div className="border-l-[3px] border-brand-500 pl-4">
+        <div className="space-y-4">
+          <div className="border-l-[3px] border-brand-500 pl-4 xl:[&_h1]:text-[1.9rem] xl:[&_h1]:leading-9">
             <PageHeader
               eyebrow="Vista operativa"
               title="Control de producción"
               description="Seguimiento del último cierre disponible y consistencia de la semana en curso."
               actions={
                 <>
-                  <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
+                  <StatusBadge
+                    tone={isBalanced ? 'success' : 'danger'}
+                    className="min-h-[1.875rem] px-3.5"
+                  >
                     {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                   </StatusBadge>
                   <ActionLink
                     to={`/jornadas/${latestDay.date}`}
-                    variant="secondary"
+                    variant="primary"
                     size="sm"
                   >
                     Ver jornada
@@ -116,7 +129,7 @@ export function DashboardPage() {
 
           <section
             aria-label="Indicadores principales"
-            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
           >
             <MetricCard
               label="Producto terminado"
@@ -131,7 +144,12 @@ export function DashboardPage() {
               value={formatCentiKgValue(latestCalculation.newClosingBalanceKg100)}
               unit="kg"
               icon={<Boxes className="size-5" />}
-              description={`${pendingProductCount} productos pendientes`}
+              description={
+                latestCalculation.newClosingBalanceKg100 > 0 &&
+                latestPendingBalanceKg100 === 0
+                  ? 'Envasado completamente el domingo'
+                  : `${pendingProductCount} productos pendientes`
+              }
             />
             <MetricCard
               label="Diferencia de cuadre"
@@ -152,7 +170,7 @@ export function DashboardPage() {
               tone={isPerformanceOnReference ? 'success' : 'warning'}
               description={
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
                     <span>Referencia operativa: 80%</span>
                     {!isPerformanceOnReference ? (
                       <span className="font-semibold text-amber-800">Bajo referencia</span>
@@ -178,7 +196,7 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <div className="grid gap-3 xl:grid-cols-[1.65fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr]">
         <SectionCard
           title="Última jornada registrada"
           description={formatIsoDate(latestDay.date)}
@@ -187,9 +205,9 @@ export function DashboardPage() {
               {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
             </StatusBadge>
           }
-          contentClassName="p-3.5 sm:p-4"
+          contentClassName="p-4"
         >
-          <dl className="grid divide-y divide-slate-200 rounded-lg bg-slate-50 ring-1 ring-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <dl className="grid divide-y divide-slate-100 rounded-lg bg-slate-50 ring-1 ring-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {[
               {
                 label: 'Día',
@@ -210,18 +228,18 @@ export function DashboardPage() {
                 iconClassName: 'bg-slate-100 text-slate-600',
               },
             ].map(({ label, value, icon: Icon, iconClassName }) => (
-              <div key={label} className="flex min-w-0 items-center gap-3 px-3 py-3">
+              <div key={label} className="flex min-w-0 items-center gap-3.5 px-4 py-3.5">
                 <span
-                  className={`grid size-8 shrink-0 place-items-center rounded-lg ${iconClassName}`}
+                  className={`grid size-10 shrink-0 place-items-center rounded-lg ${iconClassName}`}
                   aria-hidden="true"
                 >
-                  <Icon className="size-4" />
+                  <Icon className="size-[1.125rem]" />
                 </span>
                 <div className="min-w-0">
                   <dt className="text-[0.625rem] font-bold uppercase tracking-[0.1em] text-slate-500">
                     {label}
                   </dt>
-                  <dd className="number-tabular mt-1 whitespace-nowrap text-sm font-bold text-slate-950">
+                  <dd className="number-tabular mt-1 whitespace-nowrap text-base font-bold text-slate-950">
                     {formatCentiKg(value)}
                   </dd>
                 </div>
@@ -243,18 +261,18 @@ export function DashboardPage() {
         <SectionCard
           title="Validación semanal"
           description="Comparación por dos caminos independientes."
-          contentClassName="p-3.5 sm:p-4"
+          contentClassName="p-4"
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             <span
-              className={`grid size-10 shrink-0 place-items-center rounded-lg ${
+              className={`grid size-11 shrink-0 place-items-center rounded-lg ${
                 isWeekValid
                   ? 'bg-emerald-50 text-emerald-800'
                   : 'bg-rose-50 text-rose-800'
               }`}
               aria-hidden="true"
             >
-              <CheckCircle2 className="size-5" />
+              <CheckCircle2 className="size-[1.375rem]" />
             </span>
             <div className="min-w-0">
               <StatusBadge tone={isWeekValid ? 'success' : 'danger'}>
@@ -280,14 +298,17 @@ export function DashboardPage() {
         </SectionCard>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <SectionCard
           title="Estado de las jornadas"
           description="Jornadas reales registradas en la semana."
+          className="xl:order-2"
         >
           <DataTableScroll label="Estado de las jornadas reales de la semana 36">
             <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
-              <caption className="sr-only">Estado operativo de miércoles y jueves</caption>
+              <caption className="sr-only">
+                Estado operativo de las jornadas registradas
+              </caption>
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-[0.625rem] font-bold uppercase tracking-[0.07em] text-slate-500">
                   <th scope="col" className="px-4 py-2">Día</th>
@@ -309,35 +330,35 @@ export function DashboardPage() {
                   return (
                     <tr
                       key={day.id}
-                      className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/80 ${
-                        isLatest ? 'bg-brand-50/35' : 'bg-white'
+                      className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/80 dark:hover:bg-[#152b3b] ${
+                        isLatest ? 'bg-brand-50/50 dark:bg-[#102437]' : 'bg-white'
                       }`}
                     >
-                      <th scope="row" className="px-4 py-2.5 text-xs font-semibold text-slate-900">
+                      <th scope="row" className="px-4 py-3 text-xs font-semibold text-slate-900">
                         {formatIsoWeekday(day.date)}
                       </th>
-                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">
+                      <td className="number-tabular whitespace-nowrap px-3 py-3 text-xs text-slate-500">
                         {formatIsoDateCompact(day.date)}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-3">
                         <StatusBadge tone={dayIsBalanced ? 'success' : 'danger'}>
                           {dayIsBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                         </StatusBadge>
                       </td>
-                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-bold text-slate-950">
+                      <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
                         {formatCentiKg(calculation.declaredFinishedKg100)}
                       </td>
-                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-700">
+                      <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs text-slate-700">
                         {formatCentiKg(calculation.newClosingBalanceKg100)}
                       </td>
                       <td
-                        className={`number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-bold ${
+                        className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${
                           dayIsOnReference ? 'text-emerald-800' : 'text-amber-800'
                         }`}
                       >
                         {formatRatioAsPercent(calculation.performance.ratio)}
                       </td>
-                      <td className="px-4 py-2.5 text-right">
+                      <td className="px-4 py-3 text-right">
                         <ActionLink
                           to={`/jornadas/${day.date}`}
                           variant="ghost"
@@ -358,13 +379,14 @@ export function DashboardPage() {
         <SectionCard
           title="Producción de la semana (kg)"
           description="Día, Noche y Tratamiento por jornada registrada."
-          contentClassName="p-4"
+          className="xl:order-1"
+          contentClassName="p-4 pb-3"
         >
           <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-[0.6875rem] text-slate-500">
             {[
-              ['Día', 'bg-brand-500'],
-              ['Noche', 'bg-brand-800'],
-              ['Tratamiento', 'bg-slate-400'],
+              ['Día', 'bg-[#169fd0]'],
+              ['Noche', 'bg-[#0d7098]'],
+              ['Tratamiento', 'bg-[#9fb3c2]'],
             ].map(([label, color]) => (
               <span key={label} className="inline-flex items-center gap-1.5">
                 <span className={`size-2 rounded-full ${color}`} aria-hidden="true" />
@@ -373,40 +395,20 @@ export function DashboardPage() {
             ))}
           </div>
 
-          <div className="space-y-4">
-            {weeklyProductionRows.map(({ day, calculation, chartTotal }) => (
+          <Suspense
+            fallback={
               <div
-                key={day.id}
-                role="img"
-                aria-label={`${formatIsoWeekday(day.date)}: Día ${formatCentiKg(calculation.day.ownProductionKg100)}, Noche ${formatCentiKg(calculation.night.ownProductionKg100)}, Tratamiento ${formatCentiKg(calculation.treatmentKg100)}`}
+                className="grid h-[13.5rem] place-items-center text-xs text-slate-500 sm:h-[14.5rem]"
+                role="status"
               >
-                <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-slate-700">
-                    {formatIsoWeekday(day.date)}
-                  </span>
-                  <span className="number-tabular text-[0.6875rem] font-semibold text-slate-500">
-                    {formatCentiKg(chartTotal)}
-                  </span>
-                </div>
-                <div className="flex h-3 overflow-hidden rounded-sm bg-slate-100">
-                  <span
-                    className="h-full bg-brand-500"
-                    style={{ width: segmentWidth(calculation.day.ownProductionKg100) }}
-                  />
-                  <span
-                    className="h-full bg-brand-800"
-                    style={{ width: segmentWidth(calculation.night.ownProductionKg100) }}
-                  />
-                  <span
-                    className="h-full bg-slate-400"
-                    style={{ width: segmentWidth(calculation.treatmentKg100) }}
-                  />
-                </div>
+                Preparando gráfico semanal…
               </div>
-            ))}
-          </div>
-          <p className="mt-4 border-t border-slate-100 pt-3 text-[0.6875rem] leading-5 text-slate-500">
-            Se muestran solamente los cierres reales de miércoles y jueves.
+            }
+          >
+            <WeeklyProductionChart data={weeklyProductionData} />
+          </Suspense>
+          <p className="mt-2 border-t border-slate-100 pt-2.5 text-[0.6875rem] leading-5 text-slate-500">
+            Se muestran solamente los {productionDays.length} cierres reales registrados.
           </p>
         </SectionCard>
       </div>
@@ -459,7 +461,7 @@ export function DashboardPage() {
                     : ''
                 }`}
               >
-                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-50 text-brand-700">
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-100 text-brand-700 ring-1 ring-brand-200/50">
                   <Icon className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">

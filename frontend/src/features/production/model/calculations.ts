@@ -5,6 +5,7 @@ import type {
   IntegrityIssue,
   Kg100,
   NucaBikiniReferenceResult,
+  OutstandingBalancePosition,
   PerformanceResult,
   ProductionDay,
   ProductionDayCalculation,
@@ -702,6 +703,75 @@ export function calculateBalancePosition(lot: BalanceLot): BalancePosition {
     overusedKg100: kg100(Math.max(-difference, 0)),
     isValid: difference >= 0,
   }
+}
+
+/**
+ * Reconstructs the outstanding balance ledger from every closing balance and
+ * the explicit later-day uses registered for the same origin and product.
+ */
+export function calculateOutstandingBalances(
+  productionDays: readonly ProductionDay[],
+  subsequentBalanceLots: readonly BalanceLot[] = [],
+): readonly OutstandingBalancePosition[] {
+  const positions: OutstandingBalancePosition[] = []
+
+  productionDays.forEach((originDay, originIndex) => {
+    const originCalculation = calculateProductionDay(originDay)
+    const laterDays = productionDays.slice(originIndex + 1)
+    const laterDayIds = new Set(laterDays.map((day) => day.id))
+    const laterLots = [
+      ...laterDays.flatMap((day) => day.receivedBalanceLots),
+      ...subsequentBalanceLots,
+    ]
+
+    for (const product of originCalculation.products) {
+      if (product.newClosingBalanceKg100 <= 0) continue
+
+      const matchingUses = laterLots.flatMap((lot) =>
+        lot.originDayId === originDay.id &&
+        lot.familyId === product.familyId &&
+        lot.productId === product.productId
+          ? lot.uses.filter(
+              (use) =>
+                laterDayIds.has(use.targetDayId) ||
+                subsequentBalanceLots.includes(lot),
+            )
+          : [],
+      )
+      const processedDayKg100 = sumKg100(
+        matchingUses
+          .filter((use) => use.shift === 'DAY')
+          .map((use) => use.kg100),
+      )
+      const processedNightKg100 = sumKg100(
+        matchingUses
+          .filter((use) => use.shift === 'NIGHT')
+          .map((use) => use.kg100),
+      )
+      const processedTotalKg100 = sumKg100([
+        processedDayKg100,
+        processedNightKg100,
+      ])
+
+      positions.push({
+        originDayId: originDay.id,
+        originDate: originDay.date,
+        familyId: product.familyId,
+        familyName: product.familyName,
+        productId: product.productId,
+        productName: product.productName,
+        generatedKg100: product.newClosingBalanceKg100,
+        processedDayKg100,
+        processedNightKg100,
+        processedTotalKg100,
+        pendingKg100: kg100(
+          Math.max(product.newClosingBalanceKg100 - processedTotalKg100, 0),
+        ),
+      })
+    }
+  })
+
+  return positions
 }
 
 export function calculateRawMaterialDistribution(

@@ -24,6 +24,16 @@ function renderThursdayPage() {
   )
 }
 
+function renderDayPage(date: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/jornadas/${date}`]}>
+      <Routes>
+        <Route path="/jornadas/:date" element={<ProductionDayPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('Wednesday production day page', () => {
   it('shows a zero difference and a balanced reconciliation', () => {
     renderWednesdayPage()
@@ -100,5 +110,46 @@ describe('Thursday production day page', () => {
     expect(
       within(receivedBalance!).getAllByText('0.00 kg').length,
     ).toBeGreaterThan(0)
+  })
+})
+
+describe('Friday and Saturday production day pages', () => {
+  it('shows Friday squared after processing the complete Thursday balance', () => {
+    renderDayPage('2026-09-04')
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: /viernes/i }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('CUADRADO').length).toBeGreaterThan(0)
+
+    const receivedBalance = screen
+      .getByRole('heading', { name: 'Saldo recibido de jornadas anteriores' })
+      .closest('section')
+
+    expect(receivedBalance).not.toBeNull()
+    expect(
+      within(receivedBalance!).getAllByText('23,770.00 kg').length,
+    ).toBeGreaterThan(0)
+    expect(
+      within(receivedBalance!).getAllByText('23,770.00 kg').length,
+    ).toBeGreaterThan(0)
+    expect(
+      within(receivedBalance!).getAllByText('0.00 kg').length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('shows Saturday as the latest squared close', () => {
+    renderDayPage('2026-09-05')
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: /sábado/i }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('CUADRADO').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('456,983.00 kg').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('44,660.00 kg').length).toBeGreaterThan(0)
+    expect(screen.getByText('93.55%')).toBeInTheDocument()
+    expect(
+      screen.getByText('Consumos posteriores incorporados'),
+    ).toBeInTheDocument()
   })
 })

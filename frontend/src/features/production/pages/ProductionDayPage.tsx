@@ -20,8 +20,19 @@ import { PerformancePanel } from '../components/PerformancePanel'
 import { ProductionBreakdown } from '../components/ProductionBreakdown'
 import { ReceivedBalancePanel } from '../components/ReceivedBalancePanel'
 import { ReconciliationPanel } from '../components/ReconciliationPanel'
-import { WEEK_36_2026_PRODUCTION_DAYS } from '../data/week36'
-import { calculateProductionDay } from '../model/calculations'
+import {
+  WEEK_36_2026_PRODUCTION_DAYS,
+  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
+} from '../data/week36'
+import {
+  calculateOutstandingBalances,
+  calculateProductionDay,
+} from '../model/calculations'
+
+const weeklyBalancePositions = calculateOutstandingBalances(
+  WEEK_36_2026_PRODUCTION_DAYS,
+  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
+)
 
 export function ProductionDayPage() {
   const { date } = useParams()
@@ -49,6 +60,9 @@ export function ProductionDayPage() {
   }
 
   const calculation = calculateProductionDay(productionDay)
+  const balancePositions = weeklyBalancePositions.filter(
+    (position) => position.originDayId === productionDay.id,
+  )
   const isBalanced = calculation.status === 'BALANCED'
   const sourceSheet = productionDay.lines.at(0)?.source.sheet ?? 'la hoja operativa'
 
@@ -133,7 +147,11 @@ export function ProductionDayPage() {
           productionDay={productionDay}
           calculation={calculation}
         />
-        <BalancePanel products={calculation.products} originDate={productionDay.date} />
+        <BalancePanel
+          products={calculation.products}
+          originDate={productionDay.date}
+          positions={balancePositions}
+        />
       </div>
     </div>
   )
