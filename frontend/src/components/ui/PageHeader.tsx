@@ -5,6 +5,7 @@ interface PageHeaderProps {
   title: string
   description: string
   actions?: ReactNode
+  actionsClassName?: string
 }
 
 export function PageHeader({
@@ -12,6 +13,7 @@ export function PageHeader({
   title,
   description,
   actions,
+  actionsClassName = '',
 }: PageHeaderProps) {
   return (
     <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -29,7 +31,9 @@ export function PageHeader({
         </p>
       </div>
       {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+        <div
+          className={`flex shrink-0 flex-wrap items-center gap-2 sm:justify-end ${actionsClassName}`}
+        >
           {actions}
         </div>
       ) : null}

@@ -43,6 +43,14 @@ export interface OperationalWeekContext {
   period: IsoDateRange
 }
 
+export interface OperationalWeekState {
+  isCurrent: boolean
+  isClosed: boolean
+  isFuture: boolean
+  isReadOnly: boolean
+  canCreate: boolean
+}
+
 export const TRABUNDA_OPERATIONAL_WEEK_ANCHOR = {
   number: 41,
   startDate: '2026-08-31',
@@ -160,4 +168,21 @@ export function getOperationalWeekContextForIsoDate(
     new Date(`${isoDate}T12:00:00Z`),
     anchor,
   )
+}
+
+export function getOperationalWeekState(
+  week: OperationalWeekContext,
+  currentWeek: OperationalWeekContext,
+): OperationalWeekState {
+  const isCurrent = week.number === currentWeek.number
+  const isClosed = week.period.endDate < currentWeek.period.startDate
+  const isFuture = week.period.startDate > currentWeek.period.endDate
+
+  return {
+    isCurrent,
+    isClosed,
+    isFuture,
+    isReadOnly: !isCurrent,
+    canCreate: isCurrent,
+  }
 }

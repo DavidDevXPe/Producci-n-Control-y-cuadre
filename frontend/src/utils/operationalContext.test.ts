@@ -5,6 +5,8 @@ import {
   formatOperationalPeriod,
   formatOperationalWeek,
   getOperationalWeekContext,
+  getOperationalWeekContextByNumber,
+  getOperationalWeekState,
   getLimaShiftLabel,
 } from './operationalContext'
 
@@ -44,6 +46,45 @@ describe('operational context', () => {
     expect(week42).toEqual({
       number: 42,
       period: { startDate: '2026-09-07', endDate: '2026-09-13' },
+    })
+  })
+
+  it('classifies current, closed and future weeks without fixed week numbers', () => {
+    const currentWeek = getOperationalWeekContextByNumber(42)
+
+    expect(
+      getOperationalWeekState(
+        getOperationalWeekContextByNumber(42),
+        currentWeek,
+      ),
+    ).toEqual({
+      isCurrent: true,
+      isClosed: false,
+      isFuture: false,
+      isReadOnly: false,
+      canCreate: true,
+    })
+    expect(
+      getOperationalWeekState(
+        getOperationalWeekContextByNumber(41),
+        currentWeek,
+      ),
+    ).toMatchObject({
+      isCurrent: false,
+      isClosed: true,
+      isReadOnly: true,
+      canCreate: false,
+    })
+    expect(
+      getOperationalWeekState(
+        getOperationalWeekContextByNumber(43),
+        currentWeek,
+      ),
+    ).toMatchObject({
+      isCurrent: false,
+      isFuture: true,
+      isReadOnly: true,
+      canCreate: false,
     })
   })
 })

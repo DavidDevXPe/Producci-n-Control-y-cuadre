@@ -191,8 +191,6 @@ export function WeeklyProductionChart({ data }: WeeklyProductionChartProps) {
             stackId="production"
             fill="var(--color-production-treatment)"
             fillOpacity={1}
-            stroke="var(--color-production-treatment-stroke)"
-            strokeWidth={1}
             maxBarSize={58}
             isAnimationActive={false}
           />

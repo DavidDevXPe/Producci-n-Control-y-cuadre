@@ -14,7 +14,7 @@ describe('weekly summary page', () => {
 
     expect(validation).not.toBeNull()
     expect(
-      within(validation!).getByText('INFORMACIÓN VÁLIDA'),
+      within(validation!).getByText('INFORMACIÓN CONSISTENTE'),
     ).toBeInTheDocument()
     expect(within(validation!).getByText('PT por jornadas')).toBeInTheDocument()
     expect(within(validation!).getByText('PT por productos')).toBeInTheDocument()
@@ -25,6 +25,9 @@ describe('weekly summary page', () => {
     expect(
       within(validation!).getByText(/35 líneas de producto en 4 jornadas/),
     ).toBeInTheDocument()
+    expect(screen.getByText('SEMANA CERRADA · 4 JORNADAS')).toBeInTheDocument()
+    expect(screen.getByText('CERRADA')).toBeInTheDocument()
+    expect(screen.queryByText('PARCIAL')).not.toBeInTheDocument()
   })
 
   it('separates the 15% semilimpia and 7% Bikini references', () => {

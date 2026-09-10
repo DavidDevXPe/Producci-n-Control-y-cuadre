@@ -15,12 +15,14 @@ interface WeeklyDaysTableProps {
   days: readonly WeeklyDayRow[]
   totalKg100: number
   weekNumber?: number
+  isWeekClosed?: boolean
 }
 
 export function WeeklyDaysTable({
   days,
   totalKg100,
   weekNumber = 41,
+  isWeekClosed = false,
 }: WeeklyDaysTableProps) {
   return (
     <SectionCard
@@ -73,7 +75,9 @@ export function WeeklyDaysTable({
                 {formatCentiKg(totalKg100)}
               </td>
               <td className="px-4 py-3 text-right sm:px-5">
-                <StatusBadge tone="info">PARCIAL</StatusBadge>
+                <StatusBadge tone="info">
+                  {isWeekClosed ? 'CERRADA' : 'PARCIAL'}
+                </StatusBadge>
               </td>
             </tr>
           </tfoot>

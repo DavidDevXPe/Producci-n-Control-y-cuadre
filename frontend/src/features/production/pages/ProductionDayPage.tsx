@@ -185,7 +185,7 @@ export function ProductionDayPage() {
           className="xl:col-span-2"
         />
         <MetricCard
-          label="Saldo final"
+          label="Saldo al cierre"
           value={formatCentiKg(calculation.newClosingBalanceKg100)}
           icon={<Boxes className="size-5" />}
         />
@@ -206,8 +206,8 @@ export function ProductionDayPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Producción por turno">
-        <MetricCard label="Turno Día" value={formatCentiKg(calculation.day.ownProductionKg100)} icon={<Sun className="size-5" />} />
-        <MetricCard label="Turno Noche" value={formatCentiKg(calculation.night.ownProductionKg100)} icon={<Moon className="size-5" />} />
+        <MetricCard label="Producción propia Día" value={formatCentiKg(calculation.day.ownProductionKg100)} icon={<Sun className="size-5" />} />
+        <MetricCard label="Producción propia Noche" value={formatCentiKg(calculation.night.ownProductionKg100)} icon={<Moon className="size-5" />} />
         <MetricCard label="Saldo anterior procesado" value={formatCentiKg(calculation.processedPreviousBalanceKg100)} icon={<Boxes className="size-5" />} />
         <MetricCard label="Tratamiento" value={formatCentiKg(calculation.treatmentKg100)} icon={<Waves className="size-5" />} />
       </section>

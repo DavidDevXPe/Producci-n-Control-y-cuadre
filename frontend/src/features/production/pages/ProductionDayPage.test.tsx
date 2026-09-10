@@ -34,6 +34,13 @@ function renderDayPage(date: string) {
   )
 }
 
+function expectMetricValue(label: string, value: string) {
+  const metric = screen.getByRole('heading', { name: label }).closest('article')
+
+  expect(metric).not.toBeNull()
+  expect(within(metric!).getByText(value)).toBeInTheDocument()
+}
+
 describe('Wednesday production day page', () => {
   it('shows a zero difference and a balanced reconciliation', () => {
     renderWednesdayPage()
@@ -57,7 +64,7 @@ describe('Wednesday production day page', () => {
     ).toBeGreaterThan(0)
     expect(
       within(reconciliation!).getByText(
-        'El saldo declarado coincide con el saldo calculado producto por producto.',
+        'El saldo al cierre declarado coincide con el saldo calculado producto por producto.',
       ),
     ).toBeInTheDocument()
 
@@ -148,9 +155,44 @@ describe('Friday and Saturday production day pages', () => {
       screen.getByRole('heading', { level: 1, name: /sábado/i }),
     ).toBeInTheDocument()
     expect(screen.getAllByText('CUADRADO').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('456,983.00 kg').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('44,660.00 kg').length).toBeGreaterThan(0)
+    expectMetricValue('Materia prima', '488,476.00 kg')
+    expectMetricValue('Producto terminado', '456,983.00 kg')
+    expectMetricValue('Saldo al cierre', '44,660.00 kg')
+    expectMetricValue('Producción propia Día', '185,620.00 kg')
+    expectMetricValue('Producción propia Noche', '219,800.00 kg')
+    expectMetricValue('Tratamiento', '6,903.00 kg')
+    expectMetricValue('Saldo anterior procesado', '10,820.00 kg')
+    expectMetricValue('Diferencia', '0.00 kg')
     expect(screen.getByText('93.55%')).toBeInTheDocument()
+    const closingBalance = screen
+      .getByRole('heading', {
+        name: 'Saldo generado al cierre por producto',
+      })
+      .closest('section')
+
+    expect(closingBalance).not.toBeNull()
+    expect(
+      within(closingBalance!).getByText(
+        'Producto pendiente que esta jornada dejó como saldo al momento de su cierre.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(closingBalance!).getAllByText('44,660.00 kg').length,
+    ).toBeGreaterThan(0)
+    expect(
+      within(closingBalance!).getAllByText('0.00 kg').length,
+    ).toBeGreaterThan(0)
+    expect(
+      within(closingBalance!).getByText('Saldo pendiente actual'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Producción propia Día')).toBeInTheDocument()
+    expect(screen.getByText('Producción propia Noche')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Los totales de Día y Noche son explícitos. El reparto por producto fue reconstruido para conciliar los totales cuando el origen no identifica el turno.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/MIÉRCOLES/)).not.toBeInTheDocument()
     const performance = screen
       .getByRole('heading', { name: 'Rendimiento productivo' })
       .closest('section')
@@ -161,8 +203,13 @@ describe('Friday and Saturday production day pages', () => {
         'No necesariamente es malo, pero puede indicar arrastre de saldos o MP asignada de otro día',
       ),
     ).toBeInTheDocument()
-    expect(
-      screen.getByText('Consumos posteriores incorporados'),
-    ).toBeInTheDocument()
+    const consumptionIndicator = within(closingBalance!).getByText(
+      'Consumos posteriores incorporados',
+    )
+    expect(consumptionIndicator).toBeInTheDocument()
+    expect(consumptionIndicator).toHaveAttribute(
+      'title',
+      'El saldo mostrado corresponde al cierre de esta jornada. Los consumos posteriores permiten conocer cuánto permanece pendiente actualmente.',
+    )
   })
 })

@@ -27,6 +27,8 @@ interface BalanceFamilyGroup {
 }
 
 const zeroKg100 = 0 as Kg100
+const balanceTimelineHelp =
+  'El saldo mostrado corresponde al cierre de esta jornada. Los consumos posteriores permiten conocer cuánto permanece pendiente actualmente.'
 
 function currentMvpPosition(product: ProductReconciliation): BalanceProductPosition {
   return {
@@ -97,6 +99,11 @@ export function BalancePanel({
     (position) =>
       position.processedDayKg100 > 0 || position.processedNightKg100 > 0,
   )
+  const balanceStatusLabel = hasSubsequentConsumption
+    ? 'Consumos posteriores incorporados'
+    : isOutstandingView
+      ? 'Saldo aún sin consumo posterior'
+      : 'Sin consumos posteriores registrados'
 
   const toggleFamily = (familyId: string) => {
     setExpandedFamilies((current) => {
@@ -109,11 +116,15 @@ export function BalancePanel({
 
   return (
     <SectionCard
-      title={isOutstandingView ? 'Saldo pendiente por producto' : 'Saldo final por producto'}
+      title={
+        isOutstandingView
+          ? 'Saldo pendiente por producto'
+          : 'Saldo generado al cierre por producto'
+      }
       description={
         isOutstandingView
           ? 'Posiciones aún abiertas que conservan esta jornada como origen.'
-          : 'Producto pendiente que conserva esta jornada como origen.'
+          : 'Producto pendiente que esta jornada dejó como saldo al momento de su cierre.'
       }
       action={<StatusBadge tone="info">{balances.length} productos</StatusBadge>}
     >
@@ -125,20 +136,24 @@ export function BalancePanel({
             </span>
             <div>
               <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-slate-500">
-                {isOutstandingView ? 'Pendiente desde' : 'Generado el'} {formatIsoDate(originDate)}
+                {isOutstandingView ? 'Pendiente desde' : 'Saldo generado al cierre ·'} {formatIsoDate(originDate)}
               </p>
               <p className="number-tabular mt-1 whitespace-nowrap text-[1.75rem] font-bold leading-none text-slate-950">
                 {formatCentiKg(total)}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+          <div
+            className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+            title={isOutstandingView ? undefined : balanceTimelineHelp}
+            aria-label={
+              isOutstandingView
+                ? undefined
+                : `${balanceStatusLabel}. ${balanceTimelineHelp}`
+            }
+          >
             <Clock3 className="size-4 text-brand-600" aria-hidden="true" />
-            {hasSubsequentConsumption
-              ? 'Consumos posteriores incorporados'
-              : isOutstandingView
-                ? 'Saldo aún sin consumo posterior'
-                : 'Sin consumos posteriores registrados'}
+            {balanceStatusLabel}
           </div>
         </div>
       </div>
@@ -170,14 +185,14 @@ export function BalancePanel({
         label={
           isOutstandingView
             ? 'Saldo pendiente agrupado por familia y producto'
-            : 'Saldo final agrupado por familia y producto'
+            : 'Saldo generado al cierre agrupado por familia y producto'
         }
       >
         <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
           <caption className="sr-only">
             {isOutstandingView
               ? 'Detalle del saldo pendiente por producto'
-              : 'Detalle del saldo final por producto'}
+              : 'Detalle del saldo generado al cierre por producto'}
           </caption>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-slate-500">
@@ -185,7 +200,9 @@ export function BalancePanel({
               <th scope="col" className="px-3 py-2.5 text-right">Generado</th>
               <th scope="col" className="px-3 py-2.5 text-right">Procesado Día</th>
               <th scope="col" className="px-3 py-2.5 text-right">Procesado Noche</th>
-              <th scope="col" className="px-4 py-2.5 text-right text-brand-800 sm:px-5">Pendiente</th>
+              <th scope="col" className="px-4 py-2.5 text-right text-brand-800 sm:px-5">
+                {isOutstandingView ? 'Pendiente' : 'Saldo pendiente actual'}
+              </th>
             </tr>
           </thead>
           {groups.map((group) => {

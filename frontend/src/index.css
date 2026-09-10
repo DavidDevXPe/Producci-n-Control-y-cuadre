@@ -19,8 +19,7 @@
   --color-accent-500: #d9a42c;
   --color-production-day: #20a6d2;
   --color-production-night: #177ea8;
-  --color-production-treatment: #9298e0;
-  --color-production-treatment-stroke: #b0b5ed;
+  --color-production-treatment: #a78bfa;
   --color-production-balance: #e8aa32;
   --color-production-grid: #203e50;
   --color-production-tooltip: #0a1a27;
@@ -347,6 +346,36 @@ summary:focus-visible,
 .scrollbar-subtle {
   scrollbar-color: #b7c6ca transparent;
   scrollbar-width: thin;
+}
+
+.week-selector-scrollbar {
+  scrollbar-color: #b7c6ca #f8fbfc;
+  scrollbar-width: thin;
+}
+
+.dark .week-selector-scrollbar {
+  scrollbar-color: #466779 #0a1a27;
+}
+
+.week-selector-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.week-selector-scrollbar::-webkit-scrollbar-track {
+  background: #f8fbfc;
+}
+
+.week-selector-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #b7c6ca;
+}
+
+.dark .week-selector-scrollbar::-webkit-scrollbar-track {
+  background: #0a1a27;
+}
+
+.dark .week-selector-scrollbar::-webkit-scrollbar-thumb {
+  background: #466779;
 }
 
 .data-scroll {

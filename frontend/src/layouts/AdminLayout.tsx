@@ -9,28 +9,25 @@ import {
   PackageOpen,
   Settings,
   Sun,
-  UserRound,
   X,
   type LucideIcon,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { UserIdentity } from '../components/ui/UserIdentity'
 import { WeekSelector } from '../components/ui/WeekSelector'
+import { localUser } from '../config/localUser'
 import { useProductionData } from '../features/production/state/ProductionDataContext'
 import {
   formatLimaOperationalDate,
   formatOperationalPeriod,
   getOperationalWeekContext,
   getOperationalWeekContextByNumber,
+  getOperationalWeekState,
   getLimaShiftLabel,
 } from '../utils/operationalContext'
 
 const brandLogoUrl = `${import.meta.env.BASE_URL}brand/trabunda-logo-white.png`
 const industrialBackgroundUrl = `${import.meta.env.BASE_URL}brand/trabunda-industrial-bg.png`
-
-const operationalContext = {
-  user: 'Usuario local',
-  role: 'Producción',
-} as const
 
 type ColorTheme = 'light' | 'dark'
 
@@ -214,7 +211,10 @@ export function AdminLayout() {
   const sectionLabel = getSectionLabel(location.pathname)
   const operationalDate = formatLimaOperationalDate(currentTime)
   const operationalShift = getLimaShiftLabel(currentTime)
-  const currentOperationalWeek = getOperationalWeekContext(currentTime)
+  const currentOperationalWeek = useMemo(
+    () => getOperationalWeekContext(currentTime),
+    [currentTime],
+  )
   const operationalPeriod = formatOperationalPeriod(activeWeek.period)
   const weekSelectorOptions = useMemo(
     () =>
@@ -223,22 +223,22 @@ export function AdminLayout() {
         const hasRecords = allProductionDays.some(
           (day) => day.date >= period.startDate && day.date <= period.endDate,
         )
-        const statusParts = [
-          weekNumber === currentOperationalWeek.number
-            ? 'Actual'
-            : weekNumber > currentOperationalWeek.number
-              ? 'Próxima'
-              : null,
-          !hasRecords ? 'Sin registros' : null,
-        ].filter(Boolean)
+        const temporalState = getOperationalWeekState(
+          { number: weekNumber, period },
+          currentOperationalWeek,
+        )
 
         return {
           number: weekNumber,
+          year: Number(period.startDate.slice(0, 4)),
+          startDate: period.startDate,
+          endDate: period.endDate,
           periodLabel: formatOperationalPeriod(period),
-          statusLabel: statusParts.join(' · ') || undefined,
+          ...temporalState,
+          hasRecords,
         }
       }),
-    [allProductionDays, availableWeekNumbers, currentOperationalWeek.number],
+    [allProductionDays, availableWeekNumbers, currentOperationalWeek],
   )
 
   useEffect(() => {
@@ -355,6 +355,11 @@ export function AdminLayout() {
             compact
           />
           <ThemeToggle theme={colorTheme} onToggle={toggleColorTheme} />
+          <UserIdentity
+            user={localUser}
+            responsive
+            className="hidden min-[380px]:flex"
+          />
         </div>
       </header>
 
@@ -413,38 +418,28 @@ export function AdminLayout() {
             </p>
           </div>
           <div className="flex h-full items-center text-xs text-slate-600">
-            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-[#244052]">
+            <div className="flex h-12 items-center gap-2 border-r border-slate-200 px-4 dark:border-[#244052]">
               <CalendarDays className="size-4 text-brand-700" aria-hidden="true" />
               <span className="number-tabular font-bold text-slate-800">{operationalDate}</span>
             </div>
-            <div className="flex items-center gap-2 border-r border-slate-200 px-4 dark:border-[#244052]">
+            <div className="flex h-12 items-center gap-2 border-r border-slate-200 px-4 dark:border-[#244052]">
               <Sun className="size-4 text-amber-600" aria-hidden="true" />
               <span className="font-bold text-slate-800">{operationalShift}</span>
             </div>
-            <div className="border-r border-slate-200 px-4 dark:border-[#244052]">
+            <div className="flex h-12 flex-col justify-center border-r border-slate-200 px-4 dark:border-[#244052]">
               <WeekSelector
                 options={weekSelectorOptions}
                 selectedWeekNumber={activeWeekNumber}
                 onChange={setActiveWeekNumber}
               />
-              <p className="number-tabular mt-0.5 text-[0.625rem] font-semibold tracking-[0.04em] text-slate-500">
+              <p className="number-tabular mt-0.5 w-full text-center text-[0.625rem] font-semibold tracking-[0.04em] text-[#7f9bad] dark:text-slate-500">
                 {operationalPeriod}
               </p>
             </div>
-            <div className="flex items-center border-r border-slate-200 px-3 dark:border-[#244052]">
+            <div className="flex h-12 items-center border-r border-slate-200 px-3 dark:border-[#244052]">
               <ThemeToggle theme={colorTheme} onToggle={toggleColorTheme} />
             </div>
-            <div className="flex items-center gap-2 pl-4">
-              <span className="grid size-8 place-items-center rounded-full bg-brand-50 text-brand-800 ring-1 ring-brand-200">
-                <UserRound className="size-4" aria-hidden="true" />
-              </span>
-              <div>
-                <p className="font-bold text-slate-800">{operationalContext.user}</p>
-                <p className="mt-0.5 text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  {operationalContext.role}
-                </p>
-              </div>
-            </div>
+            <UserIdentity user={localUser} className="h-12 pl-4" />
           </div>
         </div>
 

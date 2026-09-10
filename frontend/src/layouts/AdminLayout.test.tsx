@@ -25,6 +25,14 @@ describe('AdminLayout theme preference', () => {
       </MemoryRouter>,
     )
 
+    expect(screen.getAllByText('David Castillo')).toHaveLength(2)
+    expect(screen.getAllByText('Administrativo')).toHaveLength(2)
+    expect(
+      screen.getAllByRole('img', { name: 'Avatar de David Castillo' }),
+    ).toHaveLength(2)
+    expect(screen.queryByText('Usuario local')).not.toBeInTheDocument()
+    expect(screen.queryByText('PRODUCCIÓN')).not.toBeInTheDocument()
+
     fireEvent.click(screen.getAllByRole('button', { name: 'Cambiar a tema claro' })[0]!)
 
     await waitFor(() => {

@@ -17,7 +17,7 @@ export function WeeklyConsistencyPanel({ summary }: WeeklyConsistencyPanelProps)
       description="El total diario y el detalle por producto se calculan de forma independiente."
       action={
         <StatusBadge tone={isValid ? 'success' : 'danger'}>
-          {isValid ? 'INFORMACIÓN VÁLIDA' : 'REVISAR INFORMACIÓN'}
+          {isValid ? 'INFORMACIÓN CONSISTENTE' : 'REVISAR INFORMACIÓN'}
         </StatusBadge>
       }
       contentClassName="p-4 sm:p-5"

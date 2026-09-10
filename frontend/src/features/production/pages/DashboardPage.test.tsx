@@ -1,7 +1,8 @@
 import { act, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { formatIsoDate } from '../../../utils/formatters'
+import { ProductionDataProvider } from '../state/ProductionDataContext'
 import { DashboardPage } from './DashboardPage'
 
 vi.mock('../components/WeeklyProductionChart', () => ({
@@ -41,5 +42,35 @@ describe('dashboard page', () => {
     ).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: /^Ver$/i })).toHaveLength(4)
     expect(await screen.findByTestId('weekly-production-chart')).toBeInTheDocument()
+    expect(screen.getByText('Semana 41 · Cerrada · Solo lectura')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Nueva jornada' })).not.toBeInTheDocument()
   })
+
+  it('shows the current empty week as editable with consistent creation actions', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-10T12:00:00-05:00'))
+    window.localStorage.clear()
+
+    render(
+      <ProductionDataProvider>
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByText('Semana 42 · Actual · Sin registros.')).toBeInTheDocument()
+    expect(screen.getByText('Semana 42 lista para captura')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Todavía no hay jornadas registradas. Puedes ingresar los datos manualmente o precargarlos desde Excel y revisarlos antes de guardar.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Nueva jornada' })).toHaveLength(2)
+  })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  window.localStorage.clear()
 })

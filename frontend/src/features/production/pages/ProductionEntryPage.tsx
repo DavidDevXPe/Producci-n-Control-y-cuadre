@@ -18,7 +18,11 @@ import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import { formatCentiKg, formatIsoDate } from '../../../utils/formatters'
-import { getOperationalWeekContext } from '../../../utils/operationalContext'
+import {
+  getOperationalWeekContext,
+  getOperationalWeekContextForIsoDate,
+  getOperationalWeekState,
+} from '../../../utils/operationalContext'
 import {
   buildProductionDayFromCapture,
   createCaptureDraftFromDay,
@@ -109,14 +113,23 @@ export function ProductionEntryPage() {
     upsertProductionDay,
   } = useProductionData()
   const existingDay = editingDate ? findProductionDay(editingDate) : undefined
-  const isEditingAllowed = editingDate ? isUserManagedDay(editingDate) : true
   const currentWeek = getOperationalWeekContext(new Date())
+  const activeWeekState = getOperationalWeekState(activeWeek, currentWeek)
+  const editingWeekState = editingDate
+    ? getOperationalWeekState(
+        getOperationalWeekContextForIsoDate(editingDate),
+        currentWeek,
+      )
+    : null
+  const isEditingAllowed = editingDate
+    ? isUserManagedDay(editingDate) && editingWeekState?.canCreate === true
+    : activeWeekState.canCreate
   const suggestedDate =
-    activeWeek.number === 41
-      ? currentWeek.period.startDate
-      : activeWeek.calendarDays.find(
+    activeWeekState.canCreate
+      ? activeWeek.calendarDays.find(
           (day) => !findProductionDay(day.isoDate),
         )?.isoDate ?? activeWeek.period.startDate
+      : currentWeek.period.startDate
   const [mode, setMode] = useState<CaptureMode>(
     existingDay?.lines.at(0)?.source.sheet === 'CAPTURA WEB'
       ? 'MANUAL'
@@ -170,15 +183,17 @@ export function ProductionEntryPage() {
     [draft.rows, productSearch],
   )
 
-  if (editingDate && (!existingDay || !isEditingAllowed)) {
+  if (!isEditingAllowed || (editingDate && !existingDay)) {
     return (
       <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <AlertTriangle className="mx-auto size-10 text-amber-600" aria-hidden="true" />
         <h1 className="mt-4 text-xl font-bold text-slate-900">
-          Esta jornada no se puede editar
+          {editingDate
+            ? 'Esta jornada no se puede editar'
+            : 'Esta semana es de solo lectura'}
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          La semana histórica 41 se conserva como referencia de solo lectura.
+          Solo la semana operativa actual permite crear o modificar jornadas.
         </p>
         <Link
           to="/jornadas"
@@ -308,7 +323,7 @@ export function ProductionEntryPage() {
 
       <PageHeader
         eyebrow="Captura operativa"
-        title={existingDay ? `Editar ${formatIsoDate(existingDay.date)}` : 'Registrar jornada'}
+        title={existingDay ? `Editar ${formatIsoDate(existingDay.date)}` : 'Nueva jornada'}
         description="Ingresa los datos manualmente o precárgalos desde el Excel. Nada se cierra hasta que el cuadre sea exacto."
         actions={
           <StatusBadge tone={canClose ? 'success' : 'warning'}>

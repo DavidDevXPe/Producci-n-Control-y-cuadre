@@ -125,15 +125,15 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
           <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>
             Los totales de Día y Noche son explícitos. El reparto por producto fue
-            reconstruido para conciliar esos totales porque los sumandos de la hoja
-            MIÉRCOLES no identifican el turno.
+            reconstruido para conciliar los totales cuando el origen no identifica
+            el turno.
           </p>
         </div>
       ) : null}
       <DataTableScroll label="Producción por familia, turno y concepto de cuadre">
         <table className="erp-table w-full min-w-[88rem] border-collapse text-left">
           <caption className="sr-only">
-            Producción del miércoles agrupada por familia y producto
+            Producción de la jornada agrupada por familia y producto
           </caption>
           <thead>
             <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
@@ -159,7 +159,7 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
               <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Propio</th>
               <th scope="col" className="sticky top-[5.5625rem] z-30 border-l-2 border-brand-200 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Ajustes</th>
               <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Tratamiento</th>
-              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Saldo final</th>
+              <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">Saldo al cierre</th>
               <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-2.5 py-2.5 text-right xl:top-[2.0625rem]">P. terminado</th>
               <th scope="col" className="sticky top-[5.5625rem] z-30 bg-slate-50 px-4 py-2.5 text-right xl:top-[2.0625rem]">Diferencia</th>
             </tr>

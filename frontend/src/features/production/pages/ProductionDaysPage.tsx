@@ -6,7 +6,11 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
-import { formatOperationalPeriod } from '../../../utils/operationalContext'
+import {
+  formatOperationalPeriod,
+  getOperationalWeekContext,
+  getOperationalWeekState,
+} from '../../../utils/operationalContext'
 import {
   formatCentiKg,
   formatIsoDateCompact,
@@ -20,6 +24,10 @@ import { useProductionData } from '../state/ProductionDataContext'
 export function ProductionDaysPage() {
   usePageTitle('Jornadas de producción')
   const { activeWeek } = useProductionData()
+  const activeWeekState = getOperationalWeekState(
+    activeWeek,
+    getOperationalWeekContext(new Date()),
+  )
   const registeredDays = activeWeek.productionDays.map((day) => ({
     day,
     calculation: calculateProductionDay(day),
@@ -43,10 +51,12 @@ export function ProductionDaysPage() {
         title="Jornadas de producción"
         description="Consulta el cuadre diario sin mezclarlo con el rendimiento operativo."
         actions={
-          <ActionLink to="/jornadas/nueva" size="sm">
-            <FilePlus2 className="size-4" aria-hidden="true" />
-            Registrar jornada
-          </ActionLink>
+          activeWeekState.canCreate ? (
+            <ActionLink to="/jornadas/nueva" size="sm">
+              <FilePlus2 className="size-4" aria-hidden="true" />
+              Nueva jornada
+            </ActionLink>
+          ) : null
         }
       />
 
@@ -73,7 +83,7 @@ export function ProductionDaysPage() {
           }
         />
         <MetricCard
-          label="Bajo referencia"
+          label="Bajo referencia (<80%)"
           value={belowReferenceCount}
           icon={<Gauge className="size-5" />}
           tone={belowReferenceCount === 0 ? 'success' : 'warning'}
@@ -83,7 +93,13 @@ export function ProductionDaysPage() {
 
       <SectionCard
         title={`Semana ${activeWeek.number}`}
-        description={`${formatOperationalPeriod(activeWeek.period)} · ${activeWeek.isHistorical ? 'Histórico de solo lectura' : 'Registro local'}`}
+        description={`${formatOperationalPeriod(activeWeek.period)} · ${
+          activeWeekState.isClosed
+            ? 'Cerrada · Solo lectura'
+            : activeWeekState.isCurrent
+              ? 'Actual'
+              : 'Solo lectura'
+        }`}
         action={<StatusBadge tone="info">{registeredDays.length} REGISTROS</StatusBadge>}
       >
         {registeredDays.length === 0 ? (
@@ -91,13 +107,17 @@ export function ProductionDaysPage() {
             <div>
               <p className="text-sm font-bold text-slate-900">Aún no hay jornadas registradas</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Empieza con ingreso manual o importa una hoja del Excel para revisarla.
+                {activeWeekState.canCreate
+                  ? 'Empieza con ingreso manual o importa una hoja del Excel para revisarla.'
+                  : 'Esta semana cerrada permanece disponible únicamente para consulta.'}
               </p>
             </div>
-            <ActionLink to="/jornadas/nueva">
-              <FilePlus2 className="size-4" aria-hidden="true" />
-              Nueva jornada
-            </ActionLink>
+            {activeWeekState.canCreate ? (
+              <ActionLink to="/jornadas/nueva">
+                <FilePlus2 className="size-4" aria-hidden="true" />
+                Nueva jornada
+              </ActionLink>
+            ) : null}
           </div>
         ) : (
         <DataTableScroll label={`Jornadas de producción registradas en la semana ${activeWeek.number}`}>
@@ -187,11 +207,11 @@ export function ProductionDaysPage() {
                     </td>
                     <td className="px-4 py-3 text-right sm:px-5">
                       <ActionLink
-                        to={isClosed ? `/jornadas/${day.date}` : `/jornadas/${day.date}/editar`}
+                        to={isClosed || activeWeekState.isReadOnly ? `/jornadas/${day.date}` : `/jornadas/${day.date}/editar`}
                         variant="ghost"
                         size="sm"
                       >
-                        {isClosed ? 'Ver detalle' : 'Continuar'}
+                        {isClosed || activeWeekState.isReadOnly ? 'Ver detalle' : 'Continuar'}
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </ActionLink>
                     </td>

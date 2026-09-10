@@ -23,6 +23,10 @@ import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import {
+  getOperationalWeekContext,
+  getOperationalWeekState,
+} from '../../../utils/operationalContext'
+import {
   formatCentiKg,
   formatCentiKgValue,
   formatIsoDate,
@@ -45,6 +49,10 @@ export function DashboardPage() {
   usePageTitle('Dashboard')
   const { activeWeek } = useProductionData()
   const productionDays = activeWeek.productionDays
+  const activeWeekState = getOperationalWeekState(
+    activeWeek,
+    getOperationalWeekContext(new Date()),
+  )
 
   if (productionDays.length === 0) {
     return (
@@ -53,28 +61,46 @@ export function DashboardPage() {
           <PageHeader
             eyebrow="Vista operativa"
             title="Control de producción"
-            description={`Semana ${activeWeek.number} · Todavía no hay jornadas registradas en este navegador.`}
+            description={
+              activeWeekState.isCurrent
+                ? `Semana ${activeWeek.number} · Actual · Sin registros.`
+                : `Semana ${activeWeek.number} · Cerrada · Solo lectura.`
+            }
             actions={
-              <ActionLink to="/jornadas/nueva" variant="primary" size="sm">
-                Registrar jornada
-                <FilePlus2 className="size-4" aria-hidden="true" />
-              </ActionLink>
+              activeWeekState.canCreate ? (
+                <ActionLink to="/jornadas/nueva" variant="primary" size="sm">
+                  Nueva jornada
+                  <FilePlus2 className="size-4" aria-hidden="true" />
+                </ActionLink>
+              ) : null
             }
           />
         </div>
         <SectionCard
-          title={`Semana ${activeWeek.number} lista para captura`}
-          description="Puedes ingresar los datos manualmente o precargarlos desde el Excel y revisarlos antes de guardar."
+          title={
+            activeWeekState.canCreate
+              ? `Semana ${activeWeek.number} lista para captura`
+              : `Semana ${activeWeek.number} sin jornadas registradas`
+          }
+          description={
+            activeWeekState.canCreate
+              ? 'Todavía no hay jornadas registradas. Puedes ingresar los datos manualmente o precargarlos desde Excel y revisarlos antes de guardar.'
+              : 'Esta semana cerrada permanece disponible como histórico de solo lectura.'
+          }
           contentClassName="p-6"
         >
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-sm leading-6 text-slate-600">
-              La semana comienza vacía a propósito. La semana 41 continúa disponible desde el selector superior como histórico de solo lectura.
+              {activeWeekState.canCreate
+                ? 'Las semanas anteriores permanecen disponibles como histórico de solo lectura.'
+                : 'Puedes consultar la semana desde Dashboard, Jornadas, Saldos y Resumen.'}
             </p>
-            <ActionLink to="/jornadas/nueva">
-              <FilePlus2 className="size-4" aria-hidden="true" />
-              Nueva jornada
-            </ActionLink>
+            {activeWeekState.canCreate ? (
+              <ActionLink to="/jornadas/nueva">
+                <FilePlus2 className="size-4" aria-hidden="true" />
+                Nueva jornada
+              </ActionLink>
+            ) : null}
           </div>
         </SectionCard>
       </div>
@@ -117,7 +143,11 @@ export function DashboardPage() {
             <PageHeader
               eyebrow="Vista operativa"
               title="Control de producción"
-              description={`Último registro disponible y consistencia de la semana ${activeWeek.number}.`}
+              description={
+                activeWeekState.isClosed
+                  ? `Semana ${activeWeek.number} · Cerrada · Solo lectura`
+                  : `Último registro disponible y consistencia de la semana ${activeWeek.number}.`
+              }
               actions={
                 <>
                   <StatusBadge
@@ -136,12 +166,13 @@ export function DashboardPage() {
                   </ActionLink>
                 </>
               }
+              actionsClassName="sm:self-center"
             />
           </div>
 
           <section
             aria-label="Indicadores principales"
-            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-4"
           >
             <MetricCard
               label="Producto terminado"
@@ -204,7 +235,7 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr]">
+      <div className="grid items-stretch gap-4 xl:grid-cols-[1.65fr_1fr]">
         <SectionCard
           title="Última jornada registrada"
           description={formatIsoDate(latestDay.date)}
@@ -242,14 +273,14 @@ export function DashboardPage() {
                 iconClassName: 'bg-amber-50 text-amber-800',
               },
             ].map(({ label, value, icon: Icon, iconClassName }) => (
-              <div key={label} className="flex min-w-0 items-center gap-3.5 bg-slate-50 px-4 py-3.5">
+              <div key={label} className="flex h-full min-w-0 items-center gap-3.5 bg-slate-50 px-4 py-3.5">
                 <span
                   className={`grid size-10 shrink-0 place-items-center rounded-lg ${iconClassName}`}
                   aria-hidden="true"
                 >
                   <Icon className="size-[1.125rem]" />
                 </span>
-                <div className="min-w-0">
+                <div className="flex min-w-0 flex-col justify-center">
                   <dt className="text-[0.625rem] font-bold uppercase tracking-[0.1em] text-slate-500">
                     {label}
                   </dt>
@@ -318,7 +349,7 @@ export function DashboardPage() {
         </SectionCard>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid items-stretch gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <SectionCard
           title="Estado de las jornadas"
           description="Jornadas reales registradas en la semana."
@@ -462,7 +493,9 @@ export function DashboardPage() {
               to: '/jornadas',
               icon: CalendarCheck2,
               title: 'Jornadas',
-              description: 'Registrar y validar jornadas',
+              description: activeWeekState.isReadOnly
+                ? 'Consultar jornadas registradas'
+                : 'Registrar y validar jornadas',
             },
             {
               to: '/saldos',

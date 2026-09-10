@@ -14,6 +14,10 @@ import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import {
+  getOperationalWeekContext,
+  getOperationalWeekState,
+} from '../../../utils/operationalContext'
+import {
   formatCentiKg,
   formatRatioAsPercent,
 } from '../../../utils/formatters'
@@ -115,6 +119,10 @@ export function WeeklySummaryPage() {
   usePageTitle('Resumen semanal')
   const { activeWeek } = useProductionData()
   const productionDays = activeWeek.productionDays
+  const activeWeekState = getOperationalWeekState(
+    activeWeek,
+    getOperationalWeekContext(new Date()),
+  )
 
   if (productionDays.length === 0) {
     return (
@@ -122,12 +130,18 @@ export function WeeklySummaryPage() {
         <PageHeader
           eyebrow="Reportes"
           title="Resumen semanal"
-          description={`Semana ${activeWeek.number} · Sin jornadas registradas.`}
+          description={`Semana ${activeWeek.number} · ${
+            activeWeekState.isClosed
+              ? 'Cerrada · Solo lectura'
+              : 'Actual · Sin registros'
+          }.`}
           actions={
-            <ActionLink to="/jornadas/nueva" size="sm">
-              <FilePlus2 className="size-4" aria-hidden="true" />
-              Registrar jornada
-            </ActionLink>
+            activeWeekState.canCreate ? (
+              <ActionLink to="/jornadas/nueva" size="sm">
+                <FilePlus2 className="size-4" aria-hidden="true" />
+                Nueva jornada
+              </ActionLink>
+            ) : null
           }
         />
         <SectionCard
@@ -136,7 +150,9 @@ export function WeeklySummaryPage() {
           contentClassName="p-6"
         >
           <p className="text-sm leading-6 text-slate-600">
-            Puedes cambiar a la semana 41 desde el selector superior para consultar el histórico.
+            {activeWeekState.isClosed
+              ? 'Esta semana permanece disponible como histórico de solo lectura.'
+              : 'Las semanas anteriores permanecen disponibles como histórico de solo lectura.'}
           </p>
         </SectionCard>
       </div>
@@ -199,7 +215,9 @@ export function WeeklySummaryPage() {
         description={`Semana ${activeWeek.number} · Validación acumulada con ${productionDays.length} jornadas registradas.`}
         actions={
           <StatusBadge tone="info">
-            SEMANA PARCIAL · {productionDays.length} DE 7
+            {activeWeekState.isClosed
+              ? `SEMANA CERRADA · ${productionDays.length} ${productionDays.length === 1 ? 'JORNADA' : 'JORNADAS'}`
+              : `SEMANA PARCIAL · ${productionDays.length} DE 7`}
           </StatusBadge>
         }
       />
@@ -245,6 +263,7 @@ export function WeeklySummaryPage() {
         days={weekDays}
         totalKg100={summary.declaredFinishedKg100}
         weekNumber={activeWeek.number}
+        isWeekClosed={activeWeekState.isClosed}
       />
 
       <div className="grid gap-3 xl:grid-cols-[1fr_0.7fr]">

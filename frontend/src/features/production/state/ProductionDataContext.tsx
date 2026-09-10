@@ -3,6 +3,7 @@ import {
   useCallback,
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -11,6 +12,7 @@ import {
   getOperationalWeekContext,
   getOperationalWeekContextByNumber,
   getOperationalWeekContextForIsoDate,
+  getOperationalWeekState,
 } from '../../../utils/operationalContext'
 import {
   WEEK_36_2026_PRODUCTION_DAYS,
@@ -24,7 +26,9 @@ import type {
 
 const DAYS_STORAGE_KEY = 'trabunda-production-days-v1'
 const ACTIVE_WEEK_STORAGE_KEY = 'trabunda-active-operational-week-v1'
-const HISTORICAL_WEEK_NUMBER = 41
+const SEEDED_WEEK_NUMBER = getOperationalWeekContextForIsoDate(
+  WEEK_36_2026_PRODUCTION_DAYS[0]!.date,
+).number
 
 export interface OperationalCalendarDay {
   label: string
@@ -150,23 +154,33 @@ function loadStoredDays(): readonly ProductionDay[] {
 }
 
 function getInitialActiveWeek(): number {
-  const currentWeek = getOperationalWeekContext(new Date()).number
-  if (typeof window === 'undefined') return currentWeek
+  const currentWeek = getOperationalWeekContext(new Date())
+  if (typeof window === 'undefined') return currentWeek.number
 
   const storedWeek = Number(window.localStorage.getItem(ACTIVE_WEEK_STORAGE_KEY))
+  const storedWeekState = Number.isSafeInteger(storedWeek)
+    ? getOperationalWeekState(
+        getOperationalWeekContextByNumber(storedWeek),
+        currentWeek,
+      )
+    : null
   if (
     Number.isSafeInteger(storedWeek) &&
-    storedWeek >= HISTORICAL_WEEK_NUMBER
+    storedWeek >= SEEDED_WEEK_NUMBER &&
+    storedWeekState?.isFuture === false
   ) {
     return storedWeek
   }
 
   try {
-    window.localStorage.setItem(ACTIVE_WEEK_STORAGE_KEY, String(currentWeek))
+    window.localStorage.setItem(
+      ACTIVE_WEEK_STORAGE_KEY,
+      String(currentWeek.number),
+    )
   } catch {
     // The valid week is still used when storage is unavailable.
   }
-  return currentWeek
+  return currentWeek.number
 }
 
 function sortDays(days: readonly ProductionDay[]): readonly ProductionDay[] {
@@ -178,8 +192,12 @@ function buildWeekView(
   userDays: readonly ProductionDay[],
 ): OperationalWeekView {
   const { period } = getOperationalWeekContextByNumber(number)
+  const temporalState = getOperationalWeekState(
+    { number, period },
+    getOperationalWeekContext(new Date()),
+  )
   const productionDays =
-    number === HISTORICAL_WEEK_NUMBER
+    number === SEEDED_WEEK_NUMBER
       ? WEEK_36_2026_PRODUCTION_DAYS
       : userDays.filter(
           (day) =>
@@ -191,16 +209,17 @@ function buildWeekView(
     period,
     calendarDays: buildCalendarDays(period),
     productionDays: sortDays(productionDays),
-    isHistorical: number === HISTORICAL_WEEK_NUMBER,
+    isHistorical: temporalState.isClosed,
   }
 }
 
-const historicalWeek = buildWeekView(HISTORICAL_WEEK_NUMBER, [])
+const historicalWeek = buildWeekView(SEEDED_WEEK_NUMBER, [])
+const currentWeekAtStartup = getOperationalWeekContext(new Date()).number
 
 const fallbackValue: ProductionDataValue = {
   activeWeek: historicalWeek,
-  activeWeekNumber: HISTORICAL_WEEK_NUMBER,
-  availableWeekNumbers: [HISTORICAL_WEEK_NUMBER, 42],
+  activeWeekNumber: SEEDED_WEEK_NUMBER,
+  availableWeekNumbers: [SEEDED_WEEK_NUMBER, currentWeekAtStartup],
   allProductionDays: WEEK_36_2026_PRODUCTION_DAYS,
   subsequentBalanceLots: WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
   setActiveWeekNumber: () => undefined,
@@ -222,6 +241,20 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
   const [userDays, setUserDays] = useState<readonly ProductionDay[]>(loadStoredDays)
   const [activeWeekNumber, setActiveWeekNumberState] =
     useState(getInitialActiveWeek)
+  const [currentWeekNumber, setCurrentWeekNumber] = useState(
+    () => getOperationalWeekContext(new Date()).number,
+  )
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const nextCurrentWeekNumber = getOperationalWeekContext(new Date()).number
+      setCurrentWeekNumber((current) =>
+        current === nextCurrentWeekNumber ? current : nextCurrentWeekNumber,
+      )
+    }, 60_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const setActiveWeekNumber = useCallback((weekNumber: number) => {
     setActiveWeekNumberState(weekNumber)
@@ -234,8 +267,14 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
 
   const upsertProductionDay = useCallback((productionDay: ProductionDay) => {
     const week = getOperationalWeekContextForIsoDate(productionDay.date)
-    if (week.number === HISTORICAL_WEEK_NUMBER) {
-      throw new Error('La semana histórica 41 es de solo lectura.')
+    const temporalState = getOperationalWeekState(
+      week,
+      getOperationalWeekContext(new Date()),
+    )
+    if (!temporalState.canCreate) {
+      throw new Error(
+        'Solo la semana operativa actual permite crear o modificar jornadas.',
+      )
     }
 
     setUserDays((current) => {
@@ -256,28 +295,46 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
   }, [setActiveWeekNumber])
 
   const value = useMemo<ProductionDataValue>(() => {
-    const currentWeekNumber = getOperationalWeekContext(new Date()).number
+    const currentWeek = getOperationalWeekContextByNumber(currentWeekNumber)
+    const selectedWeekState = Number.isSafeInteger(activeWeekNumber)
+      ? getOperationalWeekState(
+          getOperationalWeekContextByNumber(activeWeekNumber),
+          currentWeek,
+        )
+      : null
     const effectiveActiveWeekNumber =
       Number.isSafeInteger(activeWeekNumber) &&
-      activeWeekNumber >= HISTORICAL_WEEK_NUMBER
+      activeWeekNumber >= SEEDED_WEEK_NUMBER &&
+      selectedWeekState?.isFuture === false
         ? activeWeekNumber
-        : currentWeekNumber
+        : currentWeek.number
     const availableWeekNumbers = [
       ...new Set([
-        HISTORICAL_WEEK_NUMBER,
-        currentWeekNumber,
+        SEEDED_WEEK_NUMBER,
+        currentWeek.number,
         effectiveActiveWeekNumber,
         ...userDays.map(
           (day) => getOperationalWeekContextForIsoDate(day.date).number,
         ),
       ]),
-    ].sort((first, second) => second - first)
+    ]
+      .filter((weekNumber) => {
+        const week = getOperationalWeekContextByNumber(weekNumber)
+        return !getOperationalWeekState(week, currentWeek).isFuture
+      })
+      .sort((first, second) => {
+        const firstStartDate = getOperationalWeekContextByNumber(first).period
+          .startDate
+        const secondStartDate = getOperationalWeekContextByNumber(second).period
+          .startDate
+        return secondStartDate.localeCompare(firstStartDate)
+      })
     const allProductionDays = sortDays([
       ...WEEK_36_2026_PRODUCTION_DAYS,
       ...userDays.filter(
         (day) =>
           getOperationalWeekContextForIsoDate(day.date).number !==
-          HISTORICAL_WEEK_NUMBER,
+          SEEDED_WEEK_NUMBER,
       ),
     ])
 
@@ -293,7 +350,13 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
       isUserManagedDay: (date) => userDays.some((day) => day.date === date),
       upsertProductionDay,
     }
-  }, [activeWeekNumber, setActiveWeekNumber, upsertProductionDay, userDays])
+  }, [
+    activeWeekNumber,
+    currentWeekNumber,
+    setActiveWeekNumber,
+    upsertProductionDay,
+    userDays,
+  ])
 
   return (
     <ProductionDataContext.Provider value={value}>

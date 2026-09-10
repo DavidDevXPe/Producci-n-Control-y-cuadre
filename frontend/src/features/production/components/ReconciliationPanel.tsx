@@ -145,11 +145,11 @@ export function ReconciliationPanel({ calculation }: ReconciliationPanelProps) {
             emphasized
           />
           <CalculationRow
-            label="Saldo final calculado"
+            label="Saldo al cierre calculado"
             value={calculation.calculatedClosingBalanceKg100}
           />
           <CalculationRow
-            label="Saldo final declarado"
+            label="Saldo al cierre declarado"
             value={calculation.newClosingBalanceKg100}
           />
           <div className="mt-1 border-t border-slate-200">
@@ -173,7 +173,7 @@ export function ReconciliationPanel({ calculation }: ReconciliationPanelProps) {
         )}
         <p>
           {isBalanced
-            ? 'El saldo declarado coincide con el saldo calculado producto por producto.'
+            ? 'El saldo al cierre declarado coincide con el saldo calculado producto por producto.'
             : 'Existe una diferencia que debe revisarse por familia, producto y turno.'}
         </p>
       </div>
@@ -199,8 +199,9 @@ export function ReconciliationPanel({ calculation }: ReconciliationPanelProps) {
       <details className="mt-4 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-600">
         <summary className="cursor-pointer font-bold text-brand-800">Ver cálculo</summary>
         <p className="mt-2 leading-6">
-          Saldo calculado = Producto terminado − Día − Noche − Tratamiento. La
-          diferencia compara ese resultado con el saldo final declarado.
+          Saldo al cierre calculado = Producto terminado − Día − Noche −
+          Tratamiento. La diferencia compara ese resultado con el saldo al cierre
+          declarado.
         </p>
       </details>
     </SectionCard>
