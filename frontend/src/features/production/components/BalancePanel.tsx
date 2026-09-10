@@ -187,6 +187,8 @@ export function BalancePanel({
             ? 'Saldo pendiente agrupado por familia y producto'
             : 'Saldo generado al cierre agrupado por familia y producto'
         }
+        showEdgeIndicators={false}
+        className="data-scroll-clean-edge"
       >
         <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
           <caption className="sr-only">
