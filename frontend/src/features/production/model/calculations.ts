@@ -27,6 +27,7 @@ import type {
 export const KG100_SCALE = 100
 export const BASIS_POINTS_SCALE = 10_000
 export const DEFAULT_PERFORMANCE_REFERENCE_BPS = 8_000
+export const DEFAULT_NUCA_SEMILIMPIA_REFERENCE_BPS = 1_500
 export const DEFAULT_NUCA_BIKINI_REFERENCE_BPS = 700
 
 const ZERO_KG100 = 0 as Kg100
@@ -224,11 +225,11 @@ export function calculatePerformance(
   }
 }
 
-export function calculateNucaBikiniReference(
+export function calculateNucaReference(
   rawMaterialKg100: Kg100,
   actualKg100: Kg100,
   active: boolean,
-  referenceBasisPoints = DEFAULT_NUCA_BIKINI_REFERENCE_BPS,
+  referenceBasisPoints: number,
 ): NucaBikiniReferenceResult {
   if (!active) {
     return {
@@ -265,6 +266,20 @@ export function calculateNucaBikiniReference(
       referenceBasisPoints,
     ),
   }
+}
+
+export function calculateNucaBikiniReference(
+  rawMaterialKg100: Kg100,
+  actualKg100: Kg100,
+  active: boolean,
+  referenceBasisPoints = DEFAULT_NUCA_BIKINI_REFERENCE_BPS,
+): NucaBikiniReferenceResult {
+  return calculateNucaReference(
+    rawMaterialKg100,
+    actualKg100,
+    active,
+    referenceBasisPoints,
+  )
 }
 
 export function isNucaWashAuthorized(productionDay: ProductionDay): boolean {
@@ -618,6 +633,11 @@ export function calculateProductionDay(
       .filter((line) => line.summaryGroupId === 'NUCA_BIKINI')
       .map((line) => line.declaredFinishedKg100),
   )
+  const nucaSemilimpiaKg100 = sumKg100(
+    productionDay.lines
+      .filter((line) => line.summaryGroupId === 'NUCA_SEMILIMPIA')
+      .map((line) => line.declaredFinishedKg100),
+  )
   const integrityIssues = collectDayIntegrityIssues(
     productionDay,
     products,
@@ -665,6 +685,12 @@ export function calculateProductionDay(
       productionDay.declaredFinishedTotalKg100,
       productionDay.declaredRawMaterialKg100,
       productionDay.performanceReferenceBasisPoints,
+    ),
+    nucaSemilimpia: calculateNucaReference(
+      productionDay.declaredRawMaterialKg100,
+      nucaSemilimpiaKg100,
+      nucaSemilimpiaKg100 > 0,
+      DEFAULT_NUCA_SEMILIMPIA_REFERENCE_BPS,
     ),
     nucaBikini: calculateNucaBikiniReference(
       productionDay.declaredRawMaterialKg100,
@@ -951,6 +977,13 @@ export function calculateWeeklySummary(
   const nucaReferenceBasisPoints =
     activeNucaDays[0]?.nucaBikiniReferenceBasisPoints ??
     DEFAULT_NUCA_BIKINI_REFERENCE_BPS
+  const nucaSemilimpiaOutputKg100 = sumKg100(
+    productionDays.flatMap((day) =>
+      day.lines
+        .filter((line) => line.summaryGroupId === 'NUCA_SEMILIMPIA')
+        .map((line) => line.declaredFinishedKg100),
+    ),
+  )
 
   return {
     rawMaterialKg100,
@@ -972,6 +1005,12 @@ export function calculateWeeklySummary(
       detailFinishedKg100,
       rawMaterialKg100,
       performanceReferenceBasisPoints,
+    ),
+    nucaSemilimpia: calculateNucaReference(
+      rawMaterialKg100,
+      nucaSemilimpiaOutputKg100,
+      nucaSemilimpiaOutputKg100 > 0,
+      DEFAULT_NUCA_SEMILIMPIA_REFERENCE_BPS,
     ),
     nucaBikini: calculateNucaBikiniReference(
       applicableNucaRawMaterialKg100,

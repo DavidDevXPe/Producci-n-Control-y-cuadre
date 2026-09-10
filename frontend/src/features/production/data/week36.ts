@@ -11,6 +11,9 @@ export const WEEK_36_2026_PERIOD: WeeklySummaryPeriod = {
   endDate: '2026-09-06',
 }
 
+/** Operational numbering used by Trabunda; it is intentionally not ISO week 36. */
+export const WEEK_41_2026_OPERATIONAL_NUMBER = 41
+
 /** Explicit allocation documented by RESUMEN!C88. */
 export const WEEK_36_2026_REPRODUCTOR_ALLOCATION_KG100 = kg100(4_987_167)
 

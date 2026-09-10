@@ -8,7 +8,14 @@ import {
 } from 'lucide-react'
 import type { HTMLAttributes, ReactNode } from 'react'
 
-export type StatusBadgeTone = 'success' | 'danger' | 'warning' | 'info' | 'neutral'
+export type StatusBadgeTone =
+  | 'success'
+  | 'danger'
+  | 'warning'
+  | 'info'
+  | 'neutral'
+  | 'orange'
+  | 'yellow'
 
 export interface StatusBadgeProps
   extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
@@ -23,6 +30,8 @@ const toneClasses: Record<StatusBadgeTone, string> = {
   warning: 'bg-amber-50 text-amber-900 ring-amber-600/25',
   info: 'bg-brand-50 text-brand-800 ring-brand-600/20',
   neutral: 'bg-slate-100 text-slate-700 ring-slate-500/20',
+  orange: 'bg-orange-50 text-orange-900 ring-orange-600/25',
+  yellow: 'bg-yellow-50 text-yellow-900 ring-yellow-600/25',
 }
 
 const toneIcons: Record<StatusBadgeTone, LucideIcon> = {
@@ -31,6 +40,8 @@ const toneIcons: Record<StatusBadgeTone, LucideIcon> = {
   warning: AlertTriangle,
   info: Info,
   neutral: Circle,
+  orange: AlertTriangle,
+  yellow: Info,
 }
 
 export function StatusBadge({

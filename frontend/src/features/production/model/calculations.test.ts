@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
+import { THURSDAY_PRODUCTION_DAY } from '../data/thursday'
 import {
   calculateBalancePosition,
   calculateNucaBikiniReference,
@@ -353,6 +354,18 @@ describe('Nuca Bikini reference', () => {
       unauthorizedResult.integrityIssues.map((issue) => issue.code),
     ).toContain('NUCA_WASH_AUTHORIZATION_MISSING')
     expect(unauthorizedResult.status).toBe('UNBALANCED')
+  })
+})
+
+describe('Nuca semilimpia reference', () => {
+  it('uses 15 percent as an informative reference without changing the cuadre', () => {
+    const calculation = calculateProductionDay(THURSDAY_PRODUCTION_DAY)
+
+    expect(calculation.nucaSemilimpia.applicable).toBe(true)
+    expect(calculation.nucaSemilimpia.referencePercent).toBe(15)
+    expect(calculation.nucaSemilimpia.actualKg100).toBe(kg(12_000))
+    expect(calculation.nucaSemilimpia.status).toBe('BELOW_REFERENCE')
+    expect(calculation.status).toBe('BALANCED')
   })
 })
 

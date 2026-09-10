@@ -2,28 +2,34 @@ import { DataTableScroll } from '../../../components/ui/DataTableScroll'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { formatCentiKg } from '../../../utils/formatters'
-import type { ProductionDayCalculation } from '../model/types'
+import type { ProductionDayCalculation, ProductionDayStatus } from '../model/types'
 
 export interface WeeklyDayRow {
   label: string
   date: string
   calculation: ProductionDayCalculation | null
+  status?: ProductionDayStatus
 }
 
 interface WeeklyDaysTableProps {
   days: readonly WeeklyDayRow[]
   totalKg100: number
+  weekNumber?: number
 }
 
-export function WeeklyDaysTable({ days, totalKg100 }: WeeklyDaysTableProps) {
+export function WeeklyDaysTable({
+  days,
+  totalKg100,
+  weekNumber = 41,
+}: WeeklyDaysTableProps) {
   return (
     <SectionCard
       title="Producto terminado por jornada"
       description="Las jornadas no registradas permanecen visibles sin inventar cantidades."
     >
-      <DataTableScroll label="Producto terminado por jornada de la semana 36">
+      <DataTableScroll label={`Producto terminado por jornada de la semana ${weekNumber}`}>
         <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
-          <caption className="sr-only">Producto terminado diario de la semana 36</caption>
+          <caption className="sr-only">Producto terminado diario de la semana {weekNumber}</caption>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-slate-500">
               <th scope="col" className="px-4 py-2.5 sm:px-5">Día</th>
@@ -47,9 +53,9 @@ export function WeeklyDaysTable({ days, totalKg100 }: WeeklyDaysTableProps) {
                 <td className="px-4 py-2.5 text-right sm:px-5">
                   {day.calculation ? (
                     <StatusBadge
-                      tone={day.calculation.status === 'BALANCED' ? 'success' : 'danger'}
+                      tone={day.status && day.status !== 'CLOSED' ? 'warning' : day.calculation.status === 'BALANCED' ? 'success' : 'danger'}
                     >
-                      {day.calculation.status === 'BALANCED' ? 'CUADRADO' : 'NO CUADRADO'}
+                      {day.status && day.status !== 'CLOSED' ? 'BORRADOR' : day.calculation.status === 'BALANCED' ? 'CUADRADO' : 'NO CUADRADO'}
                     </StatusBadge>
                   ) : (
                     <StatusBadge tone="neutral">SIN REGISTRO</StatusBadge>

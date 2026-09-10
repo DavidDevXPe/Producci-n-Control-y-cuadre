@@ -6,6 +6,7 @@ import type {
   NucaWashAuthorization,
   ProductionDayCalculation,
 } from '../model/types'
+import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
 
 interface PerformancePanelProps {
   calculation: ProductionDayCalculation
@@ -17,11 +18,13 @@ export function PerformancePanel({
   washAuthorization,
 }: PerformancePanelProps) {
   const performance = calculation.performance
-  const isOnReference = performance.status === 'AT_OR_ABOVE_REFERENCE'
   const isPerformanceApplicable = performance.status !== 'NOT_APPLICABLE'
   const percentage = performance.ratio === null ? 0 : performance.ratio * 100
   const clampedPercentage = Math.max(0, Math.min(percentage, 100))
-  const nuca = calculation.nucaBikini
+  const yieldStatus = getYieldStatus(performance.percent)
+  const yieldStyles = yieldVisualStyles[yieldStatus.colorVariant]
+  const nucaSemilimpia = calculation.nucaSemilimpia
+  const nucaBikini = calculation.nucaBikini
 
   return (
     <SectionCard
@@ -29,13 +32,9 @@ export function PerformancePanel({
       description="Indicador operativo; no determina el estado del cuadre."
       action={
         <StatusBadge
-          tone={isPerformanceApplicable ? (isOnReference ? 'success' : 'warning') : 'neutral'}
+          tone={yieldStyles.badgeTone}
         >
-          {isPerformanceApplicable
-            ? isOnReference
-              ? 'EN REFERENCIA'
-              : 'BAJO REFERENCIA'
-            : 'NO APLICA'}
+          {yieldStatus.label}
         </StatusBadge>
       }
       className="h-full"
@@ -44,11 +43,11 @@ export function PerformancePanel({
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">Resultado de la jornada</p>
-          <p className="number-tabular mt-1 text-3xl font-bold tracking-tight text-slate-950">
+          <p className={`number-tabular mt-1 text-3xl font-bold tracking-tight ${yieldStyles.textClass}`}>
             {formatRatioAsPercent(performance.ratio)}
           </p>
         </div>
-        <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700">
+        <span className={`grid size-10 place-items-center rounded-xl border ${yieldStyles.panelClass}`}>
           <Gauge className="size-5" aria-hidden="true" />
         </span>
       </div>
@@ -56,7 +55,7 @@ export function PerformancePanel({
       <div className="mt-5">
         <div className="relative h-2.5 overflow-visible rounded-full bg-slate-100">
           <div
-            className={`h-full rounded-full ${isOnReference ? 'bg-emerald-500' : 'bg-amber-500'}`}
+            className={`h-full rounded-full ${yieldStyles.barClass}`}
             style={{ width: `${clampedPercentage}%` }}
           />
           <span
@@ -72,39 +71,73 @@ export function PerformancePanel({
         </div>
       </div>
 
-      {isPerformanceApplicable && !isOnReference ? (
-        <div className="mt-4 flex gap-3 rounded-xl bg-amber-50 p-3.5 text-sm leading-5 text-amber-950 ring-1 ring-amber-200">
+      {isPerformanceApplicable ? (
+        <div className={`mt-4 flex gap-3 rounded-xl border p-3.5 text-sm leading-5 ${yieldStyles.panelClass}`}>
           <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>
-            Está por debajo de la referencia del 80%. Esto no implica un
-            descuadre; pueden existir saldos, tratamiento o producto en proceso.
-          </p>
+          <p>{yieldStatus.interpretation}</p>
         </div>
       ) : null}
 
-      <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/60 p-3.5">
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-bold text-slate-900">Nuca semilimpia</h3>
+          <StatusBadge
+            tone={
+              !nucaSemilimpia.applicable
+                ? 'neutral'
+                : nucaSemilimpia.status === 'AT_OR_ABOVE_REFERENCE'
+                  ? 'success'
+                  : 'warning'
+            }
+          >
+            {!nucaSemilimpia.applicable
+              ? 'NO APLICA'
+              : nucaSemilimpia.status === 'AT_OR_ABOVE_REFERENCE'
+                ? 'EN REFERENCIA'
+                : 'BAJO REFERENCIA'}
+          </StatusBadge>
+        </div>
+        {nucaSemilimpia.applicable ? (
+          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="text-slate-500">Referencia 15%</dt>
+              <dd className="number-tabular mt-1 font-bold text-slate-900">
+                {formatCentiKg(nucaSemilimpia.referenceKg100)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Producción real</dt>
+              <dd className="number-tabular mt-1 font-bold text-slate-900">
+                {formatCentiKg(nucaSemilimpia.actualKg100)}
+              </dd>
+            </div>
+          </dl>
+        ) : null}
+      </div>
+
+      <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/60 p-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Droplets className="size-4 text-brand-700" aria-hidden="true" />
             <h3 className="text-sm font-bold text-brand-950">Nuca Bikini</h3>
           </div>
-          <StatusBadge tone={nuca.applicable ? 'info' : 'neutral'}>
-            {nuca.applicable ? 'LAVADO ACTIVO' : 'NO APLICA'}
+          <StatusBadge tone={nucaBikini.applicable ? 'info' : 'neutral'}>
+            {nucaBikini.applicable ? 'LAVADO ACTIVO' : 'NO APLICA'}
           </StatusBadge>
         </div>
-        {nuca.applicable ? (
+        {nucaBikini.applicable ? (
           <>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <dt className="text-slate-500">Referencia 7%</dt>
                 <dd className="number-tabular mt-1 font-bold text-slate-900">
-                  {formatCentiKg(nuca.referenceKg100)}
+                  {formatCentiKg(nucaBikini.referenceKg100)}
                 </dd>
               </div>
               <div>
                 <dt className="text-slate-500">Producción real</dt>
                 <dd className="number-tabular mt-1 font-bold text-slate-900">
-                  {formatCentiKg(nuca.actualKg100)}
+                  {formatCentiKg(nucaBikini.actualKg100)}
                 </dd>
               </div>
             </dl>
@@ -118,6 +151,10 @@ export function PerformancePanel({
           </>
         ) : null}
       </div>
+
+      <p className="mt-3 text-xs leading-5 text-slate-500">
+        Las referencias de Nuca son informativas y no intervienen en el cuadre matemático.
+      </p>
     </SectionCard>
   )
 }

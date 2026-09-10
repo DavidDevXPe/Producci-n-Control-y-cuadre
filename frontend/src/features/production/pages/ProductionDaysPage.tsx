@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, CheckCircle2, Gauge } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, FilePlus2, Gauge } from 'lucide-react'
 import { ActionLink } from '../../../components/ui/ActionLink'
 import { DataTableScroll } from '../../../components/ui/DataTableScroll'
 import { MetricCard } from '../../../components/ui/MetricCard'
@@ -6,29 +6,35 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
+import { formatOperationalPeriod } from '../../../utils/operationalContext'
 import {
   formatCentiKg,
   formatIsoDateCompact,
   formatIsoWeekday,
   formatRatioAsPercent,
 } from '../../../utils/formatters'
-import { WEEK_36_2026_PRODUCTION_DAYS } from '../data/week36'
 import { calculateProductionDay } from '../model/calculations'
-
-const registeredDays = WEEK_36_2026_PRODUCTION_DAYS.map((day) => ({
-  day,
-  calculation: calculateProductionDay(day),
-}))
-const balancedCount = registeredDays.filter(
-  ({ calculation }) => calculation.status === 'BALANCED',
-).length
-const belowReferenceCount = registeredDays.filter(
-  ({ calculation }) => calculation.performance.status === 'BELOW_REFERENCE',
-).length
-const latestDay = WEEK_36_2026_PRODUCTION_DAYS.at(-1)!
+import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
+import { useProductionData } from '../state/ProductionDataContext'
 
 export function ProductionDaysPage() {
   usePageTitle('Jornadas de producción')
+  const { activeWeek } = useProductionData()
+  const registeredDays = activeWeek.productionDays.map((day) => ({
+    day,
+    calculation: calculateProductionDay(day),
+  }))
+  const balancedCount = registeredDays.filter(
+    ({ day, calculation }) =>
+      day.status === 'CLOSED' && calculation.status === 'BALANCED',
+  ).length
+  const belowReferenceCount = registeredDays.filter(
+    ({ calculation }) => {
+      const status = getYieldStatus(calculation.performance.percent).status
+      return status === 'critical' || status === 'low' || status === 'acceptable'
+    },
+  ).length
+  const latestDay = activeWeek.productionDays.at(-1)
 
   return (
     <div className="space-y-5">
@@ -36,6 +42,12 @@ export function ProductionDaysPage() {
         eyebrow="Producción"
         title="Jornadas de producción"
         description="Consulta el cuadre diario sin mezclarlo con el rendimiento operativo."
+        actions={
+          <ActionLink to="/jornadas/nueva" size="sm">
+            <FilePlus2 className="size-4" aria-hidden="true" />
+            Registrar jornada
+          </ActionLink>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de jornadas">
@@ -49,9 +61,13 @@ export function ProductionDaysPage() {
           label="Cuadradas"
           value={balancedCount}
           icon={<CheckCircle2 className="size-5" />}
-          tone={balancedCount === registeredDays.length ? 'success' : 'danger'}
+          tone={
+            registeredDays.length > 0 && balancedCount === registeredDays.length
+              ? 'success'
+              : 'warning'
+          }
           description={
-            balancedCount === registeredDays.length
+            registeredDays.length > 0 && balancedCount === registeredDays.length
               ? 'Sin diferencias pendientes'
               : 'Requiere revisión'
           }
@@ -66,11 +82,25 @@ export function ProductionDaysPage() {
       </section>
 
       <SectionCard
-        title="Semana 36"
-        description="Del 31 de agosto al 6 de septiembre de 2026 · Semana parcial"
+        title={`Semana ${activeWeek.number}`}
+        description={`${formatOperationalPeriod(activeWeek.period)} · ${activeWeek.isHistorical ? 'Histórico de solo lectura' : 'Registro local'}`}
         action={<StatusBadge tone="info">{registeredDays.length} REGISTROS</StatusBadge>}
       >
-        <DataTableScroll label="Jornadas de producción registradas en la semana 36">
+        {registeredDays.length === 0 ? (
+          <div className="flex flex-col items-start gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-slate-900">Aún no hay jornadas registradas</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Empieza con ingreso manual o importa una hoja del Excel para revisarla.
+              </p>
+            </div>
+            <ActionLink to="/jornadas/nueva">
+              <FilePlus2 className="size-4" aria-hidden="true" />
+              Nueva jornada
+            </ActionLink>
+          </div>
+        ) : (
+        <DataTableScroll label={`Jornadas de producción registradas en la semana ${activeWeek.number}`}>
           <table className="erp-table w-full min-w-[61rem] border-collapse text-left">
             <caption className="sr-only">Jornadas de producción registradas</caption>
             <thead>
@@ -88,14 +118,19 @@ export function ProductionDaysPage() {
             <tbody>
               {registeredDays.map(({ day, calculation }) => {
                 const isBalanced = calculation.status === 'BALANCED'
-                const isPerformanceOnReference =
-                  calculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
+                const isClosed = day.status === 'CLOSED'
+                const yieldStatus = getYieldStatus(calculation.performance.percent)
+                const yieldStyles = yieldVisualStyles[yieldStatus.colorVariant]
 
                 return (
                   <tr
                     key={day.id}
                     className={`border-l-4 bg-white hover:bg-brand-50/35 ${
-                      isBalanced ? 'border-emerald-500' : 'border-rose-500'
+                      !isClosed
+                        ? 'border-amber-500'
+                        : isBalanced
+                          ? 'border-emerald-500'
+                          : 'border-rose-500'
                     }`}
                   >
                     <th scope="row" className="px-4 py-3 sm:px-5">
@@ -105,7 +140,7 @@ export function ProductionDaysPage() {
                       <span className="number-tabular mt-0.5 block text-xs font-semibold text-slate-600">
                         {formatIsoDateCompact(day.date)}
                       </span>
-                      {day.date === latestDay.date ? (
+                      {day.date === latestDay?.date ? (
                         <span className="mt-0.5 block text-[0.625rem] font-medium text-slate-400">
                           Último cierre disponible
                         </span>
@@ -128,37 +163,35 @@ export function ProductionDaysPage() {
                       {formatCentiKg(calculation.differenceKg100)}
                     </td>
                     <td className="px-3 py-3">
-                      <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
-                        {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                      <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
+                        {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                       </StatusBadge>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="flex flex-col items-start gap-1">
+                      <div
+                        className="flex flex-col items-start gap-1"
+                        title={`${formatRatioAsPercent(calculation.performance.ratio)} · ${yieldStatus.label}: ${yieldStatus.interpretation}`}
+                        aria-label={`Rendimiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${yieldStatus.label}. ${yieldStatus.interpretation}`}
+                      >
                         <span
-                          className={`number-tabular whitespace-nowrap text-xs font-bold ${
-                            isPerformanceOnReference
-                              ? 'text-emerald-700'
-                              : 'text-amber-800'
-                          }`}
+                          className={`number-tabular whitespace-nowrap text-xs font-bold ${yieldStyles.textClass}`}
                         >
                           {formatRatioAsPercent(calculation.performance.ratio)}
                         </span>
                         <StatusBadge
-                          tone={isPerformanceOnReference ? 'success' : 'warning'}
+                          tone={yieldStyles.badgeTone}
                         >
-                          {isPerformanceOnReference
-                            ? 'EN REFERENCIA'
-                            : 'BAJO REFERENCIA'}
+                          {yieldStatus.label}
                         </StatusBadge>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right sm:px-5">
                       <ActionLink
-                        to={`/jornadas/${day.date}`}
+                        to={isClosed ? `/jornadas/${day.date}` : `/jornadas/${day.date}/editar`}
                         variant="ghost"
                         size="sm"
                       >
-                        Ver detalle
+                        {isClosed ? 'Ver detalle' : 'Continuar'}
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </ActionLink>
                     </td>
@@ -168,6 +201,7 @@ export function ProductionDaysPage() {
             </tbody>
           </table>
         </DataTableScroll>
+        )}
       </SectionCard>
     </div>
   )

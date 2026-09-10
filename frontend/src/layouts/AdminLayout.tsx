@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BarChart3,
   CalendarDays,
@@ -14,19 +14,22 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { WEEK_36_2026_PERIOD } from '../features/production/data/week36'
+import { WeekSelector } from '../components/ui/WeekSelector'
+import { useProductionData } from '../features/production/state/ProductionDataContext'
 import {
   formatLimaOperationalDate,
   formatOperationalPeriod,
-  formatOperationalWeek,
+  getOperationalWeekContext,
+  getOperationalWeekContextByNumber,
   getLimaShiftLabel,
 } from '../utils/operationalContext'
 
 const brandLogoUrl = `${import.meta.env.BASE_URL}brand/trabunda-logo-white.png`
+const industrialBackgroundUrl = `${import.meta.env.BASE_URL}brand/trabunda-industrial-bg.png`
 
 const operationalContext = {
-  user: 'Usuario Demo',
-  role: 'Supervisor',
+  user: 'Usuario local',
+  role: 'Producción',
 } as const
 
 type ColorTheme = 'light' | 'dark'
@@ -200,11 +203,43 @@ export function AdminLayout() {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const mobileNavigationRef = useRef<HTMLElement>(null)
   const location = useLocation()
+  const {
+    activeWeek,
+    activeWeekNumber,
+    allProductionDays,
+    availableWeekNumbers,
+    setActiveWeekNumber,
+  } = useProductionData()
+  const isDashboard = location.pathname === '/'
   const sectionLabel = getSectionLabel(location.pathname)
   const operationalDate = formatLimaOperationalDate(currentTime)
   const operationalShift = getLimaShiftLabel(currentTime)
-  const operationalWeek = formatOperationalWeek(WEEK_36_2026_PERIOD)
-  const operationalPeriod = formatOperationalPeriod(WEEK_36_2026_PERIOD)
+  const currentOperationalWeek = getOperationalWeekContext(currentTime)
+  const operationalPeriod = formatOperationalPeriod(activeWeek.period)
+  const weekSelectorOptions = useMemo(
+    () =>
+      availableWeekNumbers.map((weekNumber) => {
+        const period = getOperationalWeekContextByNumber(weekNumber).period
+        const hasRecords = allProductionDays.some(
+          (day) => day.date >= period.startDate && day.date <= period.endDate,
+        )
+        const statusParts = [
+          weekNumber === currentOperationalWeek.number
+            ? 'Actual'
+            : weekNumber > currentOperationalWeek.number
+              ? 'Próxima'
+              : null,
+          !hasRecords ? 'Sin registros' : null,
+        ].filter(Boolean)
+
+        return {
+          number: weekNumber,
+          periodLabel: formatOperationalPeriod(period),
+          statusLabel: statusParts.join(' · ') || undefined,
+        }
+      }),
+    [allProductionDays, availableWeekNumbers, currentOperationalWeek.number],
+  )
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setCurrentTime(new Date()), 60_000)
@@ -313,6 +348,12 @@ export function AdminLayout() {
           <p className="hidden min-w-0 truncate text-sm font-bold text-slate-900 sm:block">
             {sectionLabel}
           </p>
+          <WeekSelector
+            options={weekSelectorOptions}
+            selectedWeekNumber={activeWeekNumber}
+            onChange={setActiveWeekNumber}
+            compact
+          />
           <ThemeToggle theme={colorTheme} onToggle={toggleColorTheme} />
         </div>
       </header>
@@ -351,8 +392,18 @@ export function AdminLayout() {
         </div>
       ) : null}
 
-      <div className="min-w-0 xl:pl-64">
-        <div className="theme-surface-translucent hidden h-14 items-center justify-between border-b border-slate-200 bg-white px-7 xl:flex 2xl:px-8">
+      <div className="relative min-w-0 xl:pl-64">
+        {isDashboard ? (
+          <div
+            className="dashboard-layout-backdrop pointer-events-none absolute inset-x-0 top-0 z-0 hidden h-[12.5rem] overflow-hidden xl:left-64 xl:block"
+            aria-hidden="true"
+          >
+            <img src={industrialBackgroundUrl} alt="" />
+            <span />
+          </div>
+        ) : null}
+
+        <div className={`${isDashboard ? 'dashboard-topbar' : 'theme-surface-translucent'} relative z-20 hidden h-14 items-center justify-between border-b border-slate-200 bg-white px-7 xl:flex 2xl:px-8`}>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.13em] text-brand-800">
               TRABUNDA Producción
@@ -371,7 +422,11 @@ export function AdminLayout() {
               <span className="font-bold text-slate-800">{operationalShift}</span>
             </div>
             <div className="border-r border-slate-200 px-4 dark:border-[#244052]">
-              <p className="font-bold text-slate-800">{operationalWeek}</p>
+              <WeekSelector
+                options={weekSelectorOptions}
+                selectedWeekNumber={activeWeekNumber}
+                onChange={setActiveWeekNumber}
+              />
               <p className="number-tabular mt-0.5 text-[0.625rem] font-semibold tracking-[0.04em] text-slate-500">
                 {operationalPeriod}
               </p>
@@ -396,7 +451,7 @@ export function AdminLayout() {
         <main
           id="contenido-principal"
           tabIndex={-1}
-          className="mx-auto w-full min-w-0 max-w-[92.5rem] px-4 py-5 focus:outline-none sm:px-5 lg:px-6 lg:py-6 xl:px-7 2xl:px-8"
+          className="relative z-10 mx-auto w-full min-w-0 max-w-[92.5rem] px-4 py-5 focus:outline-none sm:px-5 lg:px-6 lg:py-6 xl:px-7 2xl:px-8"
         >
           <Outlet />
         </main>

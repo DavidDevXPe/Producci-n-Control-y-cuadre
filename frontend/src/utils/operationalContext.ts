@@ -33,6 +33,21 @@ interface IsoDateRange {
   endDate: string
 }
 
+interface OperationalWeekAnchor {
+  number: number
+  startDate: string
+}
+
+export interface OperationalWeekContext {
+  number: number
+  period: IsoDateRange
+}
+
+export const TRABUNDA_OPERATIONAL_WEEK_ANCHOR = {
+  number: 41,
+  startDate: '2026-08-31',
+} as const
+
 function parseIsoDate(value: string): Date {
   return new Date(`${value}T00:00:00Z`)
 }
@@ -40,6 +55,27 @@ function parseIsoDate(value: string): Date {
 function formatPeriodDate(value: string): string {
   const [, month, day] = value.split('-')
   return `${day} ${monthAbbreviations[Number(month) - 1]}`
+}
+
+function formatIsoDateUtc(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function addUtcDays(isoDate: string, days: number): string {
+  const date = parseIsoDate(isoDate)
+  date.setUTCDate(date.getUTCDate() + days)
+  return formatIsoDateUtc(date)
+}
+
+function getLimaIsoDate(date: Date): string {
+  const parts = Object.fromEntries(
+    limaDateFormatter
+      .formatToParts(date)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  )
+
+  return `${parts.year}-${parts.month}-${parts.day}`
 }
 
 export function formatLimaOperationalDate(date: Date): string {
@@ -67,10 +103,61 @@ export function getIsoWeekNumber(isoDate: string): number {
   return Math.ceil(((date.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
 }
 
-export function formatOperationalWeek(period: IsoDateRange): string {
-  return `Semana ${getIsoWeekNumber(period.startDate)}`
+export function formatOperationalWeek(operationalWeekNumber: number): string {
+  return `Semana ${operationalWeekNumber}`
 }
 
 export function formatOperationalPeriod(period: IsoDateRange): string {
   return `${formatPeriodDate(period.startDate)} — ${formatPeriodDate(period.endDate)}`
+}
+
+/**
+ * Trabunda uses an operational sequence rather than ISO week numbers.
+ * Week 41 starts on 2026-08-31 and every following Monday increments it.
+ */
+export function getOperationalWeekContext(
+  date: Date,
+  anchor: OperationalWeekAnchor = TRABUNDA_OPERATIONAL_WEEK_ANCHOR,
+): OperationalWeekContext {
+  const localDate = parseIsoDate(getLimaIsoDate(date))
+  const anchorDate = parseIsoDate(anchor.startDate)
+  const elapsedDays = Math.floor(
+    (localDate.getTime() - anchorDate.getTime()) / 86_400_000,
+  )
+  const weekOffset = Math.floor(elapsedDays / 7)
+  const startDate = addUtcDays(anchor.startDate, weekOffset * 7)
+
+  return {
+    number: anchor.number + weekOffset,
+    period: {
+      startDate,
+      endDate: addUtcDays(startDate, 6),
+    },
+  }
+}
+
+export function getOperationalWeekContextByNumber(
+  operationalWeekNumber: number,
+  anchor: OperationalWeekAnchor = TRABUNDA_OPERATIONAL_WEEK_ANCHOR,
+): OperationalWeekContext {
+  const weekOffset = operationalWeekNumber - anchor.number
+  const startDate = addUtcDays(anchor.startDate, weekOffset * 7)
+
+  return {
+    number: operationalWeekNumber,
+    period: {
+      startDate,
+      endDate: addUtcDays(startDate, 6),
+    },
+  }
+}
+
+export function getOperationalWeekContextForIsoDate(
+  isoDate: string,
+  anchor: OperationalWeekAnchor = TRABUNDA_OPERATIONAL_WEEK_ANCHOR,
+): OperationalWeekContext {
+  return getOperationalWeekContext(
+    new Date(`${isoDate}T12:00:00Z`),
+    anchor,
+  )
 }

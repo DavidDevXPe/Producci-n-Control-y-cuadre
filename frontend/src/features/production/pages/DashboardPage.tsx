@@ -5,6 +5,7 @@ import {
   CalendarCheck2,
   CheckCircle2,
   Cog,
+  FilePlus2,
   Gauge,
   Moon,
   PackageCheck,
@@ -30,56 +31,79 @@ import {
   formatRatioAsPercent,
 } from '../../../utils/formatters'
 import {
-  WEEK_36_2026_PERIOD,
-  WEEK_36_2026_PRODUCTION_DAYS,
-  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
-} from '../data/week36'
-import {
-  calculateOutstandingBalances,
   calculateProductionDay,
   calculateWeeklySummary,
-  sumKg100,
 } from '../model/calculations'
+import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
+import { useProductionData } from '../state/ProductionDataContext'
 
 const WeeklyProductionChart = lazy(
   () => import('../components/WeeklyProductionChart'),
 )
 
-const industrialBackgroundUrl = `${import.meta.env.BASE_URL}brand/trabunda-industrial-bg.png`
-const productionDays = WEEK_36_2026_PRODUCTION_DAYS
-const calculatedDays = productionDays.map((day) => ({
-  day,
-  calculation: calculateProductionDay(day),
-}))
-const latestDay = productionDays.at(-1)!
-const latestCalculation = calculateProductionDay(latestDay)
-const weekSummary = calculateWeeklySummary(productionDays, WEEK_36_2026_PERIOD)
-const latestBalancePositions = calculateOutstandingBalances(
-  productionDays,
-  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
-).filter((position) => position.originDayId === latestDay.id)
-const latestPendingBalanceKg100 = sumKg100(
-  latestBalancePositions.map((position) => position.pendingKg100),
-)
-
-const weeklyProductionData = calculatedDays.map(({ day, calculation }) => ({
-  id: day.id,
-  label: day.displayName.split(' ')[0] ?? formatIsoWeekday(day.date),
-  dateLabel: formatIsoDateCompact(day.date),
-  dayKg100: calculation.day.ownProductionKg100,
-  nightKg100: calculation.night.ownProductionKg100,
-  treatmentKg100: calculation.treatmentKg100,
-}))
-
 export function DashboardPage() {
   usePageTitle('Dashboard')
+  const { activeWeek } = useProductionData()
+  const productionDays = activeWeek.productionDays
+
+  if (productionDays.length === 0) {
+    return (
+      <div className="space-y-5">
+        <div className="border-l-[3px] border-brand-500 pl-4 xl:min-h-[6.5rem] xl:[&_h1]:text-[1.9rem] xl:[&_h1]:leading-9">
+          <PageHeader
+            eyebrow="Vista operativa"
+            title="Control de producción"
+            description={`Semana ${activeWeek.number} · Todavía no hay jornadas registradas en este navegador.`}
+            actions={
+              <ActionLink to="/jornadas/nueva" variant="primary" size="sm">
+                Registrar jornada
+                <FilePlus2 className="size-4" aria-hidden="true" />
+              </ActionLink>
+            }
+          />
+        </div>
+        <SectionCard
+          title={`Semana ${activeWeek.number} lista para captura`}
+          description="Puedes ingresar los datos manualmente o precargarlos desde el Excel y revisarlos antes de guardar."
+          contentClassName="p-6"
+        >
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-sm leading-6 text-slate-600">
+              La semana comienza vacía a propósito. La semana 41 continúa disponible desde el selector superior como histórico de solo lectura.
+            </p>
+            <ActionLink to="/jornadas/nueva">
+              <FilePlus2 className="size-4" aria-hidden="true" />
+              Nueva jornada
+            </ActionLink>
+          </div>
+        </SectionCard>
+      </div>
+    )
+  }
+
+  const calculatedDays = productionDays.map((day) => ({
+    day,
+    calculation: calculateProductionDay(day),
+  }))
+  const latestDay = productionDays.at(-1)!
+  const latestCalculation = calculateProductionDay(latestDay)
+  const weekSummary = calculateWeeklySummary(productionDays, activeWeek.period)
+  const weeklyProductionData = calculatedDays.map(({ day, calculation }) => ({
+    id: day.id,
+    label: day.displayName.split(' ')[0] ?? formatIsoWeekday(day.date),
+    dateLabel: formatIsoDateCompact(day.date),
+    dayKg100: calculation.day.ownProductionKg100,
+    nightKg100: calculation.night.ownProductionKg100,
+    treatmentKg100: calculation.treatmentKg100,
+    balanceKg100: calculation.newClosingBalanceKg100,
+  }))
   const isBalanced = latestCalculation.status === 'BALANCED'
-  const isWeekValid = weekSummary.status === 'VALID'
-  const isPerformanceOnReference =
-    latestCalculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
-  const pendingProductCount = latestBalancePositions.filter(
-    (position) => position.pendingKg100 > 0,
-  ).length
+  const isLatestClosed = latestDay.status === 'CLOSED'
+  const isWeekValid =
+    weekSummary.status === 'VALID' &&
+    productionDays.every((day) => day.status === 'CLOSED')
+  const latestYieldStatus = getYieldStatus(latestCalculation.performance.percent)
+  const latestYieldStyles = yieldVisualStyles[latestYieldStatus.colorVariant]
   const performancePercent = Math.max(
     0,
     Math.min((latestCalculation.performance.ratio ?? 0) * 100, 100),
@@ -87,32 +111,20 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <section className="relative isolate overflow-hidden" aria-label="Resumen operativo">
-        <div
-          className="dashboard-industrial-shell pointer-events-none absolute inset-y-0 right-0 -z-10 hidden overflow-hidden dark:lg:block"
-          aria-hidden="true"
-        >
-          <img
-            src={industrialBackgroundUrl}
-            alt=""
-            className="dashboard-industrial-asset absolute right-0 top-0 h-auto w-full max-w-none opacity-0"
-          />
-          <span className="dashboard-industrial-overlay absolute inset-0" />
-        </div>
-
+      <section className="relative isolate" aria-label="Resumen operativo">
         <div className="space-y-4">
           <div className="border-l-[3px] border-brand-500 pl-4 xl:[&_h1]:text-[1.9rem] xl:[&_h1]:leading-9">
             <PageHeader
               eyebrow="Vista operativa"
               title="Control de producción"
-              description="Seguimiento del último cierre disponible y consistencia de la semana en curso."
+              description={`Último registro disponible y consistencia de la semana ${activeWeek.number}.`}
               actions={
                 <>
                   <StatusBadge
-                    tone={isBalanced ? 'success' : 'danger'}
+                    tone={!isLatestClosed ? 'warning' : isBalanced ? 'success' : 'danger'}
                     className="min-h-[1.875rem] px-3.5"
                   >
-                    {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                    {!isLatestClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                   </StatusBadge>
                   <ActionLink
                     to={`/jornadas/${latestDay.date}`}
@@ -145,10 +157,9 @@ export function DashboardPage() {
               unit="kg"
               icon={<Boxes className="size-5" />}
               description={
-                latestCalculation.newClosingBalanceKg100 > 0 &&
-                latestPendingBalanceKg100 === 0
-                  ? 'Envasado completamente el domingo'
-                  : `${pendingProductCount} productos pendientes`
+                latestCalculation.newClosingBalanceKg100 > 0
+                  ? 'Pendiente para la siguiente jornada'
+                  : 'Sin saldo pendiente'
               }
             />
             <MetricCard
@@ -167,24 +178,21 @@ export function DashboardPage() {
               label="Rendimiento"
               value={formatRatioAsPercent(latestCalculation.performance.ratio)}
               icon={<Gauge className="size-5" />}
-              tone={isPerformanceOnReference ? 'success' : 'warning'}
+              tone={latestYieldStyles.metricTone}
+              valueClassName={latestYieldStyles.textClass}
               description={
                 <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-                    <span>Referencia operativa: 80%</span>
-                    {!isPerformanceOnReference ? (
-                      <span className="font-semibold text-amber-800">Bajo referencia</span>
-                    ) : null}
-                  </div>
+                  <StatusBadge tone={latestYieldStyles.badgeTone} className="min-h-5 px-2 py-0.5">
+                    {latestYieldStatus.label}
+                  </StatusBadge>
+                  <p>Referencia operativa: 80%</p>
                   <div
                     className="relative h-1.5 overflow-visible rounded-full bg-slate-100"
                     aria-label={`Rendimiento ${formatRatioAsPercent(latestCalculation.performance.ratio)}; referencia 80%`}
                     role="img"
                   >
                     <span
-                      className={`block h-full rounded-full ${
-                        isPerformanceOnReference ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`}
+                      className={`block h-full rounded-full ${latestYieldStyles.barClass}`}
                       style={{ width: `${performancePercent}%` }}
                     />
                     <span className="absolute -top-1 bottom-[-0.25rem] left-[80%] w-px bg-slate-400" />
@@ -201,13 +209,13 @@ export function DashboardPage() {
           title="Última jornada registrada"
           description={formatIsoDate(latestDay.date)}
           action={
-            <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
-              {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+            <StatusBadge tone={!isLatestClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
+              {!isLatestClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
             </StatusBadge>
           }
           contentClassName="p-4"
         >
-          <dl className="grid divide-y divide-slate-100 rounded-lg bg-slate-50 ring-1 ring-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <dl className="grid gap-px overflow-hidden rounded-lg bg-slate-200 ring-1 ring-slate-200 sm:grid-cols-2 xl:grid-cols-4">
             {[
               {
                 label: 'Día',
@@ -227,8 +235,14 @@ export function DashboardPage() {
                 icon: Cog,
                 iconClassName: 'bg-slate-100 text-slate-600',
               },
+              {
+                label: 'Saldo',
+                value: latestCalculation.newClosingBalanceKg100,
+                icon: Boxes,
+                iconClassName: 'bg-amber-50 text-amber-800',
+              },
             ].map(({ label, value, icon: Icon, iconClassName }) => (
-              <div key={label} className="flex min-w-0 items-center gap-3.5 px-4 py-3.5">
+              <div key={label} className="flex min-w-0 items-center gap-3.5 bg-slate-50 px-4 py-3.5">
                 <span
                   className={`grid size-10 shrink-0 place-items-center rounded-lg ${iconClassName}`}
                   aria-hidden="true"
@@ -246,7 +260,13 @@ export function DashboardPage() {
               </div>
             ))}
           </dl>
-          <div className="mt-1.5 flex justify-end">
+          <div className="mt-2 flex flex-col gap-1.5 border-t border-slate-100 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[0.6875rem] leading-5 text-slate-500">
+              Producto terminado = Día + Noche + Tratamiento + Saldo
+              <strong className="number-tabular ml-1 whitespace-nowrap text-slate-800">
+                {formatCentiKg(latestCalculation.declaredFinishedKg100)}
+              </strong>
+            </p>
             <ActionLink
               to={`/jornadas/${latestDay.date}`}
               variant="ghost"
@@ -304,7 +324,7 @@ export function DashboardPage() {
           description="Jornadas reales registradas en la semana."
           className="xl:order-2"
         >
-          <DataTableScroll label="Estado de las jornadas reales de la semana 36">
+          <DataTableScroll label={`Estado de las jornadas reales de la semana ${activeWeek.number}`}>
             <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
               <caption className="sr-only">
                 Estado operativo de las jornadas registradas
@@ -323,8 +343,9 @@ export function DashboardPage() {
               <tbody>
                 {calculatedDays.map(({ day, calculation }) => {
                   const dayIsBalanced = calculation.status === 'BALANCED'
-                  const dayIsOnReference =
-                    calculation.performance.status === 'AT_OR_ABOVE_REFERENCE'
+                  const dayIsClosed = day.status === 'CLOSED'
+                  const dayYieldStatus = getYieldStatus(calculation.performance.percent)
+                  const dayYieldStyles = yieldVisualStyles[dayYieldStatus.colorVariant]
                   const isLatest = day.date === latestDay.date
 
                   return (
@@ -341,8 +362,8 @@ export function DashboardPage() {
                         {formatIsoDateCompact(day.date)}
                       </td>
                       <td className="px-3 py-3">
-                        <StatusBadge tone={dayIsBalanced ? 'success' : 'danger'}>
-                          {dayIsBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                        <StatusBadge tone={!dayIsClosed ? 'warning' : dayIsBalanced ? 'success' : 'danger'}>
+                          {!dayIsClosed ? 'BORRADOR' : dayIsBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                         </StatusBadge>
                       </td>
                       <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
@@ -352,11 +373,16 @@ export function DashboardPage() {
                         {formatCentiKg(calculation.newClosingBalanceKg100)}
                       </td>
                       <td
-                        className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${
-                          dayIsOnReference ? 'text-emerald-800' : 'text-amber-800'
-                        }`}
+                        className="px-3 py-3 text-right"
+                        title={`${formatRatioAsPercent(calculation.performance.ratio)} · ${dayYieldStatus.label}: ${dayYieldStatus.interpretation}`}
+                        aria-label={`Rendimiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${dayYieldStatus.label}. ${dayYieldStatus.interpretation}`}
                       >
-                        {formatRatioAsPercent(calculation.performance.ratio)}
+                        <span className={`number-tabular block whitespace-nowrap text-xs font-bold ${dayYieldStyles.textClass}`}>
+                          {formatRatioAsPercent(calculation.performance.ratio)}
+                        </span>
+                        <span className={`mt-0.5 block whitespace-nowrap text-[0.625rem] font-bold ${dayYieldStyles.textClass}`}>
+                          {dayYieldStatus.label}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <ActionLink
@@ -378,15 +404,16 @@ export function DashboardPage() {
 
         <SectionCard
           title="Producción de la semana (kg)"
-          description="Día, Noche y Tratamiento por jornada registrada."
+          description="Día, Noche, Tratamiento y Saldo por jornada registrada."
           className="xl:order-1"
           contentClassName="p-4 pb-3"
         >
           <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-[0.6875rem] text-slate-500">
             {[
-              ['Día', 'bg-[#169fd0]'],
-              ['Noche', 'bg-[#0d7098]'],
-              ['Tratamiento', 'bg-[#9fb3c2]'],
+              ['Día', 'bg-[var(--color-production-day)]'],
+              ['Noche', 'bg-[var(--color-production-night)]'],
+              ['Tratamiento', 'bg-[var(--color-production-treatment)]'],
+              ['Saldo', 'bg-[var(--color-production-balance)]'],
             ].map(([label, color]) => (
               <span key={label} className="inline-flex items-center gap-1.5">
                 <span className={`size-2 rounded-full ${color}`} aria-hidden="true" />

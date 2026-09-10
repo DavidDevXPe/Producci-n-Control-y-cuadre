@@ -6,44 +6,45 @@ import { usePageTitle } from '../../../hooks/usePageTitle'
 import { formatCentiKg } from '../../../utils/formatters'
 import { BalancePanel } from '../components/BalancePanel'
 import {
-  WEEK_36_2026_PRODUCTION_DAYS,
-  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
-} from '../data/week36'
-import {
   calculateOutstandingBalances,
   calculateProductionDay,
   sumKg100,
 } from '../model/calculations'
-
-const productionDays = WEEK_36_2026_PRODUCTION_DAYS
-const outstandingPositions = calculateOutstandingBalances(
-  productionDays,
-  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
-).filter((position) => position.pendingKg100 > 0)
-const outstandingByOrigin = productionDays.flatMap((day) => {
-  const positions = outstandingPositions.filter(
-    (position) => position.originDayId === day.id,
-  )
-
-  return positions.length > 0
-    ? [{ day, calculation: calculateProductionDay(day), positions }]
-    : []
-})
-const totalPendingKg100 = sumKg100(
-  outstandingPositions.map((position) => position.pendingKg100),
-)
-const pendingProductCount = new Set(
-  outstandingPositions.map((position) => position.productId),
-).size
+import { useProductionData } from '../state/ProductionDataContext'
 
 export function BalancesPage() {
   usePageTitle('Saldos de producción')
+  const { activeWeek, allProductionDays, subsequentBalanceLots } =
+    useProductionData()
+  const productionDays = allProductionDays.filter(
+    (day) => day.date <= activeWeek.period.endDate,
+  )
+  const outstandingPositions = calculateOutstandingBalances(
+    productionDays,
+    subsequentBalanceLots,
+  ).filter((position) => position.pendingKg100 > 0)
+  const outstandingByOrigin = productionDays.flatMap((day) => {
+    const positions = outstandingPositions.filter(
+      (position) => position.originDayId === day.id,
+    )
+
+    return positions.length > 0
+      ? [{ day, calculation: calculateProductionDay(day), positions }]
+      : []
+  })
+  const totalPendingKg100 = sumKg100(
+    outstandingPositions.map((position) => position.pendingKg100),
+  )
+  const pendingProductCount = new Set(
+    outstandingPositions.map((position) => position.productId),
+  ).size
+
   return (
     <div className="space-y-5">
       <PageHeader
         eyebrow="Producción"
         title="Saldos"
-        description="Producto pendiente identificado por familia, producto y jornada de origen."
+        description={`Posición acumulada al cierre de la semana ${activeWeek.number}, identificada por producto y jornada de origen.`}
       />
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de saldos">
@@ -77,9 +78,9 @@ export function BalancesPage() {
               Sin saldos pendientes
             </h2>
             <p className="mt-1.5 max-w-xl text-sm leading-6 text-slate-500">
-              Los saldos generados de miércoles a sábado cuentan con un consumo
-              posterior registrado. El saldo del sábado fue envasado completamente
-              el domingo.
+              {activeWeek.isHistorical
+                ? 'El saldo del sábado fue envasado completamente el domingo y los demás saldos cuentan con un consumo posterior registrado.'
+                : 'No existen posiciones abiertas hasta la fecha consultada. Los saldos permanecen vinculados a su jornada de origen hasta que registres su procesamiento real.'}
             </p>
           </div>
         </SectionCard>

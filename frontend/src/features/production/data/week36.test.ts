@@ -138,7 +138,8 @@ describe('week 36 production source', () => {
       RECORTE_COCIDO: kg100(2_075_000),
       REJOS: kg100(21_120_600),
       REPRODUCTOR: kg100(4_974_000),
-      NUCA_BIKINI: kg100(13_802_000),
+      NUCA_SEMILIMPIA: kg100(4_566_000),
+      NUCA_BIKINI: kg100(9_236_000),
     })
     expect(summary.productTotalsById).toEqual({
       'aleta-cruda-codificada': kg100(32_050_000),

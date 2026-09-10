@@ -17,16 +17,22 @@ export interface WeeklyProductionChartDatum {
   readonly dayKg100: number
   readonly nightKg100: number
   readonly treatmentKg100: number
+  readonly balanceKg100: number
 }
 
 interface WeeklyProductionChartProps {
   data: readonly WeeklyProductionChartDatum[]
 }
 
-function calculateTooltipTotalKg100(
+function calculateFinishedTotalKg100(
   datum: WeeklyProductionChartDatum,
 ): number {
-  return datum.dayKg100 + datum.nightKg100 + datum.treatmentKg100
+  return (
+    datum.dayKg100 +
+    datum.nightKg100 +
+    datum.treatmentKg100 +
+    datum.balanceKg100
+  )
 }
 
 function formatAxisKg(valueKg100: number): string {
@@ -34,6 +40,27 @@ function formatAxisKg(valueKg100: number): string {
   if (valueKg === 0) return '0'
   if (Math.abs(valueKg) >= 1_000) return `${Math.round(valueKg / 1_000)}k`
   return String(Math.round(valueKg))
+}
+
+const axisStepKg100 = 15_000_000
+
+function getAxisScale(data: readonly WeeklyProductionChartDatum[]) {
+  const maximumTotalKg100 = Math.max(
+    0,
+    ...data.map(calculateFinishedTotalKg100),
+  )
+  const maximumKg100 = Math.max(
+    axisStepKg100 * 4,
+    Math.ceil(maximumTotalKg100 / axisStepKg100) * axisStepKg100,
+  )
+
+  return {
+    maximumKg100,
+    ticks: Array.from(
+      { length: maximumKg100 / axisStepKg100 + 1 },
+      (_, index) => index * axisStepKg100,
+    ),
+  }
 }
 
 export function ProductionTooltip({
@@ -46,18 +73,19 @@ export function ProductionTooltip({
   const datum = payload[0]?.payload as WeeklyProductionChartDatum | undefined
   if (!datum) return null
 
-  const totalProcessedKg100 = calculateTooltipTotalKg100(datum)
+  const finishedTotalKg100 = calculateFinishedTotalKg100(datum)
 
   const rows = [
-    { label: 'Día', value: datum.dayKg100, color: '#169fd0' },
-    { label: 'Noche', value: datum.nightKg100, color: '#0d7098' },
-    { label: 'Tratamiento', value: datum.treatmentKg100, color: '#9fb3c2' },
+    { label: 'Día', value: datum.dayKg100, color: 'var(--color-production-day)' },
+    { label: 'Noche', value: datum.nightKg100, color: 'var(--color-production-night)' },
+    { label: 'Tratamiento', value: datum.treatmentKg100, color: 'var(--color-production-treatment)' },
+    { label: 'Saldo', value: datum.balanceKg100, color: 'var(--color-production-balance)' },
   ] as const
 
   return (
-    <div className="min-w-52 rounded-[0.625rem] border border-[#244052] bg-[#0e1d29] px-3.5 py-3 text-[#eef4f8] shadow-[0_8px_24px_rgb(0_0_0/0.18)]">
-      <p className="text-xs font-bold text-[#eef4f8]">
-        {label}, <span className="number-tabular text-[#94a9b8]">{datum.dateLabel}</span>
+    <div className="min-w-52 max-w-[calc(100vw-2rem)] rounded-[0.625rem] border border-[var(--color-production-tooltip-border)] bg-[var(--color-production-tooltip)] px-3.5 py-3 text-[#f3f8fb] shadow-[0_8px_24px_rgb(0_0_0/0.22)]">
+      <p className="text-xs font-bold uppercase text-[#eef4f8]">
+        {label} <span className="number-tabular text-[#7f9bad]">· {datum.dateLabel}</span>
       </p>
       <dl className="mt-3 space-y-2">
         {rows.map((entry) => (
@@ -65,7 +93,7 @@ export function ProductionTooltip({
             key={entry.label}
             className="flex items-center justify-between gap-5 text-[0.6875rem]"
           >
-            <dt className="flex items-center gap-2 text-[#94a9b8]">
+            <dt className="flex items-center gap-2 text-[#7f9bad]">
               <span
                 className="size-2.5 rounded-sm"
                 style={{ backgroundColor: entry.color }}
@@ -73,18 +101,18 @@ export function ProductionTooltip({
               />
               {entry.label}
             </dt>
-            <dd className="number-tabular whitespace-nowrap font-semibold text-[#eef4f8]">
+            <dd className="number-tabular whitespace-nowrap font-semibold text-[#f3f8fb]">
               {formatCentiKg(entry.value)}
             </dd>
           </div>
         ))}
       </dl>
-      <div className="mt-3 flex items-end justify-between gap-5 border-t border-[#244052] pt-2.5">
-        <span className="text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-[#94a9b8]">
-          Total procesado
+      <div className="mt-3 flex items-end justify-between gap-5 border-t border-[var(--color-production-tooltip-border)] pt-2.5">
+        <span className="text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-[#7f9bad]">
+          Producto terminado
         </span>
-        <span className="number-tabular whitespace-nowrap text-xs font-bold text-[#eef4f8]">
-          {formatCentiKg(totalProcessedKg100)}
+        <span className="number-tabular whitespace-nowrap text-sm font-bold text-[#f3f8fb]">
+          {formatCentiKg(finishedTotalKg100)}
         </span>
       </div>
     </div>
@@ -92,10 +120,11 @@ export function ProductionTooltip({
 }
 
 export function WeeklyProductionChart({ data }: WeeklyProductionChartProps) {
+  const axisScale = getAxisScale(data)
   const chartLabel = data
     .map(
       (entry) =>
-        `${entry.label}, ${entry.dateLabel}: Día ${formatCentiKg(entry.dayKg100)}, Noche ${formatCentiKg(entry.nightKg100)}, Tratamiento ${formatCentiKg(entry.treatmentKg100)} y total procesado ${formatCentiKg(calculateTooltipTotalKg100(entry))}`,
+        `${entry.label}, ${entry.dateLabel}: Día ${formatCentiKg(entry.dayKg100)}, Noche ${formatCentiKg(entry.nightKg100)}, Tratamiento ${formatCentiKg(entry.treatmentKg100)}, Saldo ${formatCentiKg(entry.balanceKg100)} y Producto terminado ${formatCentiKg(calculateFinishedTotalKg100(entry))}`,
     )
     .join('. ')
 
@@ -114,8 +143,8 @@ export function WeeklyProductionChart({ data }: WeeklyProductionChartProps) {
         >
           <CartesianGrid
             vertical={false}
-            stroke="var(--color-slate-200)"
-            strokeOpacity={0.55}
+            stroke="var(--color-production-grid)"
+            strokeOpacity={0.6}
             strokeDasharray="3 3"
           />
           <XAxis
@@ -130,11 +159,13 @@ export function WeeklyProductionChart({ data }: WeeklyProductionChartProps) {
             tickLine={false}
             tick={{ fill: 'var(--color-slate-500)', fontSize: 10 }}
             tickFormatter={formatAxisKg}
+            domain={[0, axisScale.maximumKg100]}
+            ticks={axisScale.ticks}
             width={48}
           />
           <Tooltip
             content={ProductionTooltip}
-            cursor={{ fill: 'var(--color-slate-100)', fillOpacity: 0.45 }}
+            cursor={{ fill: '#123247', fillOpacity: 0.38 }}
             isAnimationActive={false}
             shared
           />
@@ -142,24 +173,35 @@ export function WeeklyProductionChart({ data }: WeeklyProductionChartProps) {
             dataKey="dayKg100"
             name="Día"
             stackId="production"
-            fill="#169fd0"
-            maxBarSize={52}
+            fill="var(--color-production-day)"
+            maxBarSize={58}
             isAnimationActive={false}
           />
           <Bar
             dataKey="nightKg100"
             name="Noche"
             stackId="production"
-            fill="#0d7098"
-            maxBarSize={52}
+            fill="var(--color-production-night)"
+            maxBarSize={58}
             isAnimationActive={false}
           />
           <Bar
             dataKey="treatmentKg100"
             name="Tratamiento"
             stackId="production"
-            fill="#9fb3c2"
-            maxBarSize={52}
+            fill="var(--color-production-treatment)"
+            fillOpacity={1}
+            stroke="var(--color-production-treatment-stroke)"
+            strokeWidth={1}
+            maxBarSize={58}
+            isAnimationActive={false}
+          />
+          <Bar
+            dataKey="balanceKg100"
+            name="Saldo"
+            stackId="production"
+            fill="var(--color-production-balance)"
+            maxBarSize={58}
             radius={[4, 4, 0, 0]}
             isAnimationActive={false}
           />

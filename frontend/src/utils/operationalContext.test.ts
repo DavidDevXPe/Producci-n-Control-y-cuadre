@@ -4,6 +4,7 @@ import {
   formatLimaOperationalDate,
   formatOperationalPeriod,
   formatOperationalWeek,
+  getOperationalWeekContext,
   getLimaShiftLabel,
 } from './operationalContext'
 
@@ -24,7 +25,25 @@ describe('operational context', () => {
   it('derives the week and period labels from the configured date range', () => {
     const period = { startDate: '2026-08-31', endDate: '2026-09-06' }
 
-    expect(formatOperationalWeek(period)).toBe('Semana 36')
+    expect(formatOperationalWeek(41)).toBe('Semana 41')
     expect(formatOperationalPeriod(period)).toBe('31 AGO — 06 SEP')
+  })
+
+  it('uses Trabunda operational numbering for the new week', () => {
+    const week41 = getOperationalWeekContext(
+      new Date('2026-09-06T15:00:00Z'),
+    )
+    const week42 = getOperationalWeekContext(
+      new Date('2026-09-09T15:00:00Z'),
+    )
+
+    expect(week41).toEqual({
+      number: 41,
+      period: { startDate: '2026-08-31', endDate: '2026-09-06' },
+    })
+    expect(week42).toEqual({
+      number: 42,
+      period: { startDate: '2026-09-07', endDate: '2026-09-13' },
+    })
   })
 })

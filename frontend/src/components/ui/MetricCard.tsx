@@ -1,6 +1,13 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 
-export type MetricCardTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger'
+export type MetricCardTone =
+  | 'neutral'
+  | 'brand'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'orange'
+  | 'yellow'
 
 export interface MetricCardProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   label: string
@@ -9,6 +16,7 @@ export interface MetricCardProps extends Omit<HTMLAttributes<HTMLElement>, 'titl
   description?: ReactNode
   icon?: ReactNode
   tone?: MetricCardTone
+  valueClassName?: string
 }
 
 const cardToneClasses: Record<MetricCardTone, string> = {
@@ -17,6 +25,8 @@ const cardToneClasses: Record<MetricCardTone, string> = {
   success: 'border-l-emerald-500',
   warning: 'border-l-amber-500',
   danger: 'border-l-rose-500',
+  orange: 'border-l-orange-500',
+  yellow: 'border-l-yellow-500',
 }
 
 const iconToneClasses: Record<MetricCardTone, string> = {
@@ -25,6 +35,8 @@ const iconToneClasses: Record<MetricCardTone, string> = {
   success: 'bg-emerald-50 text-emerald-700',
   warning: 'bg-amber-50 text-amber-800',
   danger: 'bg-rose-50 text-rose-700',
+  orange: 'bg-orange-50 text-orange-700',
+  yellow: 'bg-yellow-50 text-yellow-800',
 }
 
 export function MetricCard({
@@ -34,6 +46,7 @@ export function MetricCard({
   description,
   icon,
   tone = 'neutral',
+  valueClassName = '',
   className = '',
   ...props
 }: MetricCardProps) {
@@ -53,7 +66,7 @@ export function MetricCard({
           <h2 className="metric-card__label text-xs font-semibold leading-5 text-slate-600">
             {label}
           </h2>
-          <p className="metric-card__value mt-1.5 flex min-w-0 flex-nowrap items-baseline gap-x-1.5 whitespace-nowrap font-bold leading-none tracking-tight text-slate-950">
+          <p className={`metric-card__value mt-1.5 flex min-w-0 flex-nowrap items-baseline gap-x-1.5 whitespace-nowrap font-bold leading-none tracking-tight ${valueClassName || 'text-slate-950'}`}>
             <span className="number-tabular whitespace-nowrap">{value}</span>
             {unit ? (
               <span className="whitespace-nowrap text-sm font-bold tracking-normal text-slate-500">

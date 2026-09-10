@@ -1,7 +1,9 @@
 # Estado de soporte para nuevas jornadas
 
 La aplicación ya trabaja con una colección semanal de jornadas y actualmente
-incluye los cierres válidos del miércoles 2 al sábado 5 de septiembre de 2026.
+incluye los cierres válidos del miércoles 2 al sábado 5 de septiembre de 2026,
+correspondientes a la semana operacional 41. La semana iniciada el lunes 7 de
+septiembre de 2026 es la semana operacional 42.
 Dashboard, Jornadas, detalle, Saldos y Resumen consumen esa misma colección.
 
 ## Regla operativa de saldos
@@ -44,15 +46,35 @@ periodo disponible.
 6. Comparar nuevamente el acumulado por jornadas y por productos con `RESUMEN`.
 7. Ejecutar comprobaciones estáticas, pruebas y compilación.
 
+## Flujo implementado para el uso individual
+
+Como el registro será realizado por una sola persona, no se agregan usuarios,
+permisos ni un backend. La vista de captura permite dos caminos:
+
+1. Ingreso manual: seleccionar únicamente los productos con movimiento y llenar
+   los totales físicos de Día, Noche, saldos, tratamiento y producto terminado.
+2. Importación: seleccionar el `.xlsx`, elegir una hoja diaria y cargar una vista
+   previa editable. Los saldos detectados deben asignarse al producto correcto.
+3. En ambos caminos se validan fecha, materia prima, turnos, saldos, tratamiento,
+   producto terminado y diferencia con las mismas funciones de dominio.
+4. Una jornada válida puede guardarse como borrador; solo puede cerrarse cuando
+   la diferencia sea `0.00 kg` y no existan observaciones de integridad.
+5. La exportación `.xlsx` solo aparece para jornadas cerradas y cuadradas.
+
+El archivo se procesa localmente en el navegador. La semana 42 comienza vacía y
+sus jornadas serán creadas exclusivamente por el usuario desde esta captura.
+Los borradores se conservan en el almacenamiento local del navegador; por eso es
+recomendable exportar cada cierre como respaldo operativo.
+
 ## Datos todavía no incorporados
 
 - `DOMINGO` no se incorpora como jornada de producción porque la hoja
   inspeccionada corresponde al 26/07/2026 y presenta errores `#DIV/0!`. Solo se
   registra el procesamiento de saldo confirmado por el supervisor.
-- No se inventan lunes o martes; el periodo continúa identificado como semana
-  parcial de cuatro jornadas registradas.
-- `Usuario Demo / Supervisor` continúa como identidad temporal hasta que exista
-  autenticación.
+- No se precargan lunes ni martes de la semana 42; esa semana permanece vacía
+  hasta que el usuario registre sus propios cierres.
+- La interfaz identifica la sesión como `Usuario local / Producción`; no se
+  requiere autenticación para el alcance individual confirmado.
 
 ## Desglose por turno
 

@@ -3,6 +3,7 @@ import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { formatCentiKg, formatRatioAsPercent } from '../../../utils/formatters'
 import type { Kg100, WeeklyProductTotal } from '../model/types'
+import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
 
 export interface WeeklyProductGroupRow {
   id: string
@@ -18,15 +19,18 @@ interface WeeklyProductSummaryProps {
   groups: readonly WeeklyProductGroupRow[]
   totalFinishedKg100: Kg100
   performanceRatio: number | null
-  isPerformanceOnReference: boolean
 }
 
 export function WeeklyProductSummary({
   groups,
   totalFinishedKg100,
   performanceRatio,
-  isPerformanceOnReference,
 }: WeeklyProductSummaryProps) {
+  const yieldStatus = getYieldStatus(
+    performanceRatio === null ? null : performanceRatio * 100,
+  )
+  const yieldStyles = yieldVisualStyles[yieldStatus.colorVariant]
+
   return (
     <SectionCard
       title="Consolidado por grupo y producto"
@@ -87,12 +91,15 @@ export function WeeklyProductSummary({
                 {formatCentiKg(totalFinishedKg100)}
               </td>
               <td className="px-3 py-3" />
-              <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
+              <td className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${yieldStyles.textClass}`}>
                 {formatRatioAsPercent(performanceRatio)}
               </td>
               <td className="px-4 py-3 text-right sm:px-5">
-                <StatusBadge tone={isPerformanceOnReference ? 'success' : 'warning'}>
-                  REF. 80%
+                <StatusBadge
+                  tone={yieldStyles.badgeTone}
+                  title={`${yieldStatus.label}: ${yieldStatus.interpretation}`}
+                >
+                  {yieldStatus.label}
                 </StatusBadge>
               </td>
             </tr>

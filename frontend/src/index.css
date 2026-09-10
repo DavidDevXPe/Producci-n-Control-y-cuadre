@@ -17,6 +17,14 @@
   --color-brand-950: #082a39;
   --color-accent-400: #e8b84d;
   --color-accent-500: #d9a42c;
+  --color-production-day: #20a6d2;
+  --color-production-night: #177ea8;
+  --color-production-treatment: #9298e0;
+  --color-production-treatment-stroke: #b0b5ed;
+  --color-production-balance: #e8aa32;
+  --color-production-grid: #203e50;
+  --color-production-tooltip: #0a1a27;
+  --color-production-tooltip-border: #2b5268;
   --color-shell: #edf2f3;
   --shadow-panel: 0 1px 2px rgb(15 23 42 / 0.045);
   --color-sticky-divider: #e2e8f0;
@@ -76,6 +84,21 @@ html.dark {
   --color-amber-800: #efca77;
   --color-amber-900: #f4dba1;
   --color-amber-950: #faeac2;
+  --color-orange-50: #352010;
+  --color-orange-200: #7d431c;
+  --color-orange-500: #e47c2e;
+  --color-orange-600: #e47c2e;
+  --color-orange-700: #ee9b55;
+  --color-orange-900: #f6d0aa;
+  --color-orange-950: #fae5cf;
+  --color-yellow-50: #302b12;
+  --color-yellow-200: #6d6221;
+  --color-yellow-500: #d8bd38;
+  --color-yellow-600: #d8bd38;
+  --color-yellow-700: #e4cd59;
+  --color-yellow-800: #ead876;
+  --color-yellow-900: #f1e7ae;
+  --color-yellow-950: #f8f2d2;
   --color-rose-50: #35191c;
   --color-rose-200: #743138;
   --color-rose-500: #dc6262;
@@ -160,48 +183,51 @@ html.dark ::selection {
   background: #12344a;
 }
 
-html.dark .dashboard-industrial-asset {
-  opacity: 0.16;
+.dashboard-topbar {
+  background: rgb(255 255 255 / 0.95);
+  backdrop-filter: blur(10px);
 }
 
-.dashboard-industrial-asset {
-  transform: translateY(-25%);
-  transform-origin: right top;
+.dashboard-layout-backdrop {
+  opacity: 0;
 }
 
-html.dark .dashboard-industrial-overlay {
-  background: linear-gradient(
-    90deg,
-    #09121b 0%,
-    rgb(9 18 27 / 0.98) 10%,
-    rgb(9 18 27 / 0.9) 28%,
-    rgb(9 18 27 / 0.58) 55%,
-    rgb(9 18 27 / 0.18) 78%,
-    rgb(9 18 27 / 0.08) 100%
-  );
+.dashboard-layout-backdrop img {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  min-width: 70rem;
+  max-width: none;
+  transform: translateY(-16.5%);
 }
 
-.dashboard-industrial-shell {
-  width: 54%;
+.dashboard-layout-backdrop span {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #09121b 0%, rgb(9 18 27 / 0.96) 20%, rgb(9 18 27 / 0.76) 42%, rgb(9 18 27 / 0.28) 62%, rgb(9 18 27 / 0.08) 82%, rgb(9 18 27 / 0.1) 100%),
+    linear-gradient(180deg, rgb(9 18 27 / 0.06) 0%, rgb(9 18 27 / 0.02) 52%, rgb(9 18 27 / 0.32) 78%, #09121b 100%);
 }
 
-@media (min-width: 80rem) {
-  .dashboard-industrial-shell {
-    width: 66%;
-  }
+html.dark .dashboard-layout-backdrop {
+  opacity: 1;
+  background: #09121b;
+}
 
-  html.dark .dashboard-industrial-asset {
-    opacity: 0.28;
-  }
+html.dark .dashboard-layout-backdrop img {
+  opacity: 0.68;
+}
+
+html.dark .dashboard-topbar {
+  background: rgb(9 18 27 / 0.28);
+  backdrop-filter: blur(2px);
 }
 
 @media (min-width: 90rem) {
-  .dashboard-industrial-shell {
-    width: 70%;
-  }
-
-  html.dark .dashboard-industrial-asset {
-    opacity: 0.32;
+  .dashboard-layout-backdrop img {
+    transform: translateY(-17.5%);
+    opacity: 0.72;
   }
 }
 

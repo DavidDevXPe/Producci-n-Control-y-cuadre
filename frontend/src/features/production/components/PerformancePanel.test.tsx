@@ -20,7 +20,7 @@ describe('PerformancePanel Nuca Bikini applicability', () => {
     const performance = performanceHeading.closest('section')
 
     expect(performance).not.toBeNull()
-    expect(within(performance!).getByText('NO APLICA')).toBeInTheDocument()
+    expect(within(performance!).getAllByText('NO APLICA')).toHaveLength(2)
     expect(
       within(performance!).queryByText('Referencia 7%'),
     ).not.toBeInTheDocument()

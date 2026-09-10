@@ -26,8 +26,13 @@ describe('dashboard page', () => {
     expect(within(indicators).getByText('44,660.00')).toBeInTheDocument()
     expect(within(indicators).getByText('93.55%')).toBeInTheDocument()
     expect(
-      within(indicators).getByText('Envasado completamente el domingo'),
+      within(indicators).getByText('Pendiente para la siguiente jornada'),
     ).toBeInTheDocument()
+    expect(within(indicators).getByText('REVISAR')).toBeInTheDocument()
+    expect(screen.getByText('185,620.00 kg')).toBeInTheDocument()
+    expect(screen.getByText('219,800.00 kg')).toBeInTheDocument()
+    expect(screen.getByText('6,903.00 kg')).toBeInTheDocument()
+    expect(screen.getByText('Producto terminado = Día + Noche + Tratamiento + Saldo')).toBeInTheDocument()
     expect(
       screen.getAllByText(formatIsoDate('2026-09-05')).length,
     ).toBeGreaterThan(0)

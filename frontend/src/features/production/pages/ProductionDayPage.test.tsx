@@ -41,6 +41,9 @@ describe('Wednesday production day page', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: /miércoles/i }),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Exportar Excel' }),
+    ).toBeEnabled()
 
     const reconciliationHeading = screen.getByRole('heading', {
       name: 'Cuadre de producción',
@@ -67,7 +70,7 @@ describe('Wednesday production day page', () => {
     expect(screen.getByText('Sin saldo anterior recibido')).toBeInTheDocument()
   })
 
-  it('presents 75.38% as a warning that does not invalidate the cuadre', () => {
+  it('presents 75.38% as acceptable without invalidating the cuadre', () => {
     renderWednesdayPage()
 
     const performanceHeading = screen.getByRole('heading', {
@@ -78,10 +81,10 @@ describe('Wednesday production day page', () => {
     expect(performance).not.toBeNull()
     expect(within(performance!).getByText('75.38%')).toBeInTheDocument()
     expect(
-      within(performance!).getByText('BAJO REFERENCIA'),
+      within(performance!).getByText('ACEPTABLE'),
     ).toBeInTheDocument()
     expect(
-      within(performance!).getByText(/Esto no implica un descuadre/),
+      within(performance!).getByText('Operación razonable, pero debajo del objetivo'),
     ).toBeInTheDocument()
     expect(screen.queryByText('NO CUADRADO')).not.toBeInTheDocument()
     expect(screen.getAllByText('CUADRADO').length).toBeGreaterThan(0)
@@ -148,6 +151,16 @@ describe('Friday and Saturday production day pages', () => {
     expect(screen.getAllByText('456,983.00 kg').length).toBeGreaterThan(0)
     expect(screen.getAllByText('44,660.00 kg').length).toBeGreaterThan(0)
     expect(screen.getByText('93.55%')).toBeInTheDocument()
+    const performance = screen
+      .getByRole('heading', { name: 'Rendimiento productivo' })
+      .closest('section')
+    expect(performance).not.toBeNull()
+    expect(within(performance!).getByText('REVISAR')).toBeInTheDocument()
+    expect(
+      within(performance!).getByText(
+        'No necesariamente es malo, pero puede indicar arrastre de saldos o MP asignada de otro día',
+      ),
+    ).toBeInTheDocument()
     expect(
       screen.getByText('Consumos posteriores incorporados'),
     ).toBeInTheDocument()

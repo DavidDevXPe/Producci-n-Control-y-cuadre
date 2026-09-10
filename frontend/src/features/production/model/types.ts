@@ -58,6 +58,7 @@ export type SummaryGroupId =
   | 'REJOS'
   | 'REPRODUCTOR'
   | 'PICO'
+  | 'NUCA_SEMILIMPIA'
   | 'NUCA_BIKINI'
 
 export interface SourceReference {
@@ -196,7 +197,7 @@ export interface PerformanceResult {
   readonly status: ReferenceStatus
 }
 
-export interface NucaBikiniReferenceResult {
+export interface NucaReferenceResult {
   readonly applicable: boolean
   readonly applicableRawMaterialKg100: Kg100
   readonly actualKg100: Kg100
@@ -206,6 +207,8 @@ export interface NucaBikiniReferenceResult {
   readonly referencePercent: number
   readonly status: ReferenceStatus
 }
+
+export type NucaBikiniReferenceResult = NucaReferenceResult
 
 export interface ProductionDayCalculation {
   readonly day: ShiftCalculation
@@ -222,6 +225,7 @@ export interface ProductionDayCalculation {
   readonly differenceKg100: Kg100
   readonly status: ReconciliationStatus
   readonly performance: PerformanceResult
+  readonly nucaSemilimpia: NucaReferenceResult
   readonly nucaBikini: NucaBikiniReferenceResult
   readonly products: readonly ProductReconciliation[]
   readonly integrityIssues: readonly IntegrityIssue[]
@@ -286,6 +290,7 @@ export interface WeeklySummary {
   readonly status: SummaryValidationStatus
   readonly allDaysBalanced: boolean
   readonly performance: PerformanceResult
+  readonly nucaSemilimpia: NucaReferenceResult
   readonly nucaBikini: NucaBikiniReferenceResult
   readonly days: readonly ProductionDayCalculation[]
   readonly integrityIssues: readonly IntegrityIssue[]

@@ -2,12 +2,16 @@ import {
   ArrowLeft,
   Boxes,
   CalendarDays,
+  Download,
+  LoaderCircle,
   Moon,
   PackageCheck,
+  Pencil,
   Scale,
   Sun,
   Waves,
 } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ActionLink } from '../../../components/ui/ActionLink'
 import { MetricCard } from '../../../components/ui/MetricCard'
@@ -21,24 +25,23 @@ import { ProductionBreakdown } from '../components/ProductionBreakdown'
 import { ReceivedBalancePanel } from '../components/ReceivedBalancePanel'
 import { ReconciliationPanel } from '../components/ReconciliationPanel'
 import {
-  WEEK_36_2026_PRODUCTION_DAYS,
-  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
-} from '../data/week36'
-import {
   calculateOutstandingBalances,
   calculateProductionDay,
 } from '../model/calculations'
-
-const weeklyBalancePositions = calculateOutstandingBalances(
-  WEEK_36_2026_PRODUCTION_DAYS,
-  WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
-)
+import { useProductionData } from '../state/ProductionDataContext'
 
 export function ProductionDayPage() {
   const { date } = useParams()
-  const productionDay = WEEK_36_2026_PRODUCTION_DAYS.find(
-    (day) => day.date === date,
-  )
+  const [exportState, setExportState] = useState<
+    'IDLE' | 'EXPORTING' | 'SUCCESS' | 'ERROR'
+  >('IDLE')
+  const {
+    allProductionDays,
+    subsequentBalanceLots,
+    findProductionDay,
+    isUserManagedDay,
+  } = useProductionData()
+  const productionDay = date ? findProductionDay(date) : undefined
   usePageTitle(
     productionDay ? `Detalle del ${productionDay.displayName}` : 'Jornada no encontrada',
   )
@@ -60,11 +63,36 @@ export function ProductionDayPage() {
   }
 
   const calculation = calculateProductionDay(productionDay)
+  const weeklyBalancePositions = calculateOutstandingBalances(
+    allProductionDays,
+    subsequentBalanceLots,
+  )
   const balancePositions = weeklyBalancePositions.filter(
     (position) => position.originDayId === productionDay.id,
   )
   const isBalanced = calculation.status === 'BALANCED'
+  const isClosed = productionDay.status === 'CLOSED'
+  const canExport =
+    productionDay.status === 'CLOSED' &&
+    isBalanced &&
+    calculation.integrityIssues.length === 0
   const sourceSheet = productionDay.lines.at(0)?.source.sheet ?? 'la hoja operativa'
+
+  const handleExport = async () => {
+    if (!canExport || exportState === 'EXPORTING') return
+
+    setExportState('EXPORTING')
+
+    try {
+      const { exportProductionDayWorkbook } = await import(
+        '../export/productionDayWorkbook'
+      )
+      await exportProductionDayWorkbook(productionDay, calculation)
+      setExportState('SUCCESS')
+    } catch {
+      setExportState('ERROR')
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -81,11 +109,57 @@ export function ProductionDayPage() {
         title={formatIsoDate(productionDay.date)}
         description={`Datos reconstruidos exclusivamente desde la hoja ${sourceSheet} y validados producto por producto.`}
         actions={
-          <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
-            {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
-          </StatusBadge>
+          <>
+            <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
+              {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+            </StatusBadge>
+            {isUserManagedDay(productionDay.date) && !isClosed ? (
+              <ActionLink
+                to={`/jornadas/${productionDay.date}/editar`}
+                variant="secondary"
+                size="sm"
+              >
+                <Pencil className="size-4" aria-hidden="true" />
+                Continuar captura
+              </ActionLink>
+            ) : null}
+            <button
+              type="button"
+              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-[0.625rem] bg-brand-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              disabled={!canExport || exportState === 'EXPORTING'}
+              onClick={handleExport}
+              title={
+                canExport
+                  ? 'Descargar jornada cerrada en formato Excel'
+                  : 'Disponible únicamente para jornadas cerradas y cuadradas'
+              }
+            >
+              {exportState === 'EXPORTING' ? (
+                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="size-4" aria-hidden="true" />
+              )}
+              {exportState === 'EXPORTING' ? 'Generando…' : 'Exportar Excel'}
+            </button>
+          </>
         }
       />
+
+      <p className="sr-only" role="status" aria-live="polite">
+        {exportState === 'SUCCESS'
+          ? 'El archivo Excel de la jornada se descargó correctamente.'
+          : exportState === 'ERROR'
+            ? 'No se pudo generar el archivo Excel. Inténtalo nuevamente.'
+            : ''}
+      </p>
+      {exportState === 'ERROR' ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800"
+        >
+          No se pudo generar el archivo Excel. Inténtalo nuevamente.
+        </div>
+      ) : null}
 
       <nav
         aria-label="Secciones de la jornada"

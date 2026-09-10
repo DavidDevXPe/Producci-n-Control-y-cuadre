@@ -9,6 +9,10 @@
 
 El Excel se interpreta como fuente operativa, no como plantilla visual.
 
+La numeración de semanas es la numeración operacional utilizada por Trabunda, no la numeración ISO. El periodo 31 AGO–06 SEP 2026 corresponde a la semana operacional 41 y el periodo 07–13 SEP 2026 a la semana operacional 42.
+
+La exportación diaria solo se habilita cuando la jornada está cerrada, el cuadre es válido y no existen observaciones de integridad. El rendimiento se exporta como indicador independiente y nunca determina por sí mismo si una jornada está cuadrada.
+
 ## Producción por turno y saldos anteriores
 
 Un saldo conserva su jornada de origen aunque se termine de procesar en una jornada posterior. Debe trazarse por familia, producto, cantidad, jornada de origen y turno que lo procesa.
@@ -86,7 +90,18 @@ Rendimiento semanal =
   × 100
 ```
 
-## Nuca Bikini
+## Referencias de Nuca
+
+La Nuca semilimpia y la Nuca Bikini son productos distintos y deben mantenerse en grupos separados:
+
+```text
+Referencia de Nuca semilimpia = materia prima total aplicable × 15%
+Referencia de Nuca Bikini = materia prima total aplicable × 7%
+```
+
+Ambos porcentajes son referencias productivas. Estar por encima o por debajo de ellos no genera una diferencia, no corrige cantidades y no determina si la jornada está cuadrada.
+
+### Nuca Bikini
 
 La Nuca Bikini es el producto obtenido al lavar y limpiar la Nuca. Este proceso se realiza únicamente cuando existe un pedido.
 
@@ -96,7 +111,7 @@ Cuando aplica:
 Referencia de Nuca Bikini = materia prima total aplicable × 7%
 ```
 
-El 7% es una referencia del proceso, no un ajuste de cuadre. Si no existe un pedido confirmado, el indicador debe mostrarse como `NO APLICA`; la ausencia de Nuca Bikini no constituye un error.
+Si no existe un pedido confirmado, el indicador de 7% debe mostrarse como `NO APLICA`; la ausencia de Nuca Bikini no constituye un error.
 
 ## Resumen semanal
 

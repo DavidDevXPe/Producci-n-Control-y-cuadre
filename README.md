@@ -20,9 +20,11 @@ El MVP es un frontend en React, TypeScript, Vite y Tailwind CSS que incluye:
 
 Los datos actuales corresponden a los cierres válidos de `MIÉRCOLES`, `JUEVES`, `VIERNES` y `SÁBADO`. `RESUMEN` aporta la comprobación semanal independiente. La hoja `DOMINGO` permanece fuera del conjunto porque conserva una fecha histórica, no registra producción de la semana y contiene errores de fórmula.
 
-La aplicación identifica la semana como parcial y no completa jornadas ni cantidades inexistentes. Los saldos pendientes se conservan por jornada de origen hasta que exista un uso posterior explícito. El procesamiento confirmado de los 44,660.00 kg de saldo del sábado durante el domingo se registra como movimiento de saldo y no como nueva producción dominical.
+La aplicación identifica el periodo 31 AGO–06 SEP como semana operacional 41, aunque corresponda a la semana ISO 36. Desde el 7 de septiembre el contexto del encabezado avanza a la semana operacional 42 (07–13 SEP). La semana histórica se presenta como parcial y no completa jornadas ni cantidades inexistentes. Los saldos pendientes se conservan por jornada de origen hasta que exista un uso posterior explícito. El procesamiento confirmado de los 44,660.00 kg de saldo del sábado durante el domingo se registra como movimiento de saldo y no como nueva producción dominical.
 
-Backend, base de datos, mantenimiento de catálogos y auditoría persistente corresponden a las siguientes etapas.
+Cada jornada cerrada y cuadrada puede descargarse desde su detalle como un archivo `.xlsx` auditable, con resumen, rendimiento y cuadre por producto. La descarga permanece bloqueada si existe una diferencia u observación de integridad.
+
+El alcance actual es de uso local por una sola persona, por lo que no requiere autenticación ni administración de usuarios. Las nuevas jornadas pueden registrarse manualmente o precargarse desde el Excel operativo. En ambos casos se revisan en una vista editable, se guardan en el navegador y solo pueden cerrarse cuando el cuadre sea exacto. El Excel importado no se envía a un servidor.
 
 ## Despliegue
 
@@ -60,6 +62,8 @@ npm run build
 | --- | --- |
 | `/` | Dashboard |
 | `/jornadas` | Listado de jornadas |
+| `/jornadas/nueva` | Captura manual o importación de una jornada desde Excel |
+| `/jornadas/:date/editar` | Continuación de un borrador local |
 | `/jornadas/:date` | Detalle de una jornada registrada; actualmente del `2026-09-02` al `2026-09-05` |
 | `/saldos` | Saldos por producto y trazabilidad |
 | `/resumen` | Resumen y validación semanal |
