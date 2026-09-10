@@ -208,6 +208,18 @@ describe('Friday and Saturday production day pages', () => {
     expect(within(productionTable).getByRole('table')).toHaveClass(
       'min-w-[88rem]',
     )
+    const columnHeaders = productionTable.querySelectorAll('thead th')
+
+    columnHeaders.forEach((header) => {
+      const classNames = [...header.classList]
+
+      expect(classNames).not.toContain('sticky')
+      expect(classNames.some((className) => /^top-/.test(className))).toBe(false)
+      expect(classNames.some((className) => /^z-/.test(className))).toBe(false)
+      expect(classNames).toContain('md:sticky')
+      expect(classNames.some((className) => /^md:top-/.test(className))).toBe(true)
+      expect(classNames.some((className) => /^md:z-/.test(className))).toBe(true)
+    })
     expect(firstColumnCells.length).toBeGreaterThan(1)
     firstColumnCells.forEach((cell) => {
       const classNames = [...cell.classList]
@@ -215,9 +227,7 @@ describe('Friday and Saturday production day pages', () => {
       expect(classNames).not.toContain('sticky')
       expect(classNames).not.toContain('left-0')
       expect(classNames.some((className) => /^z-/.test(className))).toBe(false)
-      expect(classNames).toContain('lg:sticky')
       expect(classNames).toContain('lg:left-0')
-      expect(classNames.some((className) => /^lg:z-/.test(className))).toBe(true)
     })
     const performance = screen
       .getByRole('heading', { name: 'Rendimiento productivo' })
