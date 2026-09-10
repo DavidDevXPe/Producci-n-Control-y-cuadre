@@ -193,6 +193,32 @@ describe('Friday and Saturday production day pages', () => {
       ),
     ).toBeInTheDocument()
     expect(screen.queryByText(/MIÉRCOLES/)).not.toBeInTheDocument()
+    const productionTable = screen.getByRole('region', {
+      name: 'Producción por familia, turno y concepto de cuadre',
+    })
+    const firstColumnCells = productionTable.querySelectorAll(
+      'thead tr:first-child > th:first-child, tbody th:first-child',
+    )
+
+    expect(productionTable).toHaveClass(
+      'overflow-x-auto',
+      'data-scroll-clean-edge',
+    )
+    expect(productionTable.querySelectorAll('.overflow-x-auto')).toHaveLength(0)
+    expect(within(productionTable).getByRole('table')).toHaveClass(
+      'min-w-[88rem]',
+    )
+    expect(firstColumnCells.length).toBeGreaterThan(1)
+    firstColumnCells.forEach((cell) => {
+      const classNames = [...cell.classList]
+
+      expect(classNames).not.toContain('sticky')
+      expect(classNames).not.toContain('left-0')
+      expect(classNames.some((className) => /^z-/.test(className))).toBe(false)
+      expect(classNames).toContain('lg:sticky')
+      expect(classNames).toContain('lg:left-0')
+      expect(classNames.some((className) => /^lg:z-/.test(className))).toBe(true)
+    })
     const performance = screen
       .getByRole('heading', { name: 'Rendimiento productivo' })
       .closest('section')

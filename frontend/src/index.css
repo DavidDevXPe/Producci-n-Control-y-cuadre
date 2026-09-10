@@ -383,6 +383,10 @@ summary:focus-visible,
   scrollbar-gutter: stable;
 }
 
+.data-scroll-clean-edge {
+  scrollbar-gutter: auto;
+}
+
 .erp-table th,
 .erp-table td {
   vertical-align: middle;
@@ -393,15 +397,29 @@ summary:focus-visible,
 }
 
 .sticky-column-divider {
-  box-shadow: 2px 0 0 0 var(--color-sticky-divider);
+  box-shadow: none;
 }
 
 .sticky-family-divider {
-  box-shadow: 2px 0 0 0 var(--color-family-divider);
+  box-shadow: none;
 }
 
 .sticky-row-divider {
-  box-shadow: 2px 0 0 0 var(--color-row-divider);
+  box-shadow: none;
+}
+
+@media (min-width: 64rem) {
+  .sticky-column-divider {
+    box-shadow: 2px 0 0 0 var(--color-sticky-divider);
+  }
+
+  .sticky-family-divider {
+    box-shadow: 2px 0 0 0 var(--color-family-divider);
+  }
+
+  .sticky-row-divider {
+    box-shadow: 2px 0 0 0 var(--color-row-divider);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

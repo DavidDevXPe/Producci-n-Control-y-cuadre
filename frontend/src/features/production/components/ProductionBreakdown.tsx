@@ -130,14 +130,18 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
           </p>
         </div>
       ) : null}
-      <DataTableScroll label="Producción por familia, turno y concepto de cuadre">
+      <DataTableScroll
+        label="Producción por familia, turno y concepto de cuadre"
+        showEdgeIndicators={false}
+        className="data-scroll-clean-edge"
+      >
         <table className="erp-table w-full min-w-[88rem] border-collapse text-left">
           <caption className="sr-only">
             Producción de la jornada agrupada por familia y producto
           </caption>
           <thead>
             <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-              <th scope="col" rowSpan={2} className="sticky-column-divider sticky left-0 top-14 z-50 w-[20rem] bg-slate-50 px-4 py-3 text-left align-bottom xl:top-0">
+              <th scope="col" rowSpan={2} className="sticky-column-divider w-[20rem] bg-slate-50 px-4 py-3 text-left align-bottom lg:sticky lg:left-0 lg:top-14 lg:z-50 xl:top-0">
                 Familia / producto
               </th>
               <th scope="colgroup" colSpan={3} className="sticky top-14 z-30 border-l-2 border-brand-200 bg-brand-50 px-2.5 py-2 text-center text-brand-800 xl:top-0">
@@ -176,7 +180,7 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
             return (
               <tbody key={group.familyId} className="border-b border-slate-200 last:border-0">
                 <tr className="bg-brand-50/65">
-                  <th scope="rowgroup" className="sticky-family-divider sticky left-0 z-20 bg-brand-50 px-4 py-2.5">
+                  <th scope="rowgroup" className="sticky-family-divider bg-brand-50 px-4 py-2.5 lg:sticky lg:left-0 lg:z-20">
                     <button
                       type="button"
                       onClick={() => toggleFamily(group.familyId)}
@@ -240,7 +244,7 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
                 {isExpanded
                   ? group.products.map((product) => (
                       <tr key={product.productId} className="group border-t border-slate-100 hover:bg-slate-50/80">
-                        <th scope="row" className="sticky-row-divider sticky left-0 z-10 max-w-xl bg-white px-4 py-2.5 pl-10 text-xs font-medium leading-4 text-slate-700 group-hover:bg-slate-50">
+                        <th scope="row" className="sticky-row-divider max-w-xl bg-white px-4 py-2.5 pl-10 text-xs font-medium leading-4 text-slate-700 group-hover:bg-slate-50 lg:sticky lg:left-0 lg:z-10">
                           <span className="line-clamp-2" title={product.productName}>
                             {product.productName}
                           </span>
