@@ -408,20 +408,6 @@ summary:focus-visible,
   box-shadow: none;
 }
 
-@media (min-width: 64rem) {
-  .sticky-column-divider {
-    box-shadow: 2px 0 0 0 var(--color-sticky-divider);
-  }
-
-  .sticky-family-divider {
-    box-shadow: 2px 0 0 0 var(--color-family-divider);
-  }
-
-  .sticky-row-divider {
-    box-shadow: 2px 0 0 0 var(--color-row-divider);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
