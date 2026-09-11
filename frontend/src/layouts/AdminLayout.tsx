@@ -173,7 +173,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
         </nav>
       </div>
 
-      <div className="border-t border-white/10 px-5 py-3.5">
+      <div className="h-[var(--sidebar-footer-height)] shrink-0 border-t border-white/10 px-5 py-3.5">
         <p className="text-[0.6875rem] font-semibold text-slate-400 dark:text-[#94a9b8]">
           Control y Cuadre Operativo
         </p>

@@ -101,6 +101,25 @@ function createRow(productId: string, index: number): ProductionCaptureRow | nul
   }
 }
 
+function hasSufficientCaptureData(draft: ProductionCaptureDraft) {
+  const hasRequiredTotals = [
+    draft.rawMaterialKg,
+    draft.declaredDayTotalKg,
+    draft.declaredNightTotalKg,
+    draft.declaredFinishedTotalKg,
+  ].every((value) => value.trim() !== '')
+  const hasCompleteRows =
+    draft.rows.length > 0 &&
+    draft.rows.every(
+      (row) =>
+        row.finishedKg.trim() !== '' &&
+        (draft.shiftAllocationMode === 'RECONCILED_INFERENCE' ||
+          (row.dayReportedKg.trim() !== '' && row.nightReportedKg.trim() !== '')),
+    )
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(draft.date) && hasRequiredTotals && hasCompleteRows
+}
+
 export function ProductionEntryPage() {
   const { date: editingDate } = useParams()
   const navigate = useNavigate()
@@ -169,6 +188,21 @@ export function ProductionEntryPage() {
     buildResult.inputErrors.length === 0 &&
     buildResult.calculation.status === 'BALANCED' &&
     buildResult.calculation.integrityIssues.length === 0
+  const hasSufficientData = hasSufficientCaptureData(draft)
+  const footerStatus = canClose
+    ? {
+        title: 'La jornada está lista para cerrar.',
+        description: 'El cuadre es correcto y no existen diferencias pendientes.',
+      }
+    : hasSufficientData
+      ? {
+          title: 'La jornada todavía requiere revisión.',
+          description: 'Revisa el cuadre y las validaciones pendientes antes de cerrar.',
+        }
+      : {
+          title: 'Completa los datos requeridos para validar la jornada.',
+          description: 'Puedes guardar un borrador válido y continuar después.',
+        }
   const yieldStatus = getYieldStatus(buildResult.calculation.performance.percent)
   const yieldStyles = yieldVisualStyles[yieldStatus.colorVariant]
   const importedBalanceTotal = sumImportedBalances(draft.importedBalances)
@@ -312,7 +346,7 @@ export function ProductionEntryPage() {
   }
 
   return (
-    <div className="space-y-5 pb-24">
+    <div className="space-y-5 pb-[calc(var(--entry-action-bar-height)+1rem)] [--entry-action-bar-height:8.75rem] sm:[--entry-action-bar-height:4.25rem] xl:[--entry-action-bar-height:var(--sidebar-footer-height)]">
       <Link
         to="/jornadas"
         className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-800"
@@ -670,13 +704,13 @@ export function ProductionEntryPage() {
         </div>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgb(15_23_42/0.08)] backdrop-blur xl:left-64">
-        <div className="mx-auto flex max-w-[88rem] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 py-3 shadow-[0_-8px_30px_rgb(15_23_42/0.08)] backdrop-blur dark:border-[#2b5268] dark:bg-[#0a1a27] xl:left-64 xl:h-[var(--sidebar-footer-height)] xl:py-0">
+        <div className="mx-auto flex w-full max-w-[92.5rem] flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6 xl:h-full xl:px-7 2xl:px-8">
+          <div className="flex items-center gap-2" role="status" aria-live="polite">
             {canClose ? <CheckCircle2 className="size-5 text-emerald-600" aria-hidden="true" /> : <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />}
             <div>
-              <p className="text-xs font-bold text-slate-900">{canClose ? 'Cuadre correcto: 0.00 kg' : 'La jornada todavía requiere revisión'}</p>
-              <p className="text-[0.6875rem] text-slate-500">Puedes guardar un borrador válido y continuar después.</p>
+              <p className="text-xs font-bold text-slate-900 dark:text-[#f3f8fb]">{footerStatus.title}</p>
+              <p className="text-[0.6875rem] text-slate-500 dark:text-[#a5bed0]">{footerStatus.description}</p>
             </div>
           </div>
           <div className="flex gap-2">

@@ -39,6 +39,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --sidebar-width: 16rem;
+  --sidebar-footer-height: 4rem;
 }
 
 html.dark {
