@@ -158,8 +158,8 @@ describe('Friday and Saturday production day pages', () => {
     expectMetricValue('Materia prima', '488,476.00 kg')
     expectMetricValue('Producto terminado', '456,983.00 kg')
     expectMetricValue('Saldo al cierre', '44,660.00 kg')
-    expectMetricValue('Producción propia Día', '185,620.00 kg')
-    expectMetricValue('Producción propia Noche', '219,800.00 kg')
+    expectMetricValue('Producción Día', '185,620.00 kg')
+    expectMetricValue('Producción Noche', '219,800.00 kg')
     expectMetricValue('Tratamiento', '6,903.00 kg')
     expectMetricValue('Saldo anterior procesado', '10,820.00 kg')
     expectMetricValue('Diferencia', '0.00 kg')
@@ -185,8 +185,8 @@ describe('Friday and Saturday production day pages', () => {
     expect(
       within(closingBalance!).getByText('Saldo pendiente actual'),
     ).toBeInTheDocument()
-    expect(screen.getByText('Producción propia Día')).toBeInTheDocument()
-    expect(screen.getByText('Producción propia Noche')).toBeInTheDocument()
+    expect(screen.getAllByText('Producción Día').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Producción Noche').length).toBeGreaterThan(0)
     expect(
       screen.getByText(
         'Los totales de Día y Noche son explícitos. El reparto por producto fue reconstruido para conciliar los totales cuando el origen no identifica el turno.',
@@ -206,7 +206,7 @@ describe('Friday and Saturday production day pages', () => {
     )
     expect(productionTable.querySelectorAll('.overflow-x-auto')).toHaveLength(0)
     expect(within(productionTable).getByRole('table')).toHaveClass(
-      'min-w-[88rem]',
+      'min-w-[100rem]',
     )
     const columnHeaders = productionTable.querySelectorAll('thead th')
 

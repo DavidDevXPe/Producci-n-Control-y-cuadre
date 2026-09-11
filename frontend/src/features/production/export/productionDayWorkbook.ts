@@ -1,6 +1,6 @@
 import { Workbook, type Cell, type Row, type Worksheet } from 'exceljs'
 import { formatIsoDate } from '../../../utils/formatters'
-import { calculateProductionDay, toKilograms } from '../model/calculations'
+import { calculateProductionDay, sumKg100, toKilograms } from '../model/calculations'
 import type {
   ProductionDay,
   ProductionDayCalculation,
@@ -96,11 +96,14 @@ function addProductRow(
     nightAdjustment,
     toKilograms(product.night.previousBalanceProcessedKg100),
     { formula: `G${rowNumber}+H${rowNumber}-I${rowNumber}`, result: toKilograms(product.night.ownProductionKg100) },
+    toKilograms(product.tunnel.DAY.ownProductionKg100),
+    toKilograms(product.tunnel.NIGHT.ownProductionKg100),
+    { formula: `K${rowNumber}+L${rowNumber}`, result: toKilograms(sumKg100([product.tunnel.DAY.ownProductionKg100, product.tunnel.NIGHT.ownProductionKg100])) },
     toKilograms(product.treatmentKg100),
     toKilograms(product.newClosingBalanceKg100),
-    { formula: `F${rowNumber}+J${rowNumber}+K${rowNumber}+L${rowNumber}`, result: toKilograms(product.expectedFinishedKg100) },
+    { formula: `F${rowNumber}+J${rowNumber}+M${rowNumber}+N${rowNumber}+O${rowNumber}`, result: toKilograms(product.expectedFinishedKg100) },
     toKilograms(product.declaredFinishedKg100),
-    { formula: `M${rowNumber}-N${rowNumber}`, result: toKilograms(product.differenceKg100) },
+    { formula: `P${rowNumber}-Q${rowNumber}`, result: toKilograms(product.differenceKg100) },
   ]
 
   row.height = 20
@@ -124,7 +127,7 @@ function addTotalsRow(
   row.getCell(1).value = 'TOTAL'
   worksheet.mergeCells(rowNumber, 1, rowNumber, 2)
 
-  for (let column = 3; column <= 15; column += 1) {
+  for (let column = 3; column <= 18; column += 1) {
     const letter = worksheet.getColumn(column).letter
     row.getCell(column).value = {
       formula: `SUM(${letter}${firstDetailRow}:${letter}${lastDetailRow})`,
@@ -194,6 +197,9 @@ export function buildProductionDayWorkbook(
     { key: 'nightAdjustment', width: 14 },
     { key: 'nightBalance', width: 15 },
     { key: 'nightOwn', width: 15 },
+    { key: 'tunnelDay', width: 15 },
+    { key: 'tunnelNight', width: 15 },
+    { key: 'tunnelTotal', width: 15 },
     { key: 'treatment', width: 15 },
     { key: 'closingBalance', width: 15 },
     { key: 'expected', width: 17 },
@@ -201,7 +207,7 @@ export function buildProductionDayWorkbook(
     { key: 'difference', width: 15 },
   ]
 
-  worksheet.mergeCells('A1:O2')
+  worksheet.mergeCells('A1:R2')
   const titleCell = worksheet.getCell('A1')
   titleCell.value = 'TRABUNDA · PARTE DE PRODUCCIÓN'
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
@@ -210,13 +216,13 @@ export function buildProductionDayWorkbook(
   worksheet.getRow(1).height = 24
   worksheet.getRow(2).height = 14
 
-  worksheet.mergeCells('A3:O3')
+  worksheet.mergeCells('A3:R3')
   const subtitleCell = worksheet.getCell('A3')
   subtitleCell.value = `${formatIsoDate(productionDay.date)} · Jornada cerrada y cuadrada`
   subtitleCell.font = { color: { argb: BLUE }, bold: true, size: 11 }
   subtitleCell.alignment = { vertical: 'middle' }
 
-  worksheet.mergeCells('A5:O5')
+  worksheet.mergeCells('A5:R5')
   worksheet.getCell('A5').value = 'RESUMEN DE CIERRE'
   styleSectionTitle(worksheet.getRow(5))
 
@@ -236,6 +242,7 @@ export function buildProductionDayWorkbook(
   setSummaryMetric(worksheet, 13, 'Saldo anterior procesado', toKilograms(calculation.processedPreviousBalanceKg100), KG_FORMAT)
   setSummaryMetric(worksheet, 14, 'Saldo anterior pendiente', toKilograms(calculation.pendingPreviousBalanceKg100), KG_FORMAT)
   setSummaryMetric(worksheet, 15, 'Tratamiento', toKilograms(calculation.treatmentKg100), KG_FORMAT)
+  setSummaryMetric(worksheet, 16, 'Túnel', toKilograms(calculation.tunnel.totalKg100), KG_FORMAT)
 
   const statusCell = worksheet.getCell('B6')
   statusCell.font = { bold: true, color: { argb: GREEN } }
@@ -252,7 +259,7 @@ export function buildProductionDayWorkbook(
     color: { argb: calculation.differenceKg100 === 0 ? GREEN : RED },
   }
 
-  worksheet.mergeCells('A17:O17')
+  worksheet.mergeCells('A17:R17')
   worksheet.getCell('A17').value = 'DETALLE POR FAMILIA Y PRODUCTO'
   styleSectionTitle(worksheet.getRow(17))
 
@@ -268,6 +275,9 @@ export function buildProductionDayWorkbook(
     'Ajuste Noche',
     'Saldo ant. Noche',
     'Propio Noche',
+    'Túnel Día',
+    'Túnel Noche',
+    'Total Túnel',
     'Tratamiento',
     'Saldo final',
     'Esperado',
@@ -286,9 +296,9 @@ export function buildProductionDayWorkbook(
 
   worksheet.autoFilter = {
     from: { row: 18, column: 1 },
-    to: { row: lastDetailRow, column: 15 },
+    to: { row: lastDetailRow, column: 18 },
   }
-  worksheet.pageSetup.printArea = `A1:O${totalsRow}`
+  worksheet.pageSetup.printArea = `A1:R${totalsRow}`
   worksheet.pageSetup.printTitlesRow = '1:18'
 
   return workbook

@@ -122,8 +122,12 @@ export function ReconciliationPanel({ calculation }: ReconciliationPanelProps) {
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
             Producción procesada
           </p>
-          <CalculationRow label="Turno Día" value={calculation.day.ownProductionKg100} />
-          <CalculationRow label="Turno Noche" value={calculation.night.ownProductionKg100} />
+          <CalculationRow label="Reporte propio Día" value={calculation.day.ownProductionKg100} />
+          <CalculationRow label="Túnel Día" value={calculation.tunnel.dayKg100} />
+          <CalculationRow label="Producción Día" value={calculation.productiveDayKg100} emphasized />
+          <CalculationRow label="Reporte propio Noche" value={calculation.night.ownProductionKg100} />
+          <CalculationRow label="Túnel Noche" value={calculation.tunnel.nightKg100} />
+          <CalculationRow label="Producción Noche" value={calculation.productiveNightKg100} emphasized />
           <CalculationRow label="Tratamiento" value={calculation.treatmentKg100} />
           <div className="mt-1 border-t border-slate-200">
             <CalculationRow
@@ -199,9 +203,9 @@ export function ReconciliationPanel({ calculation }: ReconciliationPanelProps) {
       <details className="mt-4 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-600">
         <summary className="cursor-pointer font-bold text-brand-800">Ver cálculo</summary>
         <p className="mt-2 leading-6">
-          Saldo al cierre calculado = Producto terminado − Día − Noche −
-          Tratamiento. La diferencia compara ese resultado con el saldo al cierre
-          declarado.
+          Saldo al cierre calculado = Producto terminado − Producción Día −
+          Producción Noche − Tratamiento. Cada producción por turno incluye
+          Reporte − saldo anterior + Túnel, sin contar Túnel dos veces.
         </p>
       </details>
     </SectionCard>

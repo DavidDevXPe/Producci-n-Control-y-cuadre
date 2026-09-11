@@ -53,7 +53,10 @@ interface ProductionDataValue {
   setActiveWeekNumber: (weekNumber: number) => void
   findProductionDay: (date: string) => ProductionDay | undefined
   isUserManagedDay: (date: string) => boolean
-  upsertProductionDay: (productionDay: ProductionDay) => void
+  upsertProductionDay: (
+    productionDay: ProductionDay,
+    options?: { allowReplace?: boolean },
+  ) => void
 }
 
 const weekdayFormatter = new Intl.DateTimeFormat('es-PE', {
@@ -265,7 +268,10 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
     }
   }, [])
 
-  const upsertProductionDay = useCallback((productionDay: ProductionDay) => {
+  const upsertProductionDay = useCallback((
+    productionDay: ProductionDay,
+    options: { allowReplace?: boolean } = {},
+  ) => {
     const week = getOperationalWeekContextForIsoDate(productionDay.date)
     const temporalState = getOperationalWeekState(
       week,
@@ -277,22 +283,32 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
       )
     }
 
-    setUserDays((current) => {
-      const next = sortDays([
-        ...current.filter((day) => day.date !== productionDay.date),
-        productionDay,
-      ])
+    const existingDay = userDays.find(
+      (day) => day.date === productionDay.date,
+    )
+    if (existingDay?.status === 'CLOSED') {
+      throw new Error('Una jornada cerrada es de solo lectura y no puede modificarse.')
+    }
+    if (existingDay && !options.allowReplace) {
+      throw new Error(
+        'Ya existe una jornada para esta fecha. Abre la jornada existente para continuar.',
+      )
+    }
 
-      try {
-        window.localStorage.setItem(DAYS_STORAGE_KEY, JSON.stringify(next))
-      } catch {
-        throw new Error('El navegador no permitió guardar la jornada localmente.')
-      }
+    const next = sortDays([
+      ...userDays.filter((day) => day.date !== productionDay.date),
+      productionDay,
+    ])
 
-      return next
-    })
+    try {
+      window.localStorage.setItem(DAYS_STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      throw new Error('El navegador no permitió guardar la jornada localmente.')
+    }
+
+    setUserDays(next)
     setActiveWeekNumber(week.number)
-  }, [setActiveWeekNumber])
+  }, [setActiveWeekNumber, userDays])
 
   const value = useMemo<ProductionDataValue>(() => {
     const currentWeek = getOperationalWeekContextByNumber(currentWeekNumber)

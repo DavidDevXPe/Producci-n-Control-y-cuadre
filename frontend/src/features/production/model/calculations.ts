@@ -23,14 +23,26 @@ import type {
   WeeklySummary,
   WeeklySummaryPeriod,
 } from './types'
+import {
+  ALETA_MP_SHARE_BPS,
+  GENERAL_MIN_YIELD_BPS,
+  MANTO_MP_SHARE_BPS,
+  NUCA_BIKINI_REFERENCE_BPS,
+  NUCA_MP_SHARE_BPS,
+  REJO_MP_SHARE_BPS,
+} from './businessConfig'
 
 export const KG100_SCALE = 100
 export const BASIS_POINTS_SCALE = 10_000
-export const DEFAULT_PERFORMANCE_REFERENCE_BPS = 8_000
-export const DEFAULT_NUCA_SEMILIMPIA_REFERENCE_BPS = 1_500
-export const DEFAULT_NUCA_BIKINI_REFERENCE_BPS = 700
+export const DEFAULT_PERFORMANCE_REFERENCE_BPS = GENERAL_MIN_YIELD_BPS
+export const DEFAULT_NUCA_SEMILIMPIA_REFERENCE_BPS = NUCA_MP_SHARE_BPS
+export const DEFAULT_NUCA_BIKINI_REFERENCE_BPS = NUCA_BIKINI_REFERENCE_BPS
 
 const ZERO_KG100 = 0 as Kg100
+const EMPTY_SHIFT_ENTRY: ShiftProductEntry = {
+  reportedKg100: ZERO_KG100,
+  adjustments: [],
+}
 
 /** Creates a domain quantity from an already-scaled integer. */
 export function kg100(value: number): Kg100 {
@@ -128,6 +140,7 @@ function balanceProcessedForProduct(
 function calculateProduct(
   productionDay: ProductionDay,
   line: ProductionLine,
+  tunnelEnabled: boolean,
 ): ProductReconciliation {
   const day = calculateShiftEntry(
     line.shifts.DAY,
@@ -137,9 +150,25 @@ function calculateProduct(
     line.shifts.NIGHT,
     balanceProcessedForProduct(productionDay, line, 'NIGHT'),
   )
-  const expectedFinishedKg100 = sumKg100([
+  const tunnel = {
+    DAY: calculateShiftEntry(
+      tunnelEnabled ? line.tunnelShifts?.DAY ?? EMPTY_SHIFT_ENTRY : EMPTY_SHIFT_ENTRY,
+    ),
+    NIGHT: calculateShiftEntry(
+      tunnelEnabled ? line.tunnelShifts?.NIGHT ?? EMPTY_SHIFT_ENTRY : EMPTY_SHIFT_ENTRY,
+    ),
+  }
+  const productiveDayKg100 = sumKg100([
     day.ownProductionKg100,
+    tunnel.DAY.ownProductionKg100,
+  ])
+  const productiveNightKg100 = sumKg100([
     night.ownProductionKg100,
+    tunnel.NIGHT.ownProductionKg100,
+  ])
+  const expectedFinishedKg100 = sumKg100([
+    productiveDayKg100,
+    productiveNightKg100,
     line.treatmentKg100,
     line.newClosingBalanceKg100,
   ])
@@ -152,6 +181,9 @@ function calculateProduct(
     shiftBreakdownConfidence: line.shiftBreakdownConfidence,
     day,
     night,
+    tunnel,
+    productiveDayKg100,
+    productiveNightKg100,
     treatmentKg100: line.treatmentKg100,
     newClosingBalanceKg100: line.newClosingBalanceKg100,
     expectedFinishedKg100,
@@ -282,6 +314,17 @@ export function calculateNucaBikiniReference(
   )
 }
 
+function isTunnelEnabled(productionDay: ProductionDay): boolean {
+  return (
+    productionDay.hasTunnelProduction ??
+    productionDay.lines.some(
+      (line) =>
+        (line.tunnelShifts?.DAY.reportedKg100 ?? ZERO_KG100) > 0 ||
+        (line.tunnelShifts?.NIGHT.reportedKg100 ?? ZERO_KG100) > 0,
+    )
+  )
+}
+
 export function isNucaWashAuthorized(productionDay: ProductionDay): boolean {
   const authorization = productionDay.nucaWashAuthorization
 
@@ -391,6 +434,18 @@ function collectDayIntegrityIssues(
       'El reporte del turno Noche',
       { productId: line.productId, shift: 'NIGHT' },
     )
+    if (isTunnelEnabled(productionDay)) {
+      validateNonNegative(
+        line.tunnelShifts?.DAY.reportedKg100 ?? ZERO_KG100,
+        'El Túnel del turno Día',
+        { productId: line.productId, shift: 'DAY' },
+      )
+      validateNonNegative(
+        line.tunnelShifts?.NIGHT.reportedKg100 ?? ZERO_KG100,
+        'El Túnel del turno Noche',
+        { productId: line.productId, shift: 'NIGHT' },
+      )
+    }
     validateNonNegative(line.treatmentKg100, 'El tratamiento', {
       productId: line.productId,
     })
@@ -426,34 +481,43 @@ function collectDayIntegrityIssues(
 
   const adjustmentIds = new Set<string>()
   for (const line of productionDay.lines) {
-    for (const shift of ['DAY', 'NIGHT'] as const) {
-      for (const adjustment of line.shifts[shift].adjustments) {
-        if (
-          adjustment.kg100 < 0 ||
-          !adjustment.reason.trim() ||
-          !adjustment.userId.trim() ||
-          Number.isNaN(Date.parse(adjustment.createdAt))
-        ) {
-          issues.push(
-            dayIssue({
-              code: 'INVALID_ADJUSTMENT_METADATA',
-              message: `El ajuste ${adjustment.id} requiere cantidad positiva, motivo, usuario y fecha válida.`,
-              productId: line.productId,
-              shift,
-            }),
-          )
+    const stages = isTunnelEnabled(productionDay)
+      ? (['REPORT', 'TUNNEL'] as const)
+      : (['REPORT'] as const)
+    for (const stage of stages) {
+      for (const shift of ['DAY', 'NIGHT'] as const) {
+        const entry =
+          stage === 'REPORT'
+            ? line.shifts[shift]
+            : line.tunnelShifts?.[shift] ?? EMPTY_SHIFT_ENTRY
+        for (const adjustment of entry.adjustments) {
+          if (
+            adjustment.kg100 < 0 ||
+            !adjustment.reason.trim() ||
+            !adjustment.userId.trim() ||
+            Number.isNaN(Date.parse(adjustment.createdAt))
+          ) {
+            issues.push(
+              dayIssue({
+                code: 'INVALID_ADJUSTMENT_METADATA',
+                message: `El ajuste ${adjustment.id} requiere cantidad positiva, motivo, usuario y fecha válida.`,
+                productId: line.productId,
+                shift,
+              }),
+            )
+          }
+          if (adjustmentIds.has(adjustment.id)) {
+            issues.push(
+              dayIssue({
+                code: 'DUPLICATE_ADJUSTMENT_ID',
+                message: `El ajuste ${adjustment.id} está duplicado.`,
+                productId: line.productId,
+                shift,
+              }),
+            )
+          }
+          adjustmentIds.add(adjustment.id)
         }
-        if (adjustmentIds.has(adjustment.id)) {
-          issues.push(
-            dayIssue({
-              code: 'DUPLICATE_ADJUSTMENT_ID',
-              message: `El ajuste ${adjustment.id} está duplicado.`,
-              productId: line.productId,
-              shift,
-            }),
-          )
-        }
-        adjustmentIds.add(adjustment.id)
       }
     }
   }
@@ -591,8 +655,9 @@ function collectDayIntegrityIssues(
 export function calculateProductionDay(
   productionDay: ProductionDay,
 ): ProductionDayCalculation {
+  const tunnelEnabled = isTunnelEnabled(productionDay)
   const products = productionDay.lines.map((line) =>
-    calculateProduct(productionDay, line),
+    calculateProduct(productionDay, line, tunnelEnabled),
   )
   const day = calculateShift(
     'DAY',
@@ -604,9 +669,32 @@ export function calculateProductionDay(
     products,
     productionDay.declaredShiftTotalsKg100.NIGHT,
   )
-  const ownTurnProductionKg100 = sumKg100([
+  const reportOwnProductionKg100 = sumKg100([
     day.ownProductionKg100,
     night.ownProductionKg100,
+  ])
+  const tunnelDayKg100 = sumKg100(
+    products.map((product) => product.tunnel.DAY.ownProductionKg100),
+  )
+  const tunnelNightKg100 = sumKg100(
+    products.map((product) => product.tunnel.NIGHT.ownProductionKg100),
+  )
+  const tunnel = {
+    dayKg100: tunnelDayKg100,
+    nightKg100: tunnelNightKg100,
+    totalKg100: sumKg100([tunnelDayKg100, tunnelNightKg100]),
+  }
+  const productiveDayKg100 = sumKg100([
+    day.ownProductionKg100,
+    tunnel.dayKg100,
+  ])
+  const productiveNightKg100 = sumKg100([
+    night.ownProductionKg100,
+    tunnel.nightKg100,
+  ])
+  const ownTurnProductionKg100 = sumKg100([
+    productiveDayKg100,
+    productiveNightKg100,
   ])
   const treatmentKg100 = sumKg100(
     products.map((product) => product.treatmentKg100),
@@ -660,6 +748,10 @@ export function calculateProductionDay(
   return {
     day,
     night,
+    reportOwnProductionKg100,
+    tunnel,
+    productiveDayKg100,
+    productiveNightKg100,
     ownTurnProductionKg100,
     treatmentKg100,
     newClosingBalanceKg100,
@@ -804,10 +896,10 @@ export function calculateRawMaterialDistribution(
   rawMaterialKg100: Kg100,
 ): RawMaterialDistribution {
   return {
-    tubeKg100: applyBasisPoints(rawMaterialKg100, 5_000),
-    aletaKg100: applyBasisPoints(rawMaterialKg100, 2_000),
-    rejosKg100: applyBasisPoints(rawMaterialKg100, 1_500),
-    nucasKg100: applyBasisPoints(rawMaterialKg100, 1_500),
+    tubeKg100: applyBasisPoints(rawMaterialKg100, MANTO_MP_SHARE_BPS),
+    aletaKg100: applyBasisPoints(rawMaterialKg100, ALETA_MP_SHARE_BPS),
+    rejosKg100: applyBasisPoints(rawMaterialKg100, REJO_MP_SHARE_BPS),
+    nucasKg100: applyBasisPoints(rawMaterialKg100, NUCA_MP_SHARE_BPS),
   }
 }
 

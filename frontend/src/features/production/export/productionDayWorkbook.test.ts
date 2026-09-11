@@ -23,12 +23,15 @@ describe('production day workbook', () => {
     expect(worksheet?.getCell('F19').value).toMatchObject({
       formula: 'C19+D19-E19',
     })
-    expect(worksheet?.getCell('O19').value).toMatchObject({
-      formula: 'M19-N19',
+    expect(worksheet?.getCell('M19').value).toMatchObject({
+      formula: 'K19+L19',
+    })
+    expect(worksheet?.getCell('R19').value).toMatchObject({
+      formula: 'P19-Q19',
     })
     expect(worksheet?.autoFilter).toEqual({
       from: { row: 18, column: 1 },
-      to: { row: 18 + calculation.products.length, column: 15 },
+      to: { row: 18 + calculation.products.length, column: 18 },
     })
 
     const exportedBuffer = await workbook.xlsx.writeBuffer()

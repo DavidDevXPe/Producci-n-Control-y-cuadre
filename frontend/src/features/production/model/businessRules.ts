@@ -1,0 +1,661 @@
+import {
+  ALETA_MP_SHARE_BPS,
+  ALETA_TARGET,
+  ALETA_TARGET_BPS,
+  ANILLAS_YIELD_RATE,
+  GENERAL_MIN_YIELD,
+  MANTO_MP_SHARE_BPS,
+  NUCA_BIKINI_REFERENCE_BPS,
+  NUCA_MP_SHARE_BPS,
+  NUCA_TARGET,
+  NUCA_TARGET_BPS,
+  REJO_MP_SHARE_BPS,
+  REJO_REPRODUCTOR_TARGET,
+  REJO_REPRODUCTOR_TARGET_BPS,
+} from './businessConfig'
+import { applyBasisPoints, kg100, sumKg100 } from './calculations'
+import type {
+  Kg100,
+  ProductionDay,
+  ProductionDayCalculation,
+  ProductReconciliation,
+  SummaryGroupId,
+} from './types'
+
+export type FamilyYieldKey =
+  | 'ALETA'
+  | 'REJO_REPRODUCTOR'
+  | 'NUCA'
+  | 'MANTO'
+
+export type FamilyYieldStatus =
+  | 'BELOW_TARGET'
+  | 'COMPLIES'
+  | 'INTEGRITY_ERROR'
+  | 'NO_TARGET'
+
+export interface FamilyYieldProjection {
+  key: FamilyYieldKey
+  label: string
+  rawMaterialKg100: Kg100
+  reportProductionKg100: Kg100
+  tunnelKg100: Kg100
+  productionAfterTunnelKg100: Kg100
+  productionBeforeClosingKg100: Kg100
+  treatmentKg100: Kg100
+  closingBalanceKg100: Kg100
+  projectedProductionKg100: Kg100
+  reportYieldPercent: number | null
+  afterTunnelYieldPercent: number | null
+  yieldBeforePercent: number | null
+  projectedYieldPercent: number | null
+  targetPercent: number | null
+  targetKg100: Kg100 | null
+  missingToTargetKg100: Kg100
+  capacityToOneHundredKg100: Kg100
+  excessKg100: Kg100
+  status: FamilyYieldStatus
+}
+
+export interface ReportFamilySubtotal {
+  key: string
+  label: string
+  productIds: readonly string[]
+  dayKg100: Kg100
+  nightKg100: Kg100
+  totalKg100: Kg100
+  preliminaryYieldPercent: number | null
+  targetPercent: number | null
+  missingToTargetKg100: Kg100
+  status: FamilyYieldStatus
+}
+
+export interface RejoReproductorAllocation {
+  jointRawMaterialKg100: Kg100
+  rejoOutputKg100: Kg100
+  reproductorOutputKg100: Kg100
+  rejoRawMaterialKg100: Kg100
+  reproductorRawMaterialKg100: Kg100
+  sharedYieldPercent: number | null
+}
+
+export interface MantoAnillasAllocation {
+  tubeRawMaterialKg100: Kg100
+  anillasOutputKg100: Kg100
+  anillasRawMaterialKg100: Kg100
+  mantoRawMaterialKg100: Kg100
+  anillasRawMaterialExcessKg100: Kg100
+}
+
+export interface ProductionBusinessSummary {
+  generalYieldPercent: number | null
+  finishedKg100: Kg100
+  families: readonly FamilyYieldProjection[]
+  rejoReproductor: RejoReproductorAllocation
+  mantoAnillas: MantoAnillasAllocation
+  nucaBikiniReferenceKg100: Kg100 | null
+}
+
+export interface ClosureMessage {
+  code: string
+  message: string
+  familyKey?: FamilyYieldKey
+}
+
+export interface ProductionClosureValidation {
+  canClose: boolean
+  blockers: readonly ClosureMessage[]
+  warnings: readonly ClosureMessage[]
+}
+
+interface ClosureValidationOptions {
+  requiredDataComplete: boolean
+  inputErrors?: readonly string[]
+}
+
+const ZERO = kg100(0)
+const REJO_GROUPS: readonly SummaryGroupId[] = [
+  'REJOS_SPECIAL',
+  'REJOS',
+  'REPRODUCTOR',
+]
+const NUCA_GROUPS: readonly SummaryGroupId[] = [
+  'NUCA_SEMILIMPIA',
+  'NUCA_BIKINI',
+]
+
+function percent(numeratorKg100: Kg100, denominatorKg100: Kg100) {
+  return denominatorKg100 === 0
+    ? null
+    : (numeratorKg100 / denominatorKg100) * 100
+}
+
+function productGroup(
+  productionDay: ProductionDay,
+  product: ProductReconciliation,
+): SummaryGroupId | undefined {
+  return productionDay.lines.find(
+    (line) => line.productId === product.productId,
+  )?.summaryGroupId
+}
+
+function productsForGroups(
+  productionDay: ProductionDay,
+  calculation: ProductionDayCalculation,
+  groups: readonly SummaryGroupId[],
+) {
+  const groupSet = new Set(groups)
+  return calculation.products.filter((product) => {
+    const group = productGroup(productionDay, product)
+    return group !== undefined && groupSet.has(group)
+  })
+}
+
+function outputParts(products: readonly ProductReconciliation[]) {
+  const reportProductionKg100 = sumKg100(
+    products.flatMap((product) => [
+      product.day.ownProductionKg100,
+      product.night.ownProductionKg100,
+    ]),
+  )
+  const tunnelKg100 = sumKg100(
+    products.flatMap((product) => [
+      product.tunnel.DAY.ownProductionKg100,
+      product.tunnel.NIGHT.ownProductionKg100,
+    ]),
+  )
+  const productionAfterTunnelKg100 = sumKg100([
+    reportProductionKg100,
+    tunnelKg100,
+  ])
+  const treatmentKg100 = sumKg100(
+    products.map((product) => product.treatmentKg100),
+  )
+  const closingBalanceKg100 = sumKg100(
+    products.map((product) => product.newClosingBalanceKg100),
+  )
+  const productionBeforeClosingKg100 = sumKg100([
+    productionAfterTunnelKg100,
+    treatmentKg100,
+  ])
+
+  return {
+    reportProductionKg100,
+    tunnelKg100,
+    productionAfterTunnelKg100,
+    treatmentKg100,
+    closingBalanceKg100,
+    productionBeforeClosingKg100,
+    projectedProductionKg100: sumKg100([
+      productionBeforeClosingKg100,
+      closingBalanceKg100,
+    ]),
+  }
+}
+
+function familyProjection(
+  key: FamilyYieldKey,
+  label: string,
+  rawMaterialKg100: Kg100,
+  parts: ReturnType<typeof outputParts>,
+  target: { ratio: number; basisPoints: number } | null,
+): FamilyYieldProjection {
+  const targetKg100 = target
+    ? applyBasisPoints(rawMaterialKg100, target.basisPoints)
+    : null
+  const excessKg100 = kg100(
+    Math.max(parts.projectedProductionKg100 - rawMaterialKg100, 0),
+  )
+  const missingToTargetKg100 = kg100(
+    Math.max((targetKg100 ?? ZERO) - parts.projectedProductionKg100, 0),
+  )
+  const status: FamilyYieldStatus =
+    excessKg100 > 0
+      ? 'INTEGRITY_ERROR'
+      : targetKg100 !== null && parts.projectedProductionKg100 < targetKg100
+        ? 'BELOW_TARGET'
+        : targetKg100 !== null
+          ? 'COMPLIES'
+          : 'NO_TARGET'
+
+  return {
+    key,
+    label,
+    rawMaterialKg100,
+    reportProductionKg100: parts.reportProductionKg100,
+    tunnelKg100: parts.tunnelKg100,
+    productionAfterTunnelKg100: parts.productionAfterTunnelKg100,
+    productionBeforeClosingKg100: parts.productionBeforeClosingKg100,
+    treatmentKg100: parts.treatmentKg100,
+    closingBalanceKg100: parts.closingBalanceKg100,
+    projectedProductionKg100: parts.projectedProductionKg100,
+    reportYieldPercent: percent(parts.reportProductionKg100, rawMaterialKg100),
+    afterTunnelYieldPercent: percent(
+      parts.productionAfterTunnelKg100,
+      rawMaterialKg100,
+    ),
+    yieldBeforePercent: percent(
+      parts.productionBeforeClosingKg100,
+      rawMaterialKg100,
+    ),
+    projectedYieldPercent: percent(
+      parts.projectedProductionKg100,
+      rawMaterialKg100,
+    ),
+    targetPercent: target ? target.ratio * 100 : null,
+    targetKg100,
+    missingToTargetKg100,
+    capacityToOneHundredKg100: kg100(
+      Math.max(rawMaterialKg100 - parts.productionBeforeClosingKg100, 0),
+    ),
+    excessKg100,
+    status,
+  }
+}
+
+function operationalFamily(line: ProductionDay['lines'][number]) {
+  if (line.summaryGroupId === 'ALETA') {
+    return { key: 'ALETA', label: 'Aleta cruda' }
+  }
+  if (line.summaryGroupId === 'MANTO') {
+    return { key: 'MANTO', label: 'Manto crudo' }
+  }
+  if (line.summaryGroupId === 'ANILLAS') {
+    return { key: 'ANILLAS', label: 'Anillas' }
+  }
+  if (REJO_GROUPS.includes(line.summaryGroupId)) {
+    return { key: 'REJO_REPRODUCTOR', label: 'Rejo + Reproductor' }
+  }
+  if (NUCA_GROUPS.includes(line.summaryGroupId)) {
+    return { key: 'NUCA', label: 'Nuca' }
+  }
+
+  return { key: line.familyId, label: line.familyName }
+}
+
+/** Report-only family control. Tunnel, treatment and closing balances are intentionally excluded. */
+export function calculateReportFamilySubtotals(
+  productionDay: ProductionDay,
+): readonly ReportFamilySubtotal[] {
+  const buckets = new Map<
+    string,
+    {
+      label: string
+      productIds: string[]
+      dayKg100: Kg100
+      nightKg100: Kg100
+    }
+  >()
+
+  for (const line of productionDay.lines) {
+    const group = operationalFamily(line)
+    const current = buckets.get(group.key) ?? {
+      label: group.label,
+      productIds: [],
+      dayKg100: ZERO,
+      nightKg100: ZERO,
+    }
+    current.productIds.push(line.productId)
+    current.dayKg100 = kg100(
+      current.dayKg100 + line.shifts.DAY.reportedKg100,
+    )
+    current.nightKg100 = kg100(
+      current.nightKg100 + line.shifts.NIGHT.reportedKg100,
+    )
+    buckets.set(group.key, current)
+  }
+
+  const rawMaterialKg100 = productionDay.declaredRawMaterialKg100
+  const anillasOutputKg100 = sumKg100(
+    productionDay.lines
+      .filter((line) => line.summaryGroupId === 'ANILLAS')
+      .flatMap((line) => [
+        line.shifts.DAY.reportedKg100,
+        line.shifts.NIGHT.reportedKg100,
+      ]),
+  )
+  const preliminaryMantoRawKg100 = kg100(
+    Math.max(
+      applyBasisPoints(rawMaterialKg100, MANTO_MP_SHARE_BPS) -
+        Math.round(anillasOutputKg100 / ANILLAS_YIELD_RATE),
+      0,
+    ),
+  )
+
+  return [...buckets.entries()].map(([key, bucket]) => {
+    const totalKg100 = sumKg100([bucket.dayKg100, bucket.nightKg100])
+    const configured =
+      key === 'ALETA'
+        ? {
+            rawKg100: applyBasisPoints(rawMaterialKg100, ALETA_MP_SHARE_BPS),
+            target: ALETA_TARGET,
+          }
+        : key === 'REJO_REPRODUCTOR'
+          ? {
+              rawKg100: applyBasisPoints(rawMaterialKg100, REJO_MP_SHARE_BPS),
+              target: REJO_REPRODUCTOR_TARGET,
+            }
+          : key === 'NUCA'
+            ? {
+                rawKg100: applyBasisPoints(rawMaterialKg100, NUCA_MP_SHARE_BPS),
+                target: NUCA_TARGET,
+              }
+            : key === 'MANTO'
+              ? { rawKg100: preliminaryMantoRawKg100, target: null }
+              : key === 'ANILLAS'
+                ? {
+                    rawKg100:
+                      totalKg100 === 0
+                        ? ZERO
+                        : kg100(Math.round(totalKg100 / ANILLAS_YIELD_RATE)),
+                    target: null,
+                  }
+                : null
+    const preliminaryYieldPercent = configured
+      ? percent(totalKg100, configured.rawKg100)
+      : null
+    const targetKg100 =
+      configured?.target == null
+        ? null
+        : kg100(Math.round(configured.rawKg100 * configured.target))
+    const status: FamilyYieldStatus =
+      configured && configured.rawKg100 > 0 && totalKg100 > configured.rawKg100
+        ? 'INTEGRITY_ERROR'
+        : targetKg100 !== null && totalKg100 < targetKg100
+          ? 'BELOW_TARGET'
+          : targetKg100 !== null
+            ? 'COMPLIES'
+            : 'NO_TARGET'
+
+    return {
+      key,
+      label: bucket.label,
+      productIds: bucket.productIds,
+      dayKg100: bucket.dayKg100,
+      nightKg100: bucket.nightKg100,
+      totalKg100,
+      preliminaryYieldPercent,
+      targetPercent:
+        configured?.target == null ? null : configured.target * 100,
+      missingToTargetKg100:
+        targetKg100 === null
+          ? ZERO
+          : kg100(Math.max(targetKg100 - totalKg100, 0)),
+      status,
+    }
+  })
+}
+
+export function calculateProductionBusinessSummary(
+  productionDay: ProductionDay,
+  calculation: ProductionDayCalculation,
+): ProductionBusinessSummary {
+  const rawMaterialKg100 = productionDay.declaredRawMaterialKg100
+  const aletaParts = outputParts(
+    productsForGroups(productionDay, calculation, ['ALETA']),
+  )
+  const rejoParts = outputParts(
+    productsForGroups(productionDay, calculation, REJO_GROUPS),
+  )
+  const nucaParts = outputParts(
+    productsForGroups(productionDay, calculation, NUCA_GROUPS),
+  )
+  const mantoParts = outputParts(
+    productsForGroups(productionDay, calculation, ['MANTO']),
+  )
+  const anillasParts = outputParts(
+    productsForGroups(productionDay, calculation, ['ANILLAS']),
+  )
+  const tubeRawMaterialKg100 = applyBasisPoints(
+    rawMaterialKg100,
+    MANTO_MP_SHARE_BPS,
+  )
+  const anillasRawMaterialKg100 = kg100(
+    Math.round(anillasParts.projectedProductionKg100 / ANILLAS_YIELD_RATE),
+  )
+  const mantoRawMaterialKg100 = kg100(
+    Math.max(tubeRawMaterialKg100 - anillasRawMaterialKg100, 0),
+  )
+  const anillasRawMaterialExcessKg100 = kg100(
+    Math.max(anillasRawMaterialKg100 - tubeRawMaterialKg100, 0),
+  )
+  const jointRawMaterialKg100 = applyBasisPoints(
+    rawMaterialKg100,
+    REJO_MP_SHARE_BPS,
+  )
+  const sharedRatio =
+    jointRawMaterialKg100 === 0
+      ? null
+      : rejoParts.projectedProductionKg100 / jointRawMaterialKg100
+  const reproductorParts = outputParts(
+    productsForGroups(productionDay, calculation, ['REPRODUCTOR']),
+  )
+  const reproductorRawMaterialKg100 =
+    sharedRatio && sharedRatio > 0
+      ? kg100(
+          Math.min(
+            Math.round(
+              reproductorParts.projectedProductionKg100 / sharedRatio,
+            ),
+            jointRawMaterialKg100,
+          ),
+        )
+      : ZERO
+  const rejoOutputKg100 = kg100(
+    rejoParts.projectedProductionKg100 -
+      reproductorParts.projectedProductionKg100,
+  )
+
+  return {
+    generalYieldPercent: percent(
+      calculation.expectedFinishedKg100,
+      rawMaterialKg100,
+    ),
+    finishedKg100: calculation.expectedFinishedKg100,
+    families: [
+      familyProjection(
+        'ALETA',
+        'Aleta',
+        applyBasisPoints(rawMaterialKg100, ALETA_MP_SHARE_BPS),
+        aletaParts,
+        { ratio: ALETA_TARGET, basisPoints: ALETA_TARGET_BPS },
+      ),
+      familyProjection(
+        'REJO_REPRODUCTOR',
+        'Rejo + Reproductor',
+        jointRawMaterialKg100,
+        rejoParts,
+        {
+          ratio: REJO_REPRODUCTOR_TARGET,
+          basisPoints: REJO_REPRODUCTOR_TARGET_BPS,
+        },
+      ),
+      familyProjection(
+        'NUCA',
+        'Nuca',
+        applyBasisPoints(rawMaterialKg100, NUCA_MP_SHARE_BPS),
+        nucaParts,
+        { ratio: NUCA_TARGET, basisPoints: NUCA_TARGET_BPS },
+      ),
+      familyProjection(
+        'MANTO',
+        'Manto',
+        mantoRawMaterialKg100,
+        mantoParts,
+        null,
+      ),
+    ],
+    rejoReproductor: {
+      jointRawMaterialKg100,
+      rejoOutputKg100,
+      reproductorOutputKg100: reproductorParts.projectedProductionKg100,
+      rejoRawMaterialKg100: kg100(
+        jointRawMaterialKg100 - reproductorRawMaterialKg100,
+      ),
+      reproductorRawMaterialKg100,
+      sharedYieldPercent: sharedRatio === null ? null : sharedRatio * 100,
+    },
+    mantoAnillas: {
+      tubeRawMaterialKg100,
+      anillasOutputKg100: anillasParts.projectedProductionKg100,
+      anillasRawMaterialKg100,
+      mantoRawMaterialKg100,
+      anillasRawMaterialExcessKg100,
+    },
+    nucaBikiniReferenceKg100: productionDay.nucaWashAuthorization
+      ? applyBasisPoints(rawMaterialKg100, NUCA_BIKINI_REFERENCE_BPS)
+      : null,
+  }
+}
+
+function kilograms(value: Kg100) {
+  return `${(value / 100).toLocaleString('es-PE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} kg`
+}
+
+export function buildProductionDiagnostics(
+  calculation: ProductionDayCalculation,
+  businessSummary: ProductionBusinessSummary,
+): readonly ClosureMessage[] {
+  const diagnostics: ClosureMessage[] = []
+
+  for (const [label, shift] of [
+    ['Turno Día', calculation.day],
+    ['Turno Noche', calculation.night],
+  ] as const) {
+    diagnostics.push({
+      code: shift.detailDifferenceKg100 === 0 ? 'SHIFT_BALANCED' : 'SHIFT_DIFFERENCE',
+      message:
+        shift.detailDifferenceKg100 === 0
+          ? `${label}: conciliado.`
+          : shift.detailDifferenceKg100 > 0
+            ? `${label}: faltan ${kilograms(shift.detailDifferenceKg100)} por registrar.`
+            : `${label}: sobran ${kilograms(kg100(-shift.detailDifferenceKg100))} en el detalle.`,
+    })
+  }
+
+  for (const family of businessSummary.families) {
+    if (family.status !== 'INTEGRITY_ERROR') continue
+    diagnostics.push({
+      code: 'FAMILY_YIELD_ABOVE_MAX',
+      familyKey: family.key,
+      message: `${family.label} supera 100% en ${kilograms(family.excessKg100)}. Revisa reporte, Túnel, tratamiento, saldos, clasificación del producto o materia prima.`,
+    })
+  }
+
+  if (businessSummary.mantoAnillas.anillasRawMaterialExcessKg100 > 0) {
+    diagnostics.push({
+      code: 'ANILLAS_MP_EXCEEDS_TUBE',
+      familyKey: 'MANTO',
+      message: `La MP calculada para Anillas supera la bolsa Tubo/Manto en ${kilograms(businessSummary.mantoAnillas.anillasRawMaterialExcessKg100)}. Revisa la producción de Anillas o la materia prima.`,
+    })
+  }
+
+  return diagnostics
+}
+
+export function validateProductionClosure(
+  productionDay: ProductionDay,
+  calculation: ProductionDayCalculation,
+  options: ClosureValidationOptions,
+): ProductionClosureValidation {
+  const businessSummary = calculateProductionBusinessSummary(
+    productionDay,
+    calculation,
+  )
+  const blockers: ClosureMessage[] = []
+  const warnings: ClosureMessage[] = []
+
+  if (!options.requiredDataComplete) {
+    blockers.push({
+      code: 'REQUIRED_DATA_INCOMPLETE',
+      message: 'Completa los datos obligatorios de la jornada.',
+    })
+  }
+  for (const error of options.inputErrors ?? []) {
+    blockers.push({ code: 'INVALID_CAPTURE_INPUT', message: error })
+  }
+  if (
+    productionDay.hasTunnelProduction === true &&
+    calculation.tunnel.totalKg100 === 0
+  ) {
+    blockers.push({
+      code: 'TUNNEL_MOVEMENTS_REQUIRED',
+      message:
+        'Se indicó que existe producto para Túnel, pero no se registraron productos.',
+    })
+  }
+  if (calculation.day.detailDifferenceKg100 !== 0) {
+    blockers.push({
+      code: 'DAY_REPORT_NOT_RECONCILED',
+      message: 'El detalle del Turno Día no coincide con el reporte del supervisor.',
+    })
+  }
+  if (calculation.night.detailDifferenceKg100 !== 0) {
+    blockers.push({
+      code: 'NIGHT_REPORT_NOT_RECONCILED',
+      message: 'El detalle del Turno Noche no coincide con el reporte del supervisor.',
+    })
+  }
+  if (calculation.differenceKg100 !== 0) {
+    blockers.push({
+      code: 'FINAL_DIFFERENCE',
+      message: `La diferencia final debe ser 0.00 kg; actualmente es ${kilograms(calculation.differenceKg100)}.`,
+    })
+  }
+  for (const product of calculation.products) {
+    if (product.differenceKg100 === 0) continue
+    blockers.push({
+      code: 'PRODUCT_RECONCILIATION_DIFFERENCE',
+      message: `${product.productName} presenta una diferencia de ${kilograms(product.differenceKg100)} entre el cálculo operativo y el detalle declarado.`,
+    })
+  }
+  for (const issue of calculation.integrityIssues) {
+    blockers.push({ code: issue.code, message: issue.message })
+  }
+
+  const generalYield = businessSummary.generalYieldPercent
+  if (generalYield === null || generalYield < GENERAL_MIN_YIELD * 100) {
+    blockers.push({
+      code: 'GENERAL_YIELD_BELOW_MIN',
+      message: 'El rendimiento general debe ser al menos 80%.',
+    })
+  } else if (generalYield > 100) {
+    blockers.push({
+      code: 'GENERAL_YIELD_ABOVE_MAX',
+      message: 'El rendimiento general no puede superar 100%.',
+    })
+  }
+
+  if (businessSummary.mantoAnillas.anillasRawMaterialExcessKg100 > 0) {
+    blockers.push({
+      code: 'ANILLAS_MP_EXCEEDS_TUBE',
+      familyKey: 'MANTO',
+      message: 'La materia prima calculada para Anillas supera la bolsa disponible de Tubo/Manto.',
+    })
+  }
+
+  for (const family of businessSummary.families) {
+    if (family.status === 'INTEGRITY_ERROR') {
+      blockers.push({
+        code: 'FAMILY_YIELD_ABOVE_MAX',
+        familyKey: family.key,
+        message: `${family.label} no puede superar 100% de su materia prima asignada.`,
+      })
+    } else if (family.status === 'BELOW_TARGET') {
+      warnings.push({
+        code: 'FAMILY_BELOW_TARGET',
+        familyKey: family.key,
+        message: `${family.label} está por debajo de su objetivo de ${family.targetPercent?.toFixed(0)}%.`,
+      })
+    }
+  }
+
+  return {
+    canClose: blockers.length === 0,
+    blockers,
+    warnings,
+  }
+}

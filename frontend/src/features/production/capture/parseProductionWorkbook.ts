@@ -222,6 +222,8 @@ export function createCaptureDraftFromImportedSheet(
       dayPreviousBalanceKg: '0',
       nightReportedKg: '',
       nightPreviousBalanceKg: '0',
+      tunnelDayKg: '0',
+      tunnelNightKg: '0',
       treatmentKg: String(product.treatmentKg),
       closingBalanceKg: '0',
       finishedKg: String(product.finishedKg),
@@ -238,9 +240,11 @@ export function createCaptureDraftFromImportedSheet(
     declaredNightTotalKg: String(sheet.declaredNightTotalKg),
     declaredFinishedTotalKg: String(sheet.declaredFinishedTotalKg),
     reproductorAllocationKg: String(sheet.reproductorAllocationKg),
+    hasTunnelProduction: false,
     nucaWashConfirmed: false,
     nucaWashReference: '',
     rows,
+    balanceUses: [],
     importedBalances: sheet.balances,
   }
 }

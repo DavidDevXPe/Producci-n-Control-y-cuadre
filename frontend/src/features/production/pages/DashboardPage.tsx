@@ -118,8 +118,8 @@ export function DashboardPage() {
     id: day.id,
     label: day.displayName.split(' ')[0] ?? formatIsoWeekday(day.date),
     dateLabel: formatIsoDateCompact(day.date),
-    dayKg100: calculation.day.ownProductionKg100,
-    nightKg100: calculation.night.ownProductionKg100,
+    dayKg100: calculation.productiveDayKg100,
+    nightKg100: calculation.productiveNightKg100,
     treatmentKg100: calculation.treatmentKg100,
     balanceKg100: calculation.newClosingBalanceKg100,
   }))
@@ -250,13 +250,13 @@ export function DashboardPage() {
             {[
               {
                 label: 'Día',
-                value: latestCalculation.day.ownProductionKg100,
+                value: latestCalculation.productiveDayKg100,
                 icon: Sun,
                 iconClassName: 'bg-amber-50 text-amber-800',
               },
               {
                 label: 'Noche',
-                value: latestCalculation.night.ownProductionKg100,
+                value: latestCalculation.productiveNightKg100,
                 icon: Moon,
                 iconClassName: 'bg-brand-50 text-brand-800',
               },

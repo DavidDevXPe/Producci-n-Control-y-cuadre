@@ -7,6 +7,11 @@ import {
   sumKg100,
   toKilograms,
 } from '../model/calculations'
+import { calculateProductionBusinessSummary } from '../model/businessRules'
+import {
+  GENERAL_MIN_YIELD_BPS,
+  NUCA_BIKINI_REFERENCE_BPS,
+} from '../model/businessConfig'
 import type {
   BalanceLot,
   Kg100,
@@ -27,9 +32,25 @@ export interface ProductionCaptureRow {
   dayPreviousBalanceKg: string
   nightReportedKg: string
   nightPreviousBalanceKg: string
+  tunnelDayKg: string
+  tunnelNightKg: string
   treatmentKg: string
   closingBalanceKg: string
+  /** Independent finished-product value read from Excel; manual capture derives it. */
   finishedKg: string
+}
+
+export interface ProductionCaptureBalanceUse {
+  key: string
+  originDayId: string
+  originDate: string
+  familyId: string
+  familyName: string
+  productId: string
+  productName: string
+  availableKg100: Kg100
+  dayKg: string
+  nightKg: string
 }
 
 export interface ImportedBalanceNotice {
@@ -47,9 +68,11 @@ export interface ProductionCaptureDraft {
   declaredNightTotalKg: string
   declaredFinishedTotalKg: string
   reproductorAllocationKg: string
+  hasTunnelProduction: boolean
   nucaWashConfirmed: boolean
   nucaWashReference: string
   rows: readonly ProductionCaptureRow[]
+  balanceUses: readonly ProductionCaptureBalanceUse[]
   importedBalances: readonly ImportedBalanceNotice[]
 }
 
@@ -58,6 +81,8 @@ export interface CaptureBuildResult {
   calculation: ProductionDayCalculation
   inputErrors: readonly string[]
 }
+
+const ZERO_KG100 = kg100(0)
 
 function parseQuantity(value: string, label: string, errors: string[]): Kg100 {
   const normalized = value.trim().replace(',', '.')
@@ -93,12 +118,20 @@ function getInferredReports(
   for (const row of rows) {
     const finished = quantityFor(row.finishedKg, `${row.product.productName}: producto terminado`)
     const treatment = quantityFor(row.treatmentKg, `${row.product.productName}: tratamiento`)
+    const tunnelDay = quantityFor(row.tunnelDayKg, `${row.product.productName}: Túnel Día`)
+    const tunnelNight = quantityFor(row.tunnelNightKg, `${row.product.productName}: Túnel Noche`)
     const closingBalance = quantityFor(row.closingBalanceKg, `${row.product.productName}: saldo final`)
     const previousDay = quantityFor(row.dayPreviousBalanceKg, `${row.product.productName}: saldo anterior Día`)
     const previousNight = quantityFor(row.nightPreviousBalanceKg, `${row.product.productName}: saldo anterior Noche`)
     const physicalTotal = kg100(
       Math.max(
-        finished - treatment - closingBalance + previousDay + previousNight,
+        finished -
+          tunnelDay -
+          tunnelNight -
+          treatment -
+          closingBalance +
+          previousDay +
+          previousNight,
         0,
       ),
     )
@@ -111,104 +144,70 @@ function getInferredReports(
   return allocation
 }
 
-interface MutableBalancePosition {
-  originDayId: string
-  familyId: string
-  productId: string
-  pendingKg100: Kg100
-}
-
 function buildReceivedBalanceLots(
   dayId: string,
-  rows: readonly ProductionCaptureRow[],
+  balanceUses: readonly ProductionCaptureBalanceUse[],
   previousDays: readonly ProductionDay[],
   subsequentLots: readonly BalanceLot[],
   quantityFor: (value: string, label: string) => Kg100,
+  errors: string[],
 ): readonly BalanceLot[] {
-  const positions: MutableBalancePosition[] = calculateOutstandingBalances(
+  const positions = calculateOutstandingBalances(
     previousDays,
     subsequentLots,
-  )
-    .filter((position) => position.pendingKg100 > 0)
-    .map((position) => ({
-      originDayId: position.originDayId,
-      familyId: position.familyId,
-      productId: position.productId,
-      pendingKg100: position.pendingKg100,
-    }))
-  const lots: BalanceLot[] = []
+  ).filter((position) => position.pendingKg100 > 0)
 
-  for (const row of rows) {
-    for (const shift of ['DAY', 'NIGHT'] as const) {
-      let remaining = quantityFor(
-        shift === 'DAY'
-          ? row.dayPreviousBalanceKg
-          : row.nightPreviousBalanceKg,
-        `${row.product.productName}: saldo anterior ${shift === 'DAY' ? 'Día' : 'Noche'}`,
+  return balanceUses.map((selection) => {
+    const position = positions.find(
+      (candidate) =>
+        candidate.originDayId === selection.originDayId &&
+        candidate.familyId === selection.familyId &&
+        candidate.productId === selection.productId,
+    )
+    const availableKg100 = position?.pendingKg100 ?? ZERO_KG100
+    const dayKg100 = quantityFor(
+      selection.dayKg,
+      `${selection.productName}: saldo anterior procesado en Día`,
+    )
+    const nightKg100 = quantityFor(
+      selection.nightKg,
+      `${selection.productName}: saldo anterior procesado en Noche`,
+    )
+
+    if (!position) {
+      errors.push(
+        `El saldo de ${selection.productName} ya no está disponible o no tiene un origen válido.`,
       )
-
-      for (const position of positions) {
-        if (
-          remaining <= 0 ||
-          position.productId !== row.product.productId ||
-          position.familyId !== row.product.familyId ||
-          position.pendingKg100 <= 0
-        ) {
-          continue
-        }
-
-        const used = kg100(Math.min(remaining, position.pendingKg100))
-        const existingLot = lots.find(
-          (lot) =>
-            lot.originDayId === position.originDayId &&
-            lot.productId === position.productId,
-        )
-        const use = {
-          id: `balance-use-${dayId}-${position.originDayId}-${position.productId}-${shift}`,
-          targetDayId: dayId,
-          shift,
-          kg100: used,
-        } as const
-
-        if (existingLot) {
-          const index = lots.indexOf(existingLot)
-          lots[index] = { ...existingLot, uses: [...existingLot.uses, use] }
-        } else {
-          lots.push({
-            id: `balance-lot-${dayId}-${position.originDayId}-${position.productId}`,
-            originDayId: position.originDayId,
-            familyId: position.familyId,
-            productId: position.productId,
-            originalKg100: position.pendingKg100,
-            uses: [use],
-          })
-        }
-
-        position.pendingKg100 = kg100(position.pendingKg100 - used)
-        remaining = kg100(remaining - used)
-      }
-
-      if (remaining > 0) {
-        lots.push({
-          id: `balance-lot-${dayId}-unassigned-${row.product.productId}-${shift}`,
-          originDayId: `unassigned-origin-${row.product.productId}`,
-          familyId: row.product.familyId,
-          productId: row.product.productId,
-          originalKg100: kg100(0),
-          uses: [
-            {
-              id: `balance-use-${dayId}-unassigned-${row.product.productId}-${shift}`,
-              targetDayId: dayId,
-              shift,
-              kg100: remaining,
-            },
-          ],
-        })
-      }
     }
-  }
 
-  return lots
+    const uses = [
+      dayKg100 > 0
+        ? {
+            id: `balance-use-${dayId}-${selection.originDayId}-${selection.productId}-DAY`,
+            targetDayId: dayId,
+            shift: 'DAY' as const,
+            kg100: dayKg100,
+          }
+        : null,
+      nightKg100 > 0
+        ? {
+            id: `balance-use-${dayId}-${selection.originDayId}-${selection.productId}-NIGHT`,
+            targetDayId: dayId,
+            shift: 'NIGHT' as const,
+            kg100: nightKg100,
+          }
+        : null,
+    ].filter((use): use is NonNullable<typeof use> => use !== null)
+
+    return {
+      id: `balance-lot-${dayId}-${selection.originDayId}-${selection.productId}`,
+      originDayId: selection.originDayId,
+      familyId: selection.familyId,
+      productId: selection.productId,
+      originalKg100: availableKg100,
+      uses,
+    }
+  })
 }
 
 export function createEmptyCaptureDraft(date: string): ProductionCaptureDraft {
@@ -222,15 +221,18 @@ export function createEmptyCaptureDraft(date: string): ProductionCaptureDraft {
     declaredNightTotalKg: '',
     declaredFinishedTotalKg: '',
     reproductorAllocationKg: '',
+    hasTunnelProduction: false,
     nucaWashConfirmed: false,
     nucaWashReference: '',
     rows: [],
+    balanceUses: [],
     importedBalances: [],
   }
 }
 
 export function createCaptureDraftFromDay(
   productionDay: ProductionDay,
+  allProductionDays: readonly ProductionDay[] = [],
 ): ProductionCaptureDraft {
   const calculation = calculateProductionDay(productionDay)
 
@@ -261,6 +263,13 @@ export function createCaptureDraftFromDay(
           kg100(0),
       ),
     ),
+    hasTunnelProduction:
+      productionDay.hasTunnelProduction ??
+      productionDay.lines.some(
+        (line) =>
+          (line.tunnelShifts?.DAY.reportedKg100 ?? ZERO_KG100) > 0 ||
+          (line.tunnelShifts?.NIGHT.reportedKg100 ?? ZERO_KG100) > 0,
+      ),
     nucaWashConfirmed: productionDay.nucaWashAuthorization !== null,
     nucaWashReference: productionDay.nucaWashAuthorization?.reference ?? '',
     rows: productionDay.lines.map((line, index) => {
@@ -282,9 +291,50 @@ export function createCaptureDraftFromDay(
         nightPreviousBalanceKg: String(
           toKilograms(product.night.previousBalanceProcessedKg100),
         ),
+        tunnelDayKg: String(
+          toKilograms(line.tunnelShifts?.DAY.reportedKg100 ?? ZERO_KG100),
+        ),
+        tunnelNightKg: String(
+          toKilograms(line.tunnelShifts?.NIGHT.reportedKg100 ?? ZERO_KG100),
+        ),
         treatmentKg: String(toKilograms(line.treatmentKg100)),
         closingBalanceKg: String(toKilograms(line.newClosingBalanceKg100)),
         finishedKg: String(toKilograms(line.declaredFinishedKg100)),
+      }
+    }),
+    balanceUses: productionDay.receivedBalanceLots.map((lot, index) => {
+      const product = productionDay.lines.find(
+        (line) => line.productId === lot.productId,
+      )
+      const originDay = allProductionDays.find(
+        (day) => day.id === lot.originDayId,
+      )
+      const processedDayKg100 = sumKg100(
+        lot.uses
+          .filter(
+            (use) => use.targetDayId === productionDay.id && use.shift === 'DAY',
+          )
+          .map((use) => use.kg100),
+      )
+      const processedNightKg100 = sumKg100(
+        lot.uses
+          .filter(
+            (use) => use.targetDayId === productionDay.id && use.shift === 'NIGHT',
+          )
+          .map((use) => use.kg100),
+      )
+
+      return {
+        key: `balance-${lot.id}-${index}`,
+        originDayId: lot.originDayId,
+        originDate: originDay?.date ?? '',
+        familyId: lot.familyId,
+        familyName: product?.familyName ?? lot.familyId,
+        productId: lot.productId,
+        productName: product?.productName ?? lot.productId,
+        availableKg100: lot.originalKg100,
+        dayKg: String(toKilograms(processedDayKg100)),
+        nightKg: String(toKilograms(processedNightKg100)),
       }
     }),
     importedBalances: [],
@@ -306,22 +356,10 @@ export function buildProductionDayFromCapture(
     draft.declaredNightTotalKg,
     'Total del turno Noche',
   )
-  const declaredFinished = quantityFor(
-    draft.declaredFinishedTotalKg,
-    'Total de producto terminado',
-  )
-  const reproductorAllocation = quantityFor(
-    draft.reproductorAllocationKg,
-    'Asignación de materia prima a Reproductor',
-  )
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) {
     errors.push('Selecciona una fecha válida para la jornada.')
   }
-  if (draft.rows.length === 0) {
-    errors.push('Agrega al menos un producto con movimiento.')
-  }
-
   const duplicateProducts = new Set<string>()
   const seenProducts = new Set<string>()
   for (const row of draft.rows) {
@@ -338,17 +376,18 @@ export function buildProductionDayFromCapture(
   const previousDays = allProductionDays.filter((day) => day.date < draft.date)
   const receivedBalanceLots = buildReceivedBalanceLots(
     dayId,
-    draft.rows,
+    draft.balanceUses,
     previousDays,
     subsequentLots,
     quantityFor,
+    errors,
   )
   const inferredReports =
     draft.shiftAllocationMode === 'RECONCILED_INFERENCE'
       ? getInferredReports(draft.rows, declaredDay, quantityFor)
       : new Map<string, Readonly<Record<ShiftCode, Kg100>>>()
 
-  const lines = draft.rows.map((row, index) => {
+  const preliminaryLines = draft.rows.map((row, index) => {
     const inferred = inferredReports.get(row.key)
     return {
       familyId: row.product.familyId,
@@ -384,6 +423,22 @@ export function buildProductionDayFromCapture(
           adjustments: [],
         },
       },
+      tunnelShifts: {
+        DAY: {
+          reportedKg100: quantityFor(
+            row.tunnelDayKg,
+            `${row.product.productName}: Túnel Día`,
+          ),
+          adjustments: [],
+        },
+        NIGHT: {
+          reportedKg100: quantityFor(
+            row.tunnelNightKg,
+            `${row.product.productName}: Túnel Noche`,
+          ),
+          adjustments: [],
+        },
+      },
       treatmentKg100: quantityFor(
         row.treatmentKg,
         `${row.product.productName}: tratamiento`,
@@ -392,14 +447,17 @@ export function buildProductionDayFromCapture(
         row.closingBalanceKg,
         `${row.product.productName}: saldo final`,
       ),
-      declaredFinishedKg100: quantityFor(
-        row.finishedKg,
-        `${row.product.productName}: producto terminado`,
-      ),
+      declaredFinishedKg100:
+        draft.source === 'EXCEL'
+          ? quantityFor(
+              row.finishedKg,
+              `${row.product.productName}: producto terminado de origen`,
+            )
+          : ZERO_KG100,
     }
   })
 
-  const productionDay: ProductionDay = {
+  const preliminaryDay: ProductionDay = {
     id: dayId,
     date: draft.date,
     displayName: formatDisplayName(draft.date),
@@ -413,8 +471,15 @@ export function buildProductionDayFromCapture(
     ],
     declaredRawMaterialKg100: rawMaterial,
     declaredShiftTotalsKg100: { DAY: declaredDay, NIGHT: declaredNight },
-    declaredFinishedTotalKg100: declaredFinished,
-    lines,
+    declaredFinishedTotalKg100:
+      draft.source === 'EXCEL'
+        ? quantityFor(
+            draft.declaredFinishedTotalKg,
+            'Total de producto terminado de origen',
+          )
+        : ZERO_KG100,
+    hasTunnelProduction: draft.hasTunnelProduction,
+    lines: preliminaryLines,
     receivedBalanceLots,
     nucaWashAuthorization: draft.nucaWashConfirmed
       ? {
@@ -423,10 +488,43 @@ export function buildProductionDayFromCapture(
           reason: 'Pedido de lavado confirmado durante la captura web.',
         }
       : null,
-    performanceReferenceBasisPoints: 8_000,
-    nucaBikiniReferenceBasisPoints: 700,
+    performanceReferenceBasisPoints: GENERAL_MIN_YIELD_BPS,
+    nucaBikiniReferenceBasisPoints: NUCA_BIKINI_REFERENCE_BPS,
+    rawMaterialAllocationOverridesKg100: {},
+  }
+  const preliminaryCalculation = calculateProductionDay(preliminaryDay)
+  const lines =
+    draft.source === 'EXCEL'
+      ? preliminaryLines
+      : preliminaryLines.map((line, index) => ({
+          ...line,
+          declaredFinishedKg100:
+            preliminaryCalculation.products[index]?.expectedFinishedKg100 ??
+            ZERO_KG100,
+        }))
+  const calculatedFinishedKg100 = sumKg100(
+    lines.map((line) => line.declaredFinishedKg100),
+  )
+  const dayWithCalculatedFinished: ProductionDay = {
+    ...preliminaryDay,
+    lines,
+    declaredFinishedTotalKg100:
+      draft.source === 'EXCEL'
+        ? preliminaryDay.declaredFinishedTotalKg100
+        : calculatedFinishedKg100,
+  }
+  const initialCalculation = calculateProductionDay(dayWithCalculatedFinished)
+  const automaticReproductorAllocationKg100 =
+    calculateProductionBusinessSummary(
+      dayWithCalculatedFinished,
+      initialCalculation,
+    ).rejoReproductor.reproductorRawMaterialKg100
+  const productionDay: ProductionDay = {
+    ...dayWithCalculatedFinished,
     rawMaterialAllocationOverridesKg100:
-      reproductorAllocation > 0 ? { REPRODUCTOR: reproductorAllocation } : {},
+      automaticReproductorAllocationKg100 > 0
+        ? { REPRODUCTOR: automaticReproductorAllocationKg100 }
+        : {},
   }
   const calculation = calculateProductionDay(productionDay)
 
