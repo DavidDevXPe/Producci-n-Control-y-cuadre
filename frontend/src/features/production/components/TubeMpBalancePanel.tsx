@@ -21,7 +21,8 @@ export function TubeMpBalancePanel({ balance }: TubeMpBalancePanelProps) {
   const hasIntegrityError =
     balance.mpMantoExcessKg100 > 0 ||
     balance.mpMainAnillasExcessKg100 > 0 ||
-    balance.unclassifiedAnillasKg100 > 0
+    balance.unclassifiedAnillasKg100 > 0 ||
+    balance.tubeDifferenceKg100 !== 0
 
   return (
     <SectionCard
@@ -39,7 +40,7 @@ export function TubeMpBalancePanel({ balance }: TubeMpBalancePanelProps) {
           value={formatCentiKg(balance.mpTubeKg100)}
         />
         <MetricCard
-          label="MP utilizada Manto"
+          label="MP estimada Manto"
           value={formatCentiKg(balance.mpMantoEstimatedKg100)}
           description="PT Manto ÷ 80%"
         />
@@ -84,6 +85,38 @@ export function TubeMpBalancePanel({ balance }: TubeMpBalancePanelProps) {
           ))}
         </dl>
 
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <h4 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-700">
+            Salidas del proceso de Anillas
+          </h4>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Producto terminado trazable del mismo proceso; los coproductos no
+            consumen una segunda MP.
+          </p>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {([
+              ['Anillas principales', balance.processOutputs.mainAnillasKg100],
+              ['Botón', balance.processOutputs.botonKg100],
+              ['Recorte de Anillas', balance.processOutputs.recorteKg100],
+              ['Membranas', balance.processOutputs.membranasKg100],
+            ] satisfies readonly (readonly [string, Kg100])[]).map(
+              ([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+                >
+                  <dt className="text-[0.6875rem] font-semibold leading-4 text-slate-500">
+                    {label}
+                  </dt>
+                  <dd className="number-tabular mt-1 whitespace-nowrap text-sm font-bold text-slate-950">
+                    {formatCentiKg(value)}
+                  </dd>
+                </div>
+              ),
+            )}
+          </dl>
+        </div>
+
         {balance.mpAnillasUnallocatedKg100 > 0 ? (
           <p className="mt-3 text-xs leading-5 text-slate-600">
             La MP técnica por distribuir pertenece al proceso global de Anillas;
@@ -112,6 +145,12 @@ export function TubeMpBalancePanel({ balance }: TubeMpBalancePanelProps) {
                 <p>
                   Hay {formatCentiKg(balance.unclassifiedAnillasKg100)} sin
                   clasificación técnica Polar, General o USA.
+                </p>
+              ) : null}
+              {balance.tubeDifferenceKg100 !== 0 ? (
+                <p>
+                  El balance principal del Tubo presenta una diferencia de{' '}
+                  {formatCentiKg(balance.tubeDifferenceKg100)}.
                 </p>
               ) : null}
             </div>

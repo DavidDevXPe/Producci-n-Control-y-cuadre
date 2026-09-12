@@ -585,6 +585,13 @@ export function buildProductionDiagnostics(
     })
   }
 
+  if (businessSummary.tubeMpBalance.tubeDifferenceKg100 !== 0) {
+    diagnostics.push({
+      code: 'TUBE_MP_BALANCE_DIFFERENCE',
+      message: `El balance principal del Tubo presenta una diferencia de ${kilograms(businessSummary.tubeMpBalance.tubeDifferenceKg100)}.`,
+    })
+  }
+
   return diagnostics
 }
 
@@ -680,6 +687,13 @@ export function validateProductionClosure(
     blockers.push({
       code: 'ANILLAS_YIELD_CLASS_MISSING',
       message: 'Todos los productos de Anillas deben tener una clase técnica Polar, General o USA.',
+    })
+  }
+
+  if (businessSummary.tubeMpBalance.tubeDifferenceKg100 !== 0) {
+    blockers.push({
+      code: 'TUBE_MP_BALANCE_DIFFERENCE',
+      message: `El balance principal del Tubo debe ser 0.00 kg; actualmente es ${kilograms(businessSummary.tubeMpBalance.tubeDifferenceKg100)}.`,
     })
   }
 

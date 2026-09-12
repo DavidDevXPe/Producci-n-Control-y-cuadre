@@ -23,9 +23,10 @@ const ANILLA_YIELD_CLASS_BY_PRODUCT_ID: Readonly<
   'anillas-espana-segunda-mixta': 'GENERAL',
   'anillas-espana-p-sm-sp-st-mixta': 'GENERAL',
   'anillas-espana-p-cm-sp-st-mixta': 'GENERAL',
+  'anillas-iqf-tratamiento-usa-sm-cp-st': 'GENERAL',
   'anillas-block-tratamiento-usa-sm-cp-st': 'USA',
   'anillas-block-tratamiento-usa-cm-sp-st': 'USA',
-  'anillas-iqf-tratamiento-usa-sm-cp-st': 'USA',
+  'anillas-block-tratamiento-usa-sm-sp-st': 'USA',
 }
 
 const ANILLAS_PROCESS_ORIGIN_PRODUCT_IDS = new Set([

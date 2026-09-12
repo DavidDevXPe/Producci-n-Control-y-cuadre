@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { PRODUCTION_CATALOG_ITEMS } from '../capture/productionCatalog'
 import {
+  ANILLA_GENERAL_YIELD,
+  ANILLA_POLAR_YIELD,
+  ANILLA_USA_YIELD,
+  MANTO_STANDARD_YIELD,
+} from './businessConfig'
+import {
   calculateOutstandingBalances,
   calculateProductionDay,
   kg,
@@ -152,29 +158,51 @@ function utilization(
 }
 
 describe('production business rules', () => {
-  it('classifies every current Anillas presentation and its coproduct origins explicitly', () => {
+  it('classifies the exact Polar, USA and General Anillas presentations by productId', () => {
     const anillas = PRODUCTION_CATALOG_ITEMS.filter(
       (product) => product.summaryGroupId === 'ANILLAS',
     )
+    const polarIds = anillas
+      .filter((product) => product.anillaYieldClass === 'POLAR')
+      .map((product) => product.productId)
+    const usaIds = anillas
+      .filter((product) => product.anillaYieldClass === 'USA')
+      .map((product) => product.productId)
+      .sort()
 
     expect(anillas.length).toBeGreaterThan(0)
     expect(anillas.every((product) => product.anillaYieldClass)).toBe(true)
+    expect(polarIds).toEqual(['anillas-espana-polar-mixta'])
+    expect(usaIds).toEqual([
+      'anillas-block-tratamiento-usa-cm-sp-st',
+      'anillas-block-tratamiento-usa-sm-cp-st',
+      'anillas-block-tratamiento-usa-sm-sp-st',
+    ])
     expect(
-      PRODUCTION_CATALOG_ITEMS.find(
-        (product) => product.productId === 'anillas-espana-polar-mixta',
-      )?.anillaYieldClass,
-    ).toBe('POLAR')
+      anillas
+        .filter(
+          (product) =>
+            !polarIds.includes(product.productId) &&
+            !usaIds.includes(product.productId),
+        )
+        .every((product) => product.anillaYieldClass === 'GENERAL'),
+    ).toBe(true)
     expect(
-      PRODUCTION_CATALOG_ITEMS.find(
-        (product) => product.productId === 'anillas-espana-segunda-mixta',
+      anillas.find(
+        (product) =>
+          product.productId === 'anillas-iqf-tratamiento-usa-sm-cp-st',
       )?.anillaYieldClass,
     ).toBe('GENERAL')
-    expect(
-      PRODUCTION_CATALOG_ITEMS.find(
-        (product) =>
-          product.productId === 'anillas-block-tratamiento-usa-sm-cp-st',
-      )?.anillaYieldClass,
-    ).toBe('USA')
+  })
+
+  it('keeps the confirmed technical yields centralized', () => {
+    expect(MANTO_STANDARD_YIELD).toBe(0.8)
+    expect(ANILLA_POLAR_YIELD).toBe(0.36)
+    expect(ANILLA_USA_YIELD).toBe(0.34)
+    expect(ANILLA_GENERAL_YIELD).toBe(0.42)
+  })
+
+  it('associates Anillas coproduct origins explicitly', () => {
     expect(
       PRODUCTION_CATALOG_ITEMS.find(
         (product) => product.productId === 'boton-usa-sm-cp-tratamiento',
@@ -461,6 +489,14 @@ describe('production business rules', () => {
 
     expect(summary.tubeMpBalance.mpAnillaProcessKg100).toBe(kg(10))
     expect(summary.tubeMpBalance.mpMainAnillasEstimatedKg100).toBe(kg(10))
+    expect(summary.tubeMpBalance.processOutputs).toMatchObject({
+      mainAnillasKg100: kg(4.2),
+      botonKg100: kg(5),
+      recorteKg100: kg(5),
+      membranasKg100: kg(5),
+      coproductsTotalKg100: kg(15),
+      processOutputsTotalKg100: kg(19.2),
+    })
     expect(summary.finishedKg100).toBe(kg(80))
     expect(summary.overallUtilization.percent).toBeCloseTo(80, 8)
   })
@@ -498,6 +534,42 @@ describe('production business rules', () => {
     expect(summary.overallUtilization.percent).toBeCloseTo(22.16, 8)
   })
 
+  it('recalculates Tube allocation when Tunnel and Treatment change Manto output', () => {
+    const reportOnly = summaryFor(
+      productionDay(100, [{ group: 'MANTO', day: 32 }]),
+    ).summary
+    const withTunnelAndTreatment = summaryFor(
+      productionDay(100, [
+        { group: 'MANTO', day: 32, tunnelDay: 2, treatment: 2 },
+      ]),
+    ).summary
+
+    expect(reportOnly.tubeMpBalance.mpMantoEstimatedKg100).toBe(kg(40))
+    expect(reportOnly.tubeMpBalance.mpAnillaProcessKg100).toBe(kg(10))
+    expect(withTunnelAndTreatment.tubeMpBalance.mpMantoEstimatedKg100).toBe(
+      kg(45),
+    )
+    expect(withTunnelAndTreatment.tubeMpBalance.mpAnillaProcessKg100).toBe(
+      kg(5),
+    )
+  })
+
+  it('recalculates group and overall utilization immediately when closing balance changes', () => {
+    const before = summaryFor(
+      productionDay(100, [{ group: 'RECORTE_CRUDO', day: 79 }]),
+    ).summary
+    const after = summaryFor(
+      productionDay(100, [
+        { group: 'RECORTE_CRUDO', day: 79, closing: 1 },
+      ]),
+    ).summary
+
+    expect(utilization(before, 'RECORTE_CRUDO').percent).toBeCloseTo(79, 8)
+    expect(before.overallUtilization.percent).toBeCloseTo(79, 8)
+    expect(utilization(after, 'RECORTE_CRUDO').percent).toBeCloseTo(80, 8)
+    expect(after.overallUtilization.percent).toBeCloseTo(80, 8)
+  })
+
   it('blocks a 79.99% general yield and permits 80% with exact reconciliation', () => {
     const below = productionDay(100, [
       { group: 'RECORTE_CRUDO', day: 79.99 },
@@ -518,6 +590,21 @@ describe('production business rules', () => {
         requiredDataComplete: true,
       }).canClose,
     ).toBe(true)
+  })
+
+  it('blocks an overall utilization above 100%', () => {
+    const day = productionDay(100, [
+      { group: 'RECORTE_CRUDO', day: 100.01 },
+    ])
+    const calculation = calculateProductionDay(day)
+
+    expect(
+      validateProductionClosure(day, calculation, {
+        requiredDataComplete: true,
+      }).blockers,
+    ).toContainEqual(
+      expect.objectContaining({ code: 'GENERAL_YIELD_ABOVE_MAX' }),
+    )
   })
 
   it('recalculates after treatment changes and blocks when Aleta moves from 90% to 102%', () => {
@@ -695,6 +782,71 @@ describe('production business rules', () => {
     expect(validation.blockers).toContainEqual(
       expect.objectContaining({ code: 'ANILLAS_YIELD_CLASS_MISSING' }),
     )
+  })
+
+  it('keeps Wednesday 09/09/2026 reconciled with previous balance and Tunnel', () => {
+    const baseDay = productionDay(
+      0,
+      [
+        {
+          group: 'RECORTE_CRUDO',
+          day: 270_940,
+          night: 226_540,
+          tunnelDay: 32_400,
+          tunnelNight: 26_100,
+          treatment: 9_140,
+          closing: 71_550,
+        },
+      ],
+      { date: '2026-09-09' },
+    )
+    const sourceLine = baseDay.lines[0]!
+    const wednesday: ProductionDay = {
+      ...baseDay,
+      displayName: 'Miércoles 09/09/2026',
+      lines: [
+        {
+          ...sourceLine,
+          declaredFinishedKg100: kg(571_670),
+        },
+      ],
+      declaredFinishedTotalKg100: kg(571_670),
+      receivedBalanceLots: [
+        {
+          id: 'wednesday-previous-balance',
+          originDayId: 'production-day-2026-09-08',
+          familyId: sourceLine.familyId,
+          productId: sourceLine.productId,
+          originalKg100: kg(65_000),
+          uses: [
+            {
+              id: 'wednesday-day-balance-use',
+              targetDayId: baseDay.id,
+              shift: 'DAY',
+              kg100: kg(65_000),
+            },
+          ],
+        },
+      ],
+    }
+    const calculation = calculateProductionDay(wednesday)
+    const summary = calculateProductionBusinessSummary(wednesday, calculation)
+
+    expect(calculation.day.reportedKg100).toBe(kg(270_940))
+    expect(calculation.night.reportedKg100).toBe(kg(226_540))
+    expect(calculation.processedPreviousBalanceKg100).toBe(kg(65_000))
+    expect(calculation.tunnel.dayKg100).toBe(kg(32_400))
+    expect(calculation.tunnel.nightKg100).toBe(kg(26_100))
+    expect(calculation.productiveDayKg100).toBe(kg(238_340))
+    expect(calculation.productiveNightKg100).toBe(kg(252_640))
+    expect(calculation.treatmentKg100).toBe(kg(9_140))
+    expect(calculation.newClosingBalanceKg100).toBe(kg(71_550))
+    expect(calculation.expectedFinishedKg100).toBe(kg(571_670))
+    expect(calculation.differenceKg100).toBe(kg(0))
+    expect(calculation.status).toBe('BALANCED')
+    expect(summary.finishedKg100).toBe(kg(571_670))
+    expect(summary.overallUtilization.percent).toBeNull()
+    expect(summary.tubeMpBalance.tubeDifferenceKg100).toBe(kg(0))
   })
 
   it('blocks compensating product-detail differences even when the final total is zero', () => {

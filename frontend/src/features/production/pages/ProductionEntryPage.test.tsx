@@ -114,6 +114,7 @@ describe('ProductionEntryPage product selector', () => {
       }),
     ).toBeInTheDocument()
     expect(screen.getByText('Detalle técnico de Anillas')).toBeInTheDocument()
+    expect(screen.getByText('Salidas del proceso de Anillas')).toBeInTheDocument()
   })
 
   it('keeps the optional Tunnel stage hidden and at zero by default', () => {

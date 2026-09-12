@@ -39,6 +39,13 @@ const extraCatalogItems: readonly ProductionCatalogItem[] = [
     productName: 'PICO CRUDO CONGELADO BLOCK S/TTO',
     summaryGroupId: 'PICO',
   },
+  {
+    familyId: 'anillas',
+    familyName: 'ANILLAS',
+    productId: 'anillas-block-tratamiento-usa-sm-sp-st',
+    productName: 'ANILLAS CRUDAS CONG. BLOCK C/TTO USA SM SP ST',
+    summaryGroupId: 'ANILLAS',
+  },
 ]
 
 const catalogByProductId = new Map<string, ProductionCatalogItem>()
@@ -62,7 +69,13 @@ for (const day of WEEK_36_2026_PRODUCTION_DAYS) {
 
 for (const item of extraCatalogItems) {
   if (!catalogByProductId.has(item.productId)) {
-    catalogByProductId.set(item.productId, item)
+    const anillaYieldClass = getAnillaYieldClass(item.productId)
+    const processOrigin = getProcessOrigin(item.productId)
+    catalogByProductId.set(item.productId, {
+      ...item,
+      ...(anillaYieldClass ? { anillaYieldClass } : {}),
+      ...(processOrigin ? { processOrigin } : {}),
+    })
   }
 }
 

@@ -38,6 +38,16 @@ export interface AnillaMpAllocation {
   mpMainEstimatedKg100: Kg100
 }
 
+export interface AnillasProcessOutputs {
+  mainAnillasKg100: Kg100
+  botonKg100: Kg100
+  recorteKg100: Kg100
+  membranasKg100: Kg100
+  otherCoproductsKg100: Kg100
+  coproductsTotalKg100: Kg100
+  processOutputsTotalKg100: Kg100
+}
+
 export interface TubeMpBalance {
   mpTotalKg100: Kg100
   mpTubeKg100: Kg100
@@ -55,6 +65,7 @@ export interface TubeMpBalance {
   mpMainAnillasExcessKg100: Kg100
   unclassifiedAnillasKg100: Kg100
   tubeDifferenceKg100: Kg100
+  processOutputs: AnillasProcessOutputs
 }
 
 export interface GroupUtilization {
@@ -161,6 +172,51 @@ export function getAnillaMpAllocation(
   }
 }
 
+export function getAnillasProcessOutputs(
+  positions: readonly ProductionOutputPosition[],
+): AnillasProcessOutputs {
+  const mainAnillasKg100 = sumKg100(
+    positions
+      .filter((position) => position.summaryGroupId === 'ANILLAS')
+      .map((position) => position.finishedKg100),
+  )
+  const coproducts = positions.filter(
+    (position) => position.processOrigin === 'ANILLAS',
+  )
+  const totalCoproductGroup = (groupId: SummaryGroupId) =>
+    sumKg100(
+      coproducts
+        .filter((position) => position.summaryGroupId === groupId)
+        .map((position) => position.finishedKg100),
+    )
+  const botonKg100 = totalCoproductGroup('BOTON')
+  const recorteKg100 = totalCoproductGroup('RECORTE_CRUDO')
+  const membranasKg100 = totalCoproductGroup('RECORTE_COCIDO')
+  const coproductsTotalKg100 = sumKg100(
+    coproducts.map((position) => position.finishedKg100),
+  )
+  const knownCoproductsKg100 = sumKg100([
+    botonKg100,
+    recorteKg100,
+    membranasKg100,
+  ])
+
+  return {
+    mainAnillasKg100,
+    botonKg100,
+    recorteKg100,
+    membranasKg100,
+    otherCoproductsKg100: kg100(
+      coproductsTotalKg100 - knownCoproductsKg100,
+    ),
+    coproductsTotalKg100,
+    processOutputsTotalKg100: sumKg100([
+      mainAnillasKg100,
+      coproductsTotalKg100,
+    ]),
+  }
+}
+
 export function getTubeMpBalance(
   productionDay: ProductionDay,
   calculation: ProductionDayCalculation,
@@ -181,6 +237,7 @@ export function getTubeMpBalance(
     mpTubeKg100 - mpMantoEstimatedKg100,
   )
   const anillas = getAnillaMpAllocation(positions)
+  const processOutputs = getAnillasProcessOutputs(positions)
 
   return {
     mpTotalKg100,
@@ -210,6 +267,7 @@ export function getTubeMpBalance(
     tubeDifferenceKg100: kg100(
       mpTubeKg100 - (mpMantoEstimatedKg100 + mpAnillaProcessKg100),
     ),
+    processOutputs,
   }
 }
 
