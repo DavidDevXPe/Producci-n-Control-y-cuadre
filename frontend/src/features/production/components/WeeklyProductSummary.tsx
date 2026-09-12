@@ -44,7 +44,7 @@ export function WeeklyProductSummary({
               <th scope="col" className="px-4 py-2.5 sm:px-5">Grupo / producto</th>
               <th scope="col" className="px-3 py-2.5 text-right">Producto</th>
               <th scope="col" className="px-3 py-2.5 text-right">Distribución MP</th>
-              <th scope="col" className="px-3 py-2.5 text-right">Rendimiento</th>
+              <th scope="col" className="px-3 py-2.5 text-right">Rend. técnico</th>
               <th scope="col" className="px-4 py-2.5 text-right sm:px-5">Aprov. MP</th>
             </tr>
           </thead>
@@ -91,16 +91,19 @@ export function WeeklyProductSummary({
                 {formatCentiKg(totalFinishedKg100)}
               </td>
               <td className="px-3 py-3" />
-              <td className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${yieldStyles.textClass}`}>
-                {formatRatioAsPercent(performanceRatio)}
-              </td>
+              <td className="px-3 py-3" />
               <td className="px-4 py-3 text-right sm:px-5">
-                <StatusBadge
-                  tone={yieldStyles.badgeTone}
-                  title={`${yieldStatus.label}: ${yieldStatus.interpretation}`}
-                >
-                  {yieldStatus.label}
-                </StatusBadge>
+                <div className="flex items-center justify-end gap-2">
+                  <span className={`number-tabular whitespace-nowrap text-xs font-bold ${yieldStyles.textClass}`}>
+                    {formatRatioAsPercent(performanceRatio)}
+                  </span>
+                  <StatusBadge
+                    tone={yieldStyles.badgeTone}
+                    title={`${yieldStatus.label}: ${yieldStatus.interpretation}`}
+                  >
+                    {yieldStatus.label}
+                  </StatusBadge>
+                </div>
               </td>
             </tr>
           </tfoot>

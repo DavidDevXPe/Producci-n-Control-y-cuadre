@@ -1,4 +1,10 @@
 import { WEEK_36_2026_PRODUCTION_DAYS } from '../data/week36'
+import {
+  getAnillaYieldClass,
+  getProcessOrigin,
+  type AnillaYieldClass,
+  type ProcessOrigin,
+} from '../model/businessConfig'
 import type { SummaryGroupId } from '../model/types'
 
 export interface ProductionCatalogItem {
@@ -7,6 +13,8 @@ export interface ProductionCatalogItem {
   productId: string
   productName: string
   summaryGroupId: SummaryGroupId
+  anillaYieldClass?: AnillaYieldClass
+  processOrigin?: ProcessOrigin
 }
 
 const extraCatalogItems: readonly ProductionCatalogItem[] = [
@@ -38,12 +46,16 @@ const catalogByProductId = new Map<string, ProductionCatalogItem>()
 for (const day of WEEK_36_2026_PRODUCTION_DAYS) {
   for (const line of day.lines) {
     if (catalogByProductId.has(line.productId)) continue
+    const anillaYieldClass = getAnillaYieldClass(line.productId)
+    const processOrigin = getProcessOrigin(line.productId)
     catalogByProductId.set(line.productId, {
       familyId: line.familyId,
       familyName: line.familyName,
       productId: line.productId,
       productName: line.productName,
       summaryGroupId: line.summaryGroupId,
+      ...(anillaYieldClass ? { anillaYieldClass } : {}),
+      ...(processOrigin ? { processOrigin } : {}),
     })
   }
 }

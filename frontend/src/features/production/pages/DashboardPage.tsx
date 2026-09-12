@@ -206,7 +206,7 @@ export function DashboardPage() {
               }
             />
             <MetricCard
-              label="Rendimiento"
+              label="Aprovechamiento"
               value={formatRatioAsPercent(latestCalculation.performance.ratio)}
               icon={<Gauge className="size-5" />}
               tone={latestYieldStyles.metricTone}
@@ -219,7 +219,7 @@ export function DashboardPage() {
                   <p>Referencia operativa: 80%</p>
                   <div
                     className="relative h-1.5 overflow-visible rounded-full bg-slate-100"
-                    aria-label={`Rendimiento ${formatRatioAsPercent(latestCalculation.performance.ratio)}; referencia 80%`}
+                    aria-label={`Aprovechamiento ${formatRatioAsPercent(latestCalculation.performance.ratio)}; referencia 80%`}
                     role="img"
                   >
                     <span
@@ -367,7 +367,7 @@ export function DashboardPage() {
                   <th scope="col" className="px-3 py-2">Estado</th>
                   <th scope="col" className="px-3 py-2 text-right">Producto terminado</th>
                   <th scope="col" className="px-3 py-2 text-right">Saldo</th>
-                  <th scope="col" className="px-3 py-2 text-right">Rend.</th>
+                  <th scope="col" className="px-3 py-2 text-right">Aprov.</th>
                   <th scope="col" className="px-4 py-2 text-right">Acción</th>
                 </tr>
               </thead>
@@ -406,7 +406,7 @@ export function DashboardPage() {
                       <td
                         className="px-3 py-3 text-right"
                         title={`${formatRatioAsPercent(calculation.performance.ratio)} · ${dayYieldStatus.label}: ${dayYieldStatus.interpretation}`}
-                        aria-label={`Rendimiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${dayYieldStatus.label}. ${dayYieldStatus.interpretation}`}
+                        aria-label={`Aprovechamiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${dayYieldStatus.label}. ${dayYieldStatus.interpretation}`}
                       >
                         <span className={`number-tabular block whitespace-nowrap text-xs font-bold ${dayYieldStyles.textClass}`}>
                           {formatRatioAsPercent(calculation.performance.ratio)}

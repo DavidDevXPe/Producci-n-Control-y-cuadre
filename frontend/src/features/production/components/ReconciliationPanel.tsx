@@ -103,7 +103,7 @@ export function ReconciliationPanel({ calculation }: ReconciliationPanelProps) {
   return (
     <SectionCard
       title="Cuadre de producción"
-      description="Validación matemática independiente del rendimiento."
+      description="Validación matemática independiente del aprovechamiento."
       action={
         <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
           {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}

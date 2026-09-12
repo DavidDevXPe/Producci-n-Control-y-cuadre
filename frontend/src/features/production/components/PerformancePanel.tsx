@@ -28,8 +28,8 @@ export function PerformancePanel({
 
   return (
     <SectionCard
-      title="Rendimiento productivo"
-      description="Indicador operativo; no determina el estado del cuadre."
+      title="Aprovechamiento general"
+      description="Producto terminado total ÷ materia prima total; no determina el estado del cuadre."
       action={
         <StatusBadge
           tone={yieldStyles.badgeTone}

@@ -17,6 +17,7 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { FamilyYieldPanel } from '../components/FamilyYieldPanel'
+import { TubeMpBalancePanel } from '../components/TubeMpBalancePanel'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import { formatCentiKg, formatIsoDate } from '../../../utils/formatters'
 import {
@@ -740,7 +741,7 @@ export function ProductionEntryPage() {
         description={
           draft.source === 'EXCEL'
             ? `Vista previa de ${draft.sourceSheet}; todos los campos siguen siendo editables antes de guardar.`
-            : 'Totales independientes usados para validar el cuadre y el rendimiento.'
+            : 'Totales independientes usados para validar el cuadre y el aprovechamiento.'
         }
       >
         <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-5">
@@ -1516,25 +1517,27 @@ export function ProductionEntryPage() {
           tone={buildResult.calculation.differenceKg100 === 0 ? 'success' : 'danger'}
         />
         <MetricCard
-          label="Rendimiento general"
+          label="Aprovechamiento general"
           value={
-            businessSummary.generalYieldPercent === null
+            businessSummary.overallUtilization.percent === null
               ? 'No disponible'
-              : `${businessSummary.generalYieldPercent.toLocaleString('es-PE', {
+              : `${businessSummary.overallUtilization.percent.toLocaleString('es-PE', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}%`
           }
           tone={
-            businessSummary.generalYieldPercent !== null &&
-            businessSummary.generalYieldPercent >= 80 &&
-            businessSummary.generalYieldPercent <= 100
+            businessSummary.overallUtilization.percent !== null &&
+            businessSummary.overallUtilization.percent >= 80 &&
+            businessSummary.overallUtilization.percent <= 100
               ? 'success'
               : 'danger'
           }
           description="Debe estar entre 80% y 100% para cerrar."
         />
       </section>
+
+      <TubeMpBalancePanel balance={businessSummary.tubeMpBalance} />
 
       <FamilyYieldPanel
         summary={businessSummary}

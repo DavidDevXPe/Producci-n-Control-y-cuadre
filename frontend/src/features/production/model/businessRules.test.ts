@@ -20,6 +20,7 @@ import type {
 
 interface LineSeed {
   group: SummaryGroupId
+  productId?: string
   day?: number
   night?: number
   tunnelDay?: number
@@ -32,7 +33,9 @@ const productIdsByGroup: Partial<Record<SummaryGroupId, readonly string[]>> = {
   ALETA: ['aleta-cruda-codificada'],
   MANTO: ['manto-japones-crudo'],
   ANILLAS: ['anillas-espana-polar-mixta'],
+  BOTON: ['boton-usa-sm-cp-tratamiento'],
   RECORTE_CRUDO: ['recorte-crudo-manto-japones'],
+  RECORTE_COCIDO: ['membranas-cocidas'],
   REJOS: ['rejo-baa-1-2'],
   REPRODUCTOR: ['reproductor-50-70'],
   NUCA_SEMILIMPIA: ['nuca-semilimpia-codificada'],
@@ -40,7 +43,7 @@ const productIdsByGroup: Partial<Record<SummaryGroupId, readonly string[]>> = {
 }
 
 function lineFor(seed: LineSeed, index: number): ProductionLine {
-  const productId = productIdsByGroup[seed.group]?.[0]
+  const productId = seed.productId ?? productIdsByGroup[seed.group]?.[0]
   const product = PRODUCTION_CATALOG_ITEMS.find(
     (candidate) => candidate.productId === productId,
   )
@@ -139,7 +142,56 @@ function family(
   return summary.families.find((candidate) => candidate.key === key)!
 }
 
+function utilization(
+  summary: ReturnType<typeof calculateProductionBusinessSummary>,
+  groupId: SummaryGroupId,
+) {
+  return summary.groupUtilizations.find(
+    (candidate) => candidate.groupId === groupId,
+  )!
+}
+
 describe('production business rules', () => {
+  it('classifies every current Anillas presentation and its coproduct origins explicitly', () => {
+    const anillas = PRODUCTION_CATALOG_ITEMS.filter(
+      (product) => product.summaryGroupId === 'ANILLAS',
+    )
+
+    expect(anillas.length).toBeGreaterThan(0)
+    expect(anillas.every((product) => product.anillaYieldClass)).toBe(true)
+    expect(
+      PRODUCTION_CATALOG_ITEMS.find(
+        (product) => product.productId === 'anillas-espana-polar-mixta',
+      )?.anillaYieldClass,
+    ).toBe('POLAR')
+    expect(
+      PRODUCTION_CATALOG_ITEMS.find(
+        (product) => product.productId === 'anillas-espana-segunda-mixta',
+      )?.anillaYieldClass,
+    ).toBe('GENERAL')
+    expect(
+      PRODUCTION_CATALOG_ITEMS.find(
+        (product) =>
+          product.productId === 'anillas-block-tratamiento-usa-sm-cp-st',
+      )?.anillaYieldClass,
+    ).toBe('USA')
+    expect(
+      PRODUCTION_CATALOG_ITEMS.find(
+        (product) => product.productId === 'boton-usa-sm-cp-tratamiento',
+      )?.processOrigin,
+    ).toBe('ANILLAS')
+    expect(
+      PRODUCTION_CATALOG_ITEMS.find(
+        (product) => product.productId === 'recorte-crudo-anillas-sm-sp-st',
+      )?.processOrigin,
+    ).toBe('ANILLAS')
+    expect(
+      PRODUCTION_CATALOG_ITEMS.find(
+        (product) => product.productId === 'membranas-cocidas',
+      )?.processOrigin,
+    ).toBe('ANILLAS')
+  })
+
   it('recalculates report-only Aleta subtotals and preliminary yield', () => {
     const initialDay = productionDay(500_000, [
       { group: 'ALETA', day: 47_020, night: 49_380 },
@@ -295,19 +347,155 @@ describe('production business rules', () => {
     )
   })
 
-  it('uses the provisional 42.5% Anillas rate to recalculate Manto MP', () => {
+  it('reconstructs the Monday Tube balance with confirmed technical yields', () => {
+    const monday = productionDay(615_239, [
+        { group: 'ALETA', day: 111_400 },
+        { group: 'MANTO', day: 185_010 },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-espana-polar-mixta',
+          day: 22_130,
+        },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-espana-segunda-mixta',
+          day: 840,
+        },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-block-tratamiento-usa-sm-cp-st',
+          treatment: 45,
+        },
+        { group: 'RECORTE_CRUDO', day: 173_338 },
+      ])
+    const { calculation, summary } = summaryFor(monday)
+    const balance = summary.tubeMpBalance
+
+    expect(balance.mpTotalKg100).toBe(kg(615_239))
+    expect(balance.mpTubeKg100).toBe(kg(307_619.5))
+    expect(balance.ptMantoKg100).toBe(kg(185_010))
+    expect(balance.mpMantoEstimatedKg100).toBe(kg(231_262.5))
+    expect(balance.mpAnillaProcessKg100).toBe(kg(76_357))
+    expect(balance.mpAnillaPolarEstimatedKg100).toBe(kg(61_472.22))
+    expect(balance.mpAnillaGeneralEstimatedKg100).toBe(kg(2_000))
+    expect(balance.mpAnillaUsaEstimatedKg100).toBe(kg(132.35))
+    expect(balance.mpMainAnillasEstimatedKg100).toBe(kg(63_604.58))
+    expect(balance.mpAnillasUnallocatedKg100).toBe(kg(12_752.42))
+    expect(balance.tubeDifferenceKg100).toBe(kg(0))
+    expect(family(summary, 'MANTO').projectedYieldPercent).toBeCloseTo(80, 8)
+    expect(family(summary, 'MANTO').utilizationPercent).toBeCloseTo(
+      30.071241,
+      5,
+    )
+    expect(
+      validateProductionClosure(monday, calculation, {
+        requiredDataComplete: true,
+      }).blockers.map((blocker) => blocker.code),
+    ).not.toContain('ANILLAS_MP_UNALLOCATED')
+  })
+
+  it('calculates Monday group and overall utilization over total raw material', () => {
     const { summary } = summaryFor(
-      productionDay(100, [
-        { group: 'ANILLAS', day: 4.25 },
-        { group: 'MANTO', day: 20 },
-        { group: 'RECORTE_CRUDO', day: 55.75 },
+      productionDay(615_239, [
+        { group: 'ALETA', day: 111_400 },
+        { group: 'MANTO', day: 185_010 },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-espana-polar-mixta',
+          day: 22_130,
+        },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-espana-segunda-mixta',
+          day: 840,
+        },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-block-tratamiento-usa-sm-cp-st',
+          treatment: 45,
+        },
+        { group: 'RECORTE_CRUDO', day: 173_338 },
       ]),
     )
 
-    expect(summary.mantoAnillas.tubeRawMaterialKg100).toBe(kg(50))
-    expect(summary.mantoAnillas.anillasRawMaterialKg100).toBe(kg(10))
-    expect(summary.mantoAnillas.mantoRawMaterialKg100).toBe(kg(40))
-    expect(family(summary, 'MANTO').projectedYieldPercent).toBeCloseTo(50, 8)
+    expect(summary.finishedKg100).toBe(kg(492_763))
+    expect(summary.overallUtilization.percent).toBeCloseTo(80.0929394918, 8)
+    expect(utilization(summary, 'MANTO').percent).toBeCloseTo(30.071241, 5)
+    expect(utilization(summary, 'ANILLAS').percent).toBeCloseTo(3.740822, 5)
+    expect(utilization(summary, 'ALETA').percent).toBeCloseTo(18.106783, 5)
+    expect(
+      summary.groupUtilizations.reduce(
+        (total, group) => total + (group.percent ?? 0),
+        0,
+      ),
+    ).toBeCloseTo(summary.overallUtilization.percent!, 8)
+  })
+
+  it('counts Anillas coproducts in PT without assigning them a second technical MP', () => {
+    const { summary } = summaryFor(
+      productionDay(100, [
+        { group: 'MANTO', day: 32 },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-espana-segunda-mixta',
+          day: 4.2,
+        },
+        {
+          group: 'BOTON',
+          productId: 'boton-usa-sm-cp-tratamiento',
+          treatment: 5,
+        },
+        {
+          group: 'RECORTE_CRUDO',
+          productId: 'recorte-crudo-anillas-sm-sp-st',
+          day: 5,
+        },
+        {
+          group: 'RECORTE_COCIDO',
+          productId: 'membranas-cocidas',
+          day: 5,
+        },
+        { group: 'RECORTE_CRUDO', day: 28.8 },
+      ]),
+    )
+
+    expect(summary.tubeMpBalance.mpAnillaProcessKg100).toBe(kg(10))
+    expect(summary.tubeMpBalance.mpMainAnillasEstimatedKg100).toBe(kg(10))
+    expect(summary.finishedKg100).toBe(kg(80))
+    expect(summary.overallUtilization.percent).toBeCloseTo(80, 8)
+  })
+
+  it('recalculates Tube MP with Report, Tunnel, Treatment and closing balance exactly once', () => {
+    const { summary } = summaryFor(
+      productionDay(1_000, [
+        {
+          group: 'MANTO',
+          day: 80,
+          night: 40,
+          tunnelDay: 10,
+          tunnelNight: 20,
+          treatment: 10,
+          closing: 40,
+        },
+        {
+          group: 'ANILLAS',
+          productId: 'anillas-espana-polar-mixta',
+          day: 3.6,
+          night: 3.6,
+          tunnelDay: 3.6,
+          tunnelNight: 3.6,
+          treatment: 3.6,
+          closing: 3.6,
+        },
+      ]),
+    )
+
+    expect(summary.tubeMpBalance.ptMantoKg100).toBe(kg(200))
+    expect(summary.tubeMpBalance.mpMantoEstimatedKg100).toBe(kg(250))
+    expect(summary.tubeMpBalance.ptAnillasKg100).toBe(kg(21.6))
+    expect(summary.tubeMpBalance.mpAnillaPolarEstimatedKg100).toBe(kg(60))
+    expect(summary.finishedKg100).toBe(kg(221.6))
+    expect(summary.overallUtilization.percent).toBeCloseTo(22.16, 8)
   })
 
   it('blocks a 79.99% general yield and permits 80% with exact reconciliation', () => {
@@ -453,7 +641,7 @@ describe('production business rules', () => {
     )
   })
 
-  it('blocks when calculated Anillas MP exceeds the Tubo/Manto pool', () => {
+  it('blocks when technical Anillas MP exceeds the available process MP', () => {
     const day = productionDay(100, [
       { group: 'ANILLAS', day: 21.26 },
       { group: 'RECORTE_CRUDO', day: 58.74 },
@@ -463,9 +651,49 @@ describe('production business rules', () => {
       requiredDataComplete: true,
     })
 
-    expect(summary.mantoAnillas.anillasRawMaterialExcessKg100).toBeGreaterThan(0)
+    expect(summary.tubeMpBalance.mpMainAnillasExcessKg100).toBeGreaterThan(0)
     expect(validation.blockers).toContainEqual(
-      expect.objectContaining({ code: 'ANILLAS_MP_EXCEEDS_TUBE' }),
+      expect.objectContaining({ code: 'ANILLAS_MP_EXCEEDS_AVAILABLE' }),
+    )
+  })
+
+  it('blocks when estimated Manto MP exceeds the Tube pool', () => {
+    const day = productionDay(100, [
+      { group: 'MANTO', day: 41 },
+      { group: 'RECORTE_CRUDO', day: 39 },
+    ])
+    const { calculation, summary } = summaryFor(day)
+    const validation = validateProductionClosure(day, calculation, {
+      requiredDataComplete: true,
+    })
+
+    expect(summary.tubeMpBalance.mpMantoExcessKg100).toBe(kg(1.25))
+    expect(validation.blockers).toContainEqual(
+      expect.objectContaining({ code: 'MANTO_MP_EXCEEDS_TUBE' }),
+    )
+  })
+
+  it('blocks an Anillas product that has no explicit technical class', () => {
+    const original = productionDay(100, [
+      { group: 'ANILLAS', day: 20 },
+      { group: 'RECORTE_CRUDO', day: 60 },
+    ])
+    const day: ProductionDay = {
+      ...original,
+      lines: original.lines.map((line) =>
+        line.summaryGroupId === 'ANILLAS'
+          ? { ...line, productId: 'anillas-presentation-without-class' }
+          : line,
+      ),
+    }
+    const { calculation, summary } = summaryFor(day)
+    const validation = validateProductionClosure(day, calculation, {
+      requiredDataComplete: true,
+    })
+
+    expect(summary.tubeMpBalance.unclassifiedAnillasKg100).toBe(kg(20))
+    expect(validation.blockers).toContainEqual(
+      expect.objectContaining({ code: 'ANILLAS_YIELD_CLASS_MISSING' }),
     )
   })
 

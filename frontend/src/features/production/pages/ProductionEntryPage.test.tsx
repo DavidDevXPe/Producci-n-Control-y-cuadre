@@ -96,6 +96,26 @@ describe('ProductionEntryPage product selector', () => {
     expect(within(productSelect).queryByText(/manto japonés/i)).not.toBeInTheDocument()
   })
 
+  it('shows the Tube MP balance and distinguishes overall utilization', () => {
+    renderNewEntry()
+    completeShiftReport({
+      rawMaterial: '100',
+      dayReport: '32',
+      productSearch: 'manto japonés crudo',
+    })
+
+    expect(screen.getByRole('heading', { name: 'Balance MP Tubo' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Aprovechamiento general' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', {
+        name: 'Rendimiento técnico y aprovechamiento MP',
+      }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Detalle técnico de Anillas')).toBeInTheDocument()
+  })
+
   it('keeps the optional Tunnel stage hidden and at zero by default', () => {
     renderNewEntry()
 

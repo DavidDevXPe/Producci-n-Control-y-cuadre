@@ -26,7 +26,7 @@ import type {
 import {
   ALETA_MP_SHARE_BPS,
   GENERAL_MIN_YIELD_BPS,
-  MANTO_MP_SHARE_BPS,
+  TUBE_MP_SHARE_BPS,
   NUCA_BIKINI_REFERENCE_BPS,
   NUCA_MP_SHARE_BPS,
   REJO_MP_SHARE_BPS,
@@ -896,7 +896,7 @@ export function calculateRawMaterialDistribution(
   rawMaterialKg100: Kg100,
 ): RawMaterialDistribution {
   return {
-    tubeKg100: applyBasisPoints(rawMaterialKg100, MANTO_MP_SHARE_BPS),
+    tubeKg100: applyBasisPoints(rawMaterialKg100, TUBE_MP_SHARE_BPS),
     aletaKg100: applyBasisPoints(rawMaterialKg100, ALETA_MP_SHARE_BPS),
     rejosKg100: applyBasisPoints(rawMaterialKg100, REJO_MP_SHARE_BPS),
     nucasKg100: applyBasisPoints(rawMaterialKg100, NUCA_MP_SHARE_BPS),

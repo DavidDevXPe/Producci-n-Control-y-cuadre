@@ -49,7 +49,7 @@ export function ProductionDaysPage() {
       <PageHeader
         eyebrow="Producción"
         title="Jornadas de producción"
-        description="Consulta el cuadre diario sin mezclarlo con el rendimiento operativo."
+        description="Consulta el cuadre diario sin mezclarlo con el aprovechamiento operativo."
         actions={
           activeWeekState.canCreate ? (
             <ActionLink to="/jornadas/nueva" size="sm">
@@ -131,7 +131,7 @@ export function ProductionDaysPage() {
                 <th scope="col" className="px-3 py-2.5 text-right">Saldo final</th>
                 <th scope="col" className="px-3 py-2.5 text-right">Diferencia</th>
                 <th scope="col" className="px-3 py-2.5">Cuadre</th>
-                <th scope="col" className="px-3 py-2.5">Rendimiento</th>
+                <th scope="col" className="px-3 py-2.5">Aprovechamiento</th>
                 <th scope="col" className="px-4 py-2.5 text-right sm:px-5"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
@@ -191,7 +191,7 @@ export function ProductionDaysPage() {
                       <div
                         className="flex flex-col items-start gap-1"
                         title={`${formatRatioAsPercent(calculation.performance.ratio)} · ${yieldStatus.label}: ${yieldStatus.interpretation}`}
-                        aria-label={`Rendimiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${yieldStatus.label}. ${yieldStatus.interpretation}`}
+                        aria-label={`Aprovechamiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${yieldStatus.label}. ${yieldStatus.interpretation}`}
                       >
                         <span
                           className={`number-tabular whitespace-nowrap text-xs font-bold ${yieldStyles.textClass}`}

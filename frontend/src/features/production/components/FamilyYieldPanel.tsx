@@ -40,8 +40,8 @@ export function FamilyYieldPanel({
 }: FamilyYieldPanelProps) {
   return (
     <SectionCard
-      title="Rendimientos por familia"
-      description={`Evolución reactiva por Reportes${showTunnel ? ', Túnel' : ''}, Tratamiento y saldo al cierre.`}
+      title="Rendimiento técnico y aprovechamiento MP"
+      description={`Evolución por Reportes${showTunnel ? ', Túnel' : ''}, Tratamiento y saldo; el aprovechamiento siempre usa la MP total.`}
       action={<Calculator className="size-5 text-brand-700" aria-hidden="true" />}
     >
       <div className="grid gap-3 p-4 sm:p-5 xl:grid-cols-2">
@@ -99,13 +99,13 @@ export function FamilyYieldPanel({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Rendimiento antes de saldo</dt>
+                  <dt className="text-slate-500">Rend. técnico antes de saldo</dt>
                   <dd className="number-tabular mt-0.5 font-bold text-slate-900">
                     {formatPercent(metric.yieldBeforePercent)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Objetivo</dt>
+                  <dt className="text-slate-500">Objetivo técnico</dt>
                   <dd className="number-tabular mt-0.5 font-bold text-slate-900">
                     {metric.targetPercent === null
                       ? 'Sin objetivo configurado'
@@ -119,9 +119,15 @@ export function FamilyYieldPanel({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Rendimiento proyectado</dt>
+                  <dt className="text-slate-500">Rendimiento técnico</dt>
                   <dd className="number-tabular mt-0.5 text-base font-extrabold text-slate-950">
                     {formatPercent(metric.projectedYieldPercent)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Aprovechamiento MP</dt>
+                  <dd className="number-tabular mt-0.5 text-base font-extrabold text-brand-800">
+                    {formatPercent(metric.utilizationPercent)}
                   </dd>
                 </div>
                 {metric.targetPercent !== null ? (
@@ -171,14 +177,14 @@ export function FamilyYieldPanel({
               {metric.key === 'MANTO' ? (
                 <div className="mt-3 border-t border-slate-200 pt-3 text-[0.6875rem] leading-5 text-slate-500">
                   <p>
-                    Anillas: {formatCentiKg(summary.mantoAnillas.anillasOutputKg100)} ·
-                    MP consumida con tasa provisional 42.5%:{' '}
-                    {formatCentiKg(summary.mantoAnillas.anillasRawMaterialKg100)}
+                    Rendimiento técnico Manto: <strong>80%</strong> · PT Manto:{' '}
+                    {formatCentiKg(summary.tubeMpBalance.ptMantoKg100)} · MP
+                    estimada: {formatCentiKg(summary.tubeMpBalance.mpMantoEstimatedKg100)}
                   </p>
-                  {summary.mantoAnillas.anillasRawMaterialExcessKg100 > 0 ? (
+                  {summary.tubeMpBalance.mpMantoExcessKg100 > 0 ? (
                     <p className="mt-1 font-bold text-rose-700">
-                      Error: Anillas excede la bolsa Tubo/Manto en{' '}
-                      {formatCentiKg(summary.mantoAnillas.anillasRawMaterialExcessKg100)}.
+                      Error: la MP estimada de Manto excede la MP Tubo en{' '}
+                      {formatCentiKg(summary.tubeMpBalance.mpMantoExcessKg100)}.
                     </p>
                   ) : null}
                 </div>
@@ -192,6 +198,41 @@ export function FamilyYieldPanel({
             </article>
           )
         })}
+      </div>
+      <div className="border-t border-slate-200 bg-slate-50/55 px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-slate-950">
+              Aprovechamiento MP por grupo
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Producto terminado del grupo ÷ materia prima total.
+            </p>
+          </div>
+          <p className="number-tabular text-sm font-bold text-brand-800">
+            General: {formatPercent(summary.overallUtilization.percent)}
+          </p>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {summary.groupUtilizations.map((group) => (
+            <div
+              key={group.groupId}
+              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold text-slate-800">
+                  {group.label}
+                </p>
+                <p className="number-tabular mt-0.5 text-[0.6875rem] text-slate-500">
+                  {formatCentiKg(group.finishedKg100)}
+                </p>
+              </div>
+              <p className="number-tabular whitespace-nowrap text-xs font-extrabold text-brand-800">
+                {formatPercent(group.percent)}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
       <p className="border-t border-slate-200 bg-slate-50/70 px-4 py-3 text-xs leading-5 text-slate-600 sm:px-5">
         Registre únicamente saldo real. Los kg faltantes son una referencia para alcanzar el objetivo.

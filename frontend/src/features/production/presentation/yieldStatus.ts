@@ -26,7 +26,7 @@ const yieldStatuses = {
   critical: {
     status: 'critical',
     label: 'CRÍTICO',
-    interpretation: 'Rendimiento demasiado bajo',
+    interpretation: 'Aprovechamiento demasiado bajo',
     colorVariant: 'red',
   },
   low: {
@@ -63,7 +63,7 @@ const yieldStatuses = {
   notApplicable: {
     status: 'not_applicable',
     label: 'NO APLICA',
-    interpretation: 'No existe materia prima para calcular el rendimiento',
+    interpretation: 'No existe materia prima para calcular el aprovechamiento',
     colorVariant: 'neutral',
   },
 } as const satisfies Record<string, YieldStatus>

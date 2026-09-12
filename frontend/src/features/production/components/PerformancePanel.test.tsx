@@ -15,7 +15,7 @@ describe('PerformancePanel Nuca Bikini applicability', () => {
     render(<PerformancePanel calculation={calculation} />)
 
     const performanceHeading = screen.getByRole('heading', {
-      name: 'Rendimiento productivo',
+      name: 'Aprovechamiento general',
     })
     const performance = performanceHeading.closest('section')
 

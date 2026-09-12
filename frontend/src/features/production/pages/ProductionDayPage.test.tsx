@@ -81,7 +81,7 @@ describe('Wednesday production day page', () => {
     renderWednesdayPage()
 
     const performanceHeading = screen.getByRole('heading', {
-      name: 'Rendimiento productivo',
+      name: 'Aprovechamiento general',
     })
     const performance = performanceHeading.closest('section')
 
@@ -230,7 +230,7 @@ describe('Friday and Saturday production day pages', () => {
       expect(classNames).toContain('lg:left-0')
     })
     const performance = screen
-      .getByRole('heading', { name: 'Rendimiento productivo' })
+      .getByRole('heading', { name: 'Aprovechamiento general' })
       .closest('section')
     expect(performance).not.toBeNull()
     expect(within(performance!).getByText('REVISAR')).toBeInTheDocument()

@@ -28,6 +28,7 @@ import {
   type WeeklyProductGroupRow,
 } from '../components/WeeklyProductSummary'
 import { calculateProductionDay, calculateWeeklySummary, kg100, sumKg100 } from '../model/calculations'
+import { getTubeMpBalance } from '../model/tubeMpBalance'
 import type { Kg100, ProductionDay, SummaryGroupId, WeeklyProductTotal, WeeklySummary } from '../model/types'
 import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
 import { useProductionData } from '../state/ProductionDataContext'
@@ -78,13 +79,17 @@ function getWeeklyReproductorAllocation(days: readonly ProductionDay[]): Kg100 {
 function getGroupAllocation(
   summary: WeeklySummary,
   reproductor: Kg100,
+  tubeAllocation: Readonly<{
+    mantoKg100: Kg100
+    anillasKg100: Kg100
+  }>,
   groupId: SummaryGroupId,
 ): Kg100 | null {
   const allocations: Partial<Record<SummaryGroupId, Kg100 | null>> = {
     ALETA: summary.distribution.aletaKg100,
-    MANTO: summary.distribution.tubeKg100,
-    ANILLAS: summary.distribution.tubeKg100,
-    BOTON: summary.distribution.tubeKg100,
+    MANTO: tubeAllocation.mantoKg100,
+    ANILLAS: tubeAllocation.anillasKg100,
+    BOTON: null,
     RECORTE_CRUDO: null,
     RECORTE_COCIDO: null,
     REJOS_SPECIAL: null,
@@ -174,12 +179,28 @@ export function WeeklySummaryPage() {
     }
   })
   const reproductorAllocation = getWeeklyReproductorAllocation(productionDays)
+  const weeklyTubeAllocation = productionDays.reduce(
+    (totals, day) => {
+      const calculation = calculationsByDate.get(day.date)!
+      const balance = getTubeMpBalance(day, calculation)
+      return {
+        mantoKg100: kg100(
+          totals.mantoKg100 + balance.mpMantoEstimatedKg100,
+        ),
+        anillasKg100: kg100(
+          totals.anillasKg100 + balance.mpAnillaProcessKg100,
+        ),
+      }
+    },
+    { mantoKg100: kg100(0), anillasKg100: kg100(0) },
+  )
   const weeklyProductGroups: readonly WeeklyProductGroupRow[] = groupOrder.map(
     (groupId) => {
       const totalKg100 = getGroupTotal(summary, groupId)
       const allocationKg100 = getGroupAllocation(
         summary,
         reproductorAllocation,
+        weeklyTubeAllocation,
         groupId,
       )
 
@@ -241,7 +262,7 @@ export function WeeklySummaryPage() {
           tone={isValid ? 'success' : 'danger'}
         />
         <MetricCard
-          label="Rendimiento acumulado"
+          label="Aprovechamiento acumulado"
           value={formatRatioAsPercent(summary.performance.ratio)}
           icon={<Gauge className="size-5" />}
           tone={weeklyYieldStyles.metricTone}
@@ -368,7 +389,7 @@ export function WeeklySummaryPage() {
         <ClipboardCheck className="mt-0.5 size-5 shrink-0 text-brand-700" aria-hidden="true" />
         <p>
           La semana puede validar en cero y permanecer bajo la referencia del 80%.
-          El rendimiento acumulado se calcula con los totales de MP y producto, no
+          El aprovechamiento acumulado se calcula con los totales de MP y producto, no
           promediando porcentajes diarios.
         </p>
       </div>

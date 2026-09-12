@@ -234,7 +234,7 @@ export function buildProductionDayWorkbook(
   setSummaryMetric(
     worksheet,
     11,
-    'Rendimiento',
+    'Aprovechamiento general',
     calculation.performance.ratio ?? 'No disponible',
     calculation.performance.ratio === null ? undefined : PERCENT_FORMAT,
   )

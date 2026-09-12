@@ -2,9 +2,12 @@ import {
   ALETA_MP_SHARE_BPS,
   ALETA_TARGET,
   ALETA_TARGET_BPS,
-  ANILLAS_YIELD_RATE,
+  ANILLA_GENERAL_YIELD,
+  ANILLA_POLAR_YIELD,
+  ANILLA_USA_YIELD,
   GENERAL_MIN_YIELD,
-  MANTO_MP_SHARE_BPS,
+  MANTO_STANDARD_YIELD,
+  MANTO_STANDARD_YIELD_BPS,
   NUCA_BIKINI_REFERENCE_BPS,
   NUCA_MP_SHARE_BPS,
   NUCA_TARGET,
@@ -12,6 +15,7 @@ import {
   REJO_MP_SHARE_BPS,
   REJO_REPRODUCTOR_TARGET,
   REJO_REPRODUCTOR_TARGET_BPS,
+  getAnillaYieldClass,
 } from './businessConfig'
 import { applyBasisPoints, kg100, sumKg100 } from './calculations'
 import type {
@@ -21,6 +25,15 @@ import type {
   ProductReconciliation,
   SummaryGroupId,
 } from './types'
+import {
+  getGroupUtilization,
+  getOverallUtilization,
+  getProductionOutputPositions,
+  getTubeMpBalance,
+  type GroupUtilization,
+  type OverallUtilization,
+  type TubeMpBalance,
+} from './tubeMpBalance'
 
 export type FamilyYieldKey =
   | 'ALETA'
@@ -49,6 +62,7 @@ export interface FamilyYieldProjection {
   afterTunnelYieldPercent: number | null
   yieldBeforePercent: number | null
   projectedYieldPercent: number | null
+  utilizationPercent: number | null
   targetPercent: number | null
   targetKg100: Kg100 | null
   missingToTargetKg100: Kg100
@@ -79,20 +93,14 @@ export interface RejoReproductorAllocation {
   sharedYieldPercent: number | null
 }
 
-export interface MantoAnillasAllocation {
-  tubeRawMaterialKg100: Kg100
-  anillasOutputKg100: Kg100
-  anillasRawMaterialKg100: Kg100
-  mantoRawMaterialKg100: Kg100
-  anillasRawMaterialExcessKg100: Kg100
-}
-
 export interface ProductionBusinessSummary {
   generalYieldPercent: number | null
+  overallUtilization: OverallUtilization
   finishedKg100: Kg100
   families: readonly FamilyYieldProjection[]
+  groupUtilizations: readonly GroupUtilization[]
   rejoReproductor: RejoReproductorAllocation
-  mantoAnillas: MantoAnillasAllocation
+  tubeMpBalance: TubeMpBalance
   nucaBikiniReferenceKg100: Kg100 | null
 }
 
@@ -197,6 +205,7 @@ function familyProjection(
   key: FamilyYieldKey,
   label: string,
   rawMaterialKg100: Kg100,
+  totalRawMaterialKg100: Kg100,
   parts: ReturnType<typeof outputParts>,
   target: { ratio: number; basisPoints: number } | null,
 ): FamilyYieldProjection {
@@ -241,6 +250,10 @@ function familyProjection(
     projectedYieldPercent: percent(
       parts.projectedProductionKg100,
       rawMaterialKg100,
+    ),
+    utilizationPercent: percent(
+      parts.projectedProductionKg100,
+      totalRawMaterialKg100,
     ),
     targetPercent: target ? target.ratio * 100 : null,
     targetKg100,
@@ -306,19 +319,31 @@ export function calculateReportFamilySubtotals(
   }
 
   const rawMaterialKg100 = productionDay.declaredRawMaterialKg100
-  const anillasOutputKg100 = sumKg100(
-    productionDay.lines
-      .filter((line) => line.summaryGroupId === 'ANILLAS')
-      .flatMap((line) => [
-        line.shifts.DAY.reportedKg100,
-        line.shifts.NIGHT.reportedKg100,
-      ]),
-  )
+  const preliminaryMantoOutputKg100 = sumKg100([
+    buckets.get('MANTO')?.dayKg100 ?? ZERO,
+    buckets.get('MANTO')?.nightKg100 ?? ZERO,
+  ])
   const preliminaryMantoRawKg100 = kg100(
-    Math.max(
-      applyBasisPoints(rawMaterialKg100, MANTO_MP_SHARE_BPS) -
-        Math.round(anillasOutputKg100 / ANILLAS_YIELD_RATE),
-      0,
+    Math.round(preliminaryMantoOutputKg100 / MANTO_STANDARD_YIELD),
+  )
+  const anillaReportOutputByClass = productionDay.lines
+    .filter((line) => line.summaryGroupId === 'ANILLAS')
+    .reduce(
+      (totals, line) => {
+        const yieldClass = getAnillaYieldClass(line.productId)
+        if (yieldClass) {
+          totals[yieldClass] +=
+            line.shifts.DAY.reportedKg100 + line.shifts.NIGHT.reportedKg100
+        }
+        return totals
+      },
+      { POLAR: 0, GENERAL: 0, USA: 0 },
+    )
+  const preliminaryAnillasRawKg100 = kg100(
+    Math.round(
+      anillaReportOutputByClass.POLAR / ANILLA_POLAR_YIELD +
+        anillaReportOutputByClass.GENERAL / ANILLA_GENERAL_YIELD +
+        anillaReportOutputByClass.USA / ANILLA_USA_YIELD,
     ),
   )
 
@@ -341,13 +366,13 @@ export function calculateReportFamilySubtotals(
                 target: NUCA_TARGET,
               }
             : key === 'MANTO'
-              ? { rawKg100: preliminaryMantoRawKg100, target: null }
+              ? {
+                  rawKg100: preliminaryMantoRawKg100,
+                  target: MANTO_STANDARD_YIELD,
+                }
               : key === 'ANILLAS'
                 ? {
-                    rawKg100:
-                      totalKg100 === 0
-                        ? ZERO
-                        : kg100(Math.round(totalKg100 / ANILLAS_YIELD_RATE)),
+                    rawKg100: preliminaryAnillasRawKg100,
                     target: null,
                   }
                 : null
@@ -403,21 +428,14 @@ export function calculateProductionBusinessSummary(
   const mantoParts = outputParts(
     productsForGroups(productionDay, calculation, ['MANTO']),
   )
-  const anillasParts = outputParts(
-    productsForGroups(productionDay, calculation, ['ANILLAS']),
+  const outputPositions = getProductionOutputPositions(
+    productionDay,
+    calculation,
   )
-  const tubeRawMaterialKg100 = applyBasisPoints(
+  const tubeMpBalance = getTubeMpBalance(productionDay, calculation)
+  const overallUtilization = getOverallUtilization(
+    calculation.expectedFinishedKg100,
     rawMaterialKg100,
-    MANTO_MP_SHARE_BPS,
-  )
-  const anillasRawMaterialKg100 = kg100(
-    Math.round(anillasParts.projectedProductionKg100 / ANILLAS_YIELD_RATE),
-  )
-  const mantoRawMaterialKg100 = kg100(
-    Math.max(tubeRawMaterialKg100 - anillasRawMaterialKg100, 0),
-  )
-  const anillasRawMaterialExcessKg100 = kg100(
-    Math.max(anillasRawMaterialKg100 - tubeRawMaterialKg100, 0),
   )
   const jointRawMaterialKg100 = applyBasisPoints(
     rawMaterialKg100,
@@ -447,16 +465,16 @@ export function calculateProductionBusinessSummary(
   )
 
   return {
-    generalYieldPercent: percent(
-      calculation.expectedFinishedKg100,
-      rawMaterialKg100,
-    ),
+    generalYieldPercent: overallUtilization.percent,
+    overallUtilization,
     finishedKg100: calculation.expectedFinishedKg100,
+    groupUtilizations: getGroupUtilization(outputPositions, rawMaterialKg100),
     families: [
       familyProjection(
         'ALETA',
         'Aleta',
         applyBasisPoints(rawMaterialKg100, ALETA_MP_SHARE_BPS),
+        rawMaterialKg100,
         aletaParts,
         { ratio: ALETA_TARGET, basisPoints: ALETA_TARGET_BPS },
       ),
@@ -464,6 +482,7 @@ export function calculateProductionBusinessSummary(
         'REJO_REPRODUCTOR',
         'Rejo + Reproductor',
         jointRawMaterialKg100,
+        rawMaterialKg100,
         rejoParts,
         {
           ratio: REJO_REPRODUCTOR_TARGET,
@@ -474,15 +493,20 @@ export function calculateProductionBusinessSummary(
         'NUCA',
         'Nuca',
         applyBasisPoints(rawMaterialKg100, NUCA_MP_SHARE_BPS),
+        rawMaterialKg100,
         nucaParts,
         { ratio: NUCA_TARGET, basisPoints: NUCA_TARGET_BPS },
       ),
       familyProjection(
         'MANTO',
         'Manto',
-        mantoRawMaterialKg100,
+        tubeMpBalance.mpMantoEstimatedKg100,
+        rawMaterialKg100,
         mantoParts,
-        null,
+        {
+          ratio: MANTO_STANDARD_YIELD,
+          basisPoints: MANTO_STANDARD_YIELD_BPS,
+        },
       ),
     ],
     rejoReproductor: {
@@ -495,13 +519,7 @@ export function calculateProductionBusinessSummary(
       reproductorRawMaterialKg100,
       sharedYieldPercent: sharedRatio === null ? null : sharedRatio * 100,
     },
-    mantoAnillas: {
-      tubeRawMaterialKg100,
-      anillasOutputKg100: anillasParts.projectedProductionKg100,
-      anillasRawMaterialKg100,
-      mantoRawMaterialKg100,
-      anillasRawMaterialExcessKg100,
-    },
+    tubeMpBalance,
     nucaBikiniReferenceKg100: productionDay.nucaWashAuthorization
       ? applyBasisPoints(rawMaterialKg100, NUCA_BIKINI_REFERENCE_BPS)
       : null,
@@ -545,11 +563,25 @@ export function buildProductionDiagnostics(
     })
   }
 
-  if (businessSummary.mantoAnillas.anillasRawMaterialExcessKg100 > 0) {
+  if (businessSummary.tubeMpBalance.mpMantoExcessKg100 > 0) {
     diagnostics.push({
-      code: 'ANILLAS_MP_EXCEEDS_TUBE',
+      code: 'MANTO_MP_EXCEEDS_TUBE',
       familyKey: 'MANTO',
-      message: `La MP calculada para Anillas supera la bolsa Tubo/Manto en ${kilograms(businessSummary.mantoAnillas.anillasRawMaterialExcessKg100)}. Revisa la producción de Anillas o la materia prima.`,
+      message: `La MP técnica estimada para Manto supera la MP Tubo en ${kilograms(businessSummary.tubeMpBalance.mpMantoExcessKg100)}.`,
+    })
+  }
+
+  if (businessSummary.tubeMpBalance.mpMainAnillasExcessKg100 > 0) {
+    diagnostics.push({
+      code: 'ANILLAS_MP_EXCEEDS_AVAILABLE',
+      message: `Los rendimientos registrados para Anillas requieren ${kilograms(businessSummary.tubeMpBalance.mpMainAnillasExcessKg100)} más de MP que la disponible en el proceso de Tubo.`,
+    })
+  }
+
+  if (businessSummary.tubeMpBalance.unclassifiedAnillasKg100 > 0) {
+    diagnostics.push({
+      code: 'ANILLAS_YIELD_CLASS_MISSING',
+      message: `Existen ${kilograms(businessSummary.tubeMpBalance.unclassifiedAnillasKg100)} de Anillas sin clase técnica Polar, General o USA.`,
     })
   }
 
@@ -620,20 +652,34 @@ export function validateProductionClosure(
   if (generalYield === null || generalYield < GENERAL_MIN_YIELD * 100) {
     blockers.push({
       code: 'GENERAL_YIELD_BELOW_MIN',
-      message: 'El rendimiento general debe ser al menos 80%.',
+      message: 'El aprovechamiento general debe ser al menos 80%.',
     })
   } else if (generalYield > 100) {
     blockers.push({
       code: 'GENERAL_YIELD_ABOVE_MAX',
-      message: 'El rendimiento general no puede superar 100%.',
+      message: 'El aprovechamiento general no puede superar 100%.',
     })
   }
 
-  if (businessSummary.mantoAnillas.anillasRawMaterialExcessKg100 > 0) {
+  if (businessSummary.tubeMpBalance.mpMantoExcessKg100 > 0) {
     blockers.push({
-      code: 'ANILLAS_MP_EXCEEDS_TUBE',
+      code: 'MANTO_MP_EXCEEDS_TUBE',
       familyKey: 'MANTO',
-      message: 'La materia prima calculada para Anillas supera la bolsa disponible de Tubo/Manto.',
+      message: `La MP técnica estimada para Manto supera la MP Tubo en ${kilograms(businessSummary.tubeMpBalance.mpMantoExcessKg100)}.`,
+    })
+  }
+
+  if (businessSummary.tubeMpBalance.mpMainAnillasExcessKg100 > 0) {
+    blockers.push({
+      code: 'ANILLAS_MP_EXCEEDS_AVAILABLE',
+      message: `Los rendimientos registrados para Anillas requieren más MP de la disponible en el proceso de Tubo. Exceso: ${kilograms(businessSummary.tubeMpBalance.mpMainAnillasExcessKg100)}.`,
+    })
+  }
+
+  if (businessSummary.tubeMpBalance.unclassifiedAnillasKg100 > 0) {
+    blockers.push({
+      code: 'ANILLAS_YIELD_CLASS_MISSING',
+      message: 'Todos los productos de Anillas deben tener una clase técnica Polar, General o USA.',
     })
   }
 
