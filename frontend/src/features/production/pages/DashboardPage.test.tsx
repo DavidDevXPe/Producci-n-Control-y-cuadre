@@ -46,7 +46,7 @@ describe('dashboard page', () => {
     expect(screen.queryByRole('link', { name: 'Nueva jornada' })).not.toBeInTheDocument()
   })
 
-  it('shows the current empty week as editable with consistent creation actions', () => {
+  it('shows the permanently saved Monday in the editable current week', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-10T12:00:00-05:00'))
     window.localStorage.clear()
@@ -59,14 +59,15 @@ describe('dashboard page', () => {
       </ProductionDataProvider>,
     )
 
-    expect(screen.getByText('Semana 42 · Actual · Sin registros.')).toBeInTheDocument()
-    expect(screen.getByText('Semana 42 lista para captura')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Todavía no hay jornadas registradas. Puedes ingresar los datos manualmente o precargarlos desde Excel y revisarlos antes de guardar.',
+        'Último registro disponible y consistencia de la semana 42.',
       ),
     ).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Nueva jornada' })).toHaveLength(2)
+    expect(screen.getAllByText('492,763.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('60,450.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('80.09%').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('link', { name: 'Nueva jornada' })).not.toBeInTheDocument()
   })
 })
 

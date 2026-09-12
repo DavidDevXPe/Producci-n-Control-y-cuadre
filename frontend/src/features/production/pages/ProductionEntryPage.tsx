@@ -9,7 +9,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react'
-import { Fragment, useMemo, useState, type ChangeEvent } from 'react'
+import { Fragment, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DataTableScroll } from '../../../components/ui/DataTableScroll'
 import { MetricCard } from '../../../components/ui/MetricCard'
@@ -17,6 +17,10 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { FamilyYieldPanel } from '../components/FamilyYieldPanel'
+import {
+  ClosingBalanceRowControl,
+  ClosingBalanceYieldControl,
+} from '../components/ClosingBalanceYieldControl'
 import { TubeMpBalancePanel } from '../components/TubeMpBalancePanel'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import { formatCentiKg, formatIsoDate } from '../../../utils/formatters'
@@ -72,6 +76,8 @@ function QuantityInput({
   disabled = false,
   className = '',
 }: QuantityInputProps) {
+  const clearedZeroOnFocus = useRef(false)
+
   return (
     <label className={`block ${className}`}>
       {label ? (
@@ -88,6 +94,25 @@ function QuantityInput({
           value={value}
           readOnly={readOnly}
           disabled={disabled}
+          onFocus={() => {
+            if (
+              !readOnly &&
+              !disabled &&
+              value.trim() !== '' &&
+              Number(value.replace(',', '.')) === 0
+            ) {
+              clearedZeroOnFocus.current = true
+              onChange('')
+            } else {
+              clearedZeroOnFocus.current = false
+            }
+          }}
+          onBlur={() => {
+            if (clearedZeroOnFocus.current && value.trim() === '') {
+              onChange('0')
+            }
+            clearedZeroOnFocus.current = false
+          }}
           onChange={(event) => onChange(event.target.value)}
           className="number-tabular h-10 w-full rounded-lg border border-slate-200 bg-white px-3 pr-9 text-right text-sm font-semibold text-slate-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 read-only:cursor-default read-only:bg-slate-100 read-only:text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
         />
@@ -222,6 +247,14 @@ export function ProductionEntryPage() {
   const [selectedTunnelProductId, setSelectedTunnelProductId] = useState('')
   const [closingSearch, setClosingSearch] = useState('')
   const [selectedClosingProductId, setSelectedClosingProductId] = useState('')
+  const [closingProductIds, setClosingProductIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        existingDay?.lines
+          .filter((line) => line.newClosingBalanceKg100 > 0)
+          .map((line) => line.productId) ?? [],
+      ),
+  )
   const [selectedBalanceKey, setSelectedBalanceKey] = useState('')
   const [isCloseConfirmationOpen, setIsCloseConfirmationOpen] = useState(false)
   const [tunnelToggleError, setTunnelToggleError] = useState('')
@@ -331,10 +364,18 @@ export function ProductionEntryPage() {
   const closingCatalogItems = useMemo(
     () =>
       filterProductionCatalogItems(closingSearch).filter(
-        (product) =>
-          !draft.rows.some((row) => row.product.productId === product.productId),
+        (product) => !closingProductIds.has(product.productId),
       ),
-    [closingSearch, draft.rows],
+    [closingProductIds, closingSearch],
+  )
+  const closingRows = useMemo(
+    () =>
+      draft.rows.filter(
+        (row) =>
+          closingProductIds.has(row.product.productId) ||
+          captureQuantityKg100(row.closingBalanceKg) > 0,
+      ),
+    [closingProductIds, draft.rows],
   )
   const availableBalances = useMemo(() => {
     const selectedKeys = new Set(
@@ -452,6 +493,16 @@ export function ProductionEntryPage() {
     setSaveError('')
   }
 
+  const addClosingProduct = () => {
+    if (!selectedClosingProductId) return
+    const productId = selectedClosingProductId
+    setClosingProductIds((current) => new Set(current).add(productId))
+    addMovementProduct(productId, () => {
+      setClosingSearch('')
+      setSelectedClosingProductId('')
+    })
+  }
+
   const addSelectedBalance = () => {
     const position = availableBalances.find(
       (balance) =>
@@ -522,6 +573,13 @@ export function ProductionEntryPage() {
 
   const removeRow = (key: string) => {
     const productId = draft.rows.find((row) => row.key === key)?.product.productId
+    if (productId) {
+      setClosingProductIds((current) => {
+        const next = new Set(current)
+        next.delete(productId)
+        return next
+      })
+    }
     setDraft((current) => ({
       ...current,
       rows: current.rows.filter((row) => row.key !== key),
@@ -565,7 +623,15 @@ export function ProductionEntryPage() {
     const { createCaptureDraftFromImportedSheet } = await import(
       '../capture/parseProductionWorkbook'
     )
-    setDraft(createCaptureDraftFromImportedSheet(sheet))
+    const importedDraft = createCaptureDraftFromImportedSheet(sheet)
+    setDraft(importedDraft)
+    setClosingProductIds(
+      new Set(
+        importedDraft.rows
+          .filter((row) => captureQuantityKg100(row.closingBalanceKg) > 0)
+          .map((row) => row.product.productId),
+      ),
+    )
     setSaveError('')
   }
 
@@ -1406,6 +1472,7 @@ export function ProductionEntryPage() {
         title="Saldo generado al cierre"
         description="Registra únicamente producto real de esta jornada que quedará pendiente para después."
         action={<StatusBadge tone="info">JORNADA ORIGEN ACTUAL</StatusBadge>}
+        style={{ overflow: 'visible' }}
       >
         <fieldset disabled={!reportsReconciled} className="disabled:opacity-65">
           <legend className="sr-only">Saldo generado al cierre</legend>
@@ -1449,12 +1516,7 @@ export function ProductionEntryPage() {
             <button
               type="button"
               disabled={!selectedClosingProductId}
-              onClick={() =>
-                addMovementProduct(selectedClosingProductId, () => {
-                  setClosingSearch('')
-                  setSelectedClosingProductId('')
-                })
-              }
+              onClick={addClosingProduct}
               className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 text-sm font-bold text-brand-900 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="size-4" aria-hidden="true" />
@@ -1462,35 +1524,42 @@ export function ProductionEntryPage() {
             </button>
           </div>
 
-          {draft.rows.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-slate-500">
-              No hay productos registrados en la jornada.
-            </p>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {draft.rows.map((row) => (
-                <div
-                  key={`closing-${row.key}`}
-                  className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-center sm:px-5"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-brand-700">
-                      {row.product.familyName}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-slate-800" title={row.product.productName}>
-                      {row.product.productName}
-                    </p>
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-4 lg:p-4">
+            {closingRows.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-slate-500 lg:px-1">
+                Busca y agrega únicamente los productos que generaron saldo real.
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {closingRows.map((row) => (
+                  <div
+                    key={`closing-${row.key}`}
+                    className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-center sm:px-5 lg:px-1"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-brand-700">
+                        {row.product.familyName}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs font-semibold text-slate-800" title={row.product.productName}>
+                        {row.product.productName}
+                      </p>
+                    </div>
+                    <QuantityInput
+                      label="Saldo al cierre"
+                      value={row.closingBalanceKg}
+                      disabled={!reportsReconciled}
+                      onChange={(value) => updateRow(row.key, 'closingBalanceKg', value)}
+                    />
+                    <ClosingBalanceRowControl
+                      summary={businessSummary}
+                      summaryGroupId={row.product.summaryGroupId}
+                    />
                   </div>
-                  <QuantityInput
-                    label="Saldo al cierre"
-                    value={row.closingBalanceKg}
-                    disabled={!reportsReconciled}
-                    onChange={(value) => updateRow(row.key, 'closingBalanceKg', value)}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+            <ClosingBalanceYieldControl summary={businessSummary} />
+          </div>
         </fieldset>
       </SectionCard>
 

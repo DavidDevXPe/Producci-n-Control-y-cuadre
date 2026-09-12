@@ -188,6 +188,7 @@ export function BalancePanel({
             : 'Saldo generado al cierre agrupado por familia y producto'
         }
         showEdgeIndicators={false}
+        showAuxiliaryScrollbar={balances.length >= 12}
         className="data-scroll-clean-edge"
       >
         <table className="erp-table w-full min-w-[48rem] border-collapse text-left">

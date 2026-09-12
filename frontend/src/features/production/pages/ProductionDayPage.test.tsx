@@ -206,8 +206,9 @@ describe('Friday and Saturday production day pages', () => {
     )
     expect(productionTable.querySelectorAll('.overflow-x-auto')).toHaveLength(0)
     expect(within(productionTable).getByRole('table')).toHaveClass(
-      'min-w-[100rem]',
+      'min-w-[86rem]',
     )
+    expect(within(productionTable).queryByText('TÃºnel')).not.toBeInTheDocument()
     const columnHeaders = productionTable.querySelectorAll('thead th')
 
     columnHeaders.forEach((header) => {

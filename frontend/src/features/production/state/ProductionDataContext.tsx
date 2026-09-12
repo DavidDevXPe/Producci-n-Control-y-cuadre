@@ -18,6 +18,7 @@ import {
   WEEK_36_2026_PRODUCTION_DAYS,
   WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
 } from '../data/week36'
+import { MONDAY_WEEK_42_PRODUCTION_DAY } from '../data/mondayWeek42'
 import type {
   BalanceLot,
   ProductionDay,
@@ -29,6 +30,20 @@ const ACTIVE_WEEK_STORAGE_KEY = 'trabunda-active-operational-week-v1'
 const SEEDED_WEEK_NUMBER = getOperationalWeekContextForIsoDate(
   WEEK_36_2026_PRODUCTION_DAYS[0]!.date,
 ).number
+const PERMANENT_PRODUCTION_DAYS: readonly ProductionDay[] = [
+  ...WEEK_36_2026_PRODUCTION_DAYS,
+  MONDAY_WEEK_42_PRODUCTION_DAY,
+]
+const PERMANENT_DAY_DATES = new Set(
+  PERMANENT_PRODUCTION_DAYS.map((day) => day.date),
+)
+const PERMANENT_WEEK_NUMBERS = [
+  ...new Set(
+    PERMANENT_PRODUCTION_DAYS.map(
+      (day) => getOperationalWeekContextForIsoDate(day.date).number,
+    ),
+  ),
+]
 
 export interface OperationalCalendarDay {
   label: string
@@ -111,13 +126,18 @@ function isProductionDay(value: unknown): value is ProductionDay {
 function normalizeNucaClassification(day: ProductionDay): ProductionDay {
   const semilimpiaProductIds = new Set(
     day.lines
-      .filter((line) =>
-        line.productName
+      .filter((line) => {
+        const normalizedProductName = line.productName
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
           .toLocaleUpperCase('es-PE')
-          .includes('SEMI LIMPI'),
-      )
+
+        return (
+          line.productId === 'nuca-semilimpia-codificada' ||
+          (normalizedProductName.includes('NUCA') &&
+            normalizedProductName.includes('SEMI LIMPI'))
+        )
+      })
       .map((line) => line.productId),
   )
 
@@ -149,7 +169,10 @@ function loadStoredDays(): readonly ProductionDay[] {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(DAYS_STORAGE_KEY) ?? '[]')
     return Array.isArray(parsed)
-      ? parsed.filter(isProductionDay).map(normalizeNucaClassification)
+      ? parsed
+          .filter(isProductionDay)
+          .map(normalizeNucaClassification)
+          .filter((day) => !PERMANENT_DAY_DATES.has(day.date))
       : []
   } catch {
     return []
@@ -199,13 +222,18 @@ function buildWeekView(
     { number, period },
     getOperationalWeekContext(new Date()),
   )
-  const productionDays =
-    number === SEEDED_WEEK_NUMBER
-      ? WEEK_36_2026_PRODUCTION_DAYS
-      : userDays.filter(
-          (day) =>
-            day.date >= period.startDate && day.date <= period.endDate,
-        )
+  const permanentDays = PERMANENT_PRODUCTION_DAYS.filter(
+    (day) => day.date >= period.startDate && day.date <= period.endDate,
+  )
+  const productionDays = [
+    ...permanentDays,
+    ...userDays.filter(
+      (day) =>
+        day.date >= period.startDate &&
+        day.date <= period.endDate &&
+        !PERMANENT_DAY_DATES.has(day.date),
+    ),
+  ]
 
   return {
     number,
@@ -222,12 +250,14 @@ const currentWeekAtStartup = getOperationalWeekContext(new Date()).number
 const fallbackValue: ProductionDataValue = {
   activeWeek: historicalWeek,
   activeWeekNumber: SEEDED_WEEK_NUMBER,
-  availableWeekNumbers: [SEEDED_WEEK_NUMBER, currentWeekAtStartup],
-  allProductionDays: WEEK_36_2026_PRODUCTION_DAYS,
+  availableWeekNumbers: [
+    ...new Set([...PERMANENT_WEEK_NUMBERS, currentWeekAtStartup]),
+  ],
+  allProductionDays: PERMANENT_PRODUCTION_DAYS,
   subsequentBalanceLots: WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
   setActiveWeekNumber: () => undefined,
   findProductionDay: (date) =>
-    WEEK_36_2026_PRODUCTION_DAYS.find((day) => day.date === date),
+    PERMANENT_PRODUCTION_DAYS.find((day) => day.date === date),
   isUserManagedDay: () => false,
   upsertProductionDay: () => {
     throw new Error('ProductionDataProvider is required to save production days.')
@@ -272,6 +302,12 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
     productionDay: ProductionDay,
     options: { allowReplace?: boolean } = {},
   ) => {
+    if (PERMANENT_DAY_DATES.has(productionDay.date)) {
+      throw new Error(
+        'Esta jornada cerrada forma parte del historial permanente y es de solo lectura.',
+      )
+    }
+
     const week = getOperationalWeekContextForIsoDate(productionDay.date)
     const temporalState = getOperationalWeekState(
       week,
@@ -326,7 +362,7 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
         : currentWeek.number
     const availableWeekNumbers = [
       ...new Set([
-        SEEDED_WEEK_NUMBER,
+        ...PERMANENT_WEEK_NUMBERS,
         currentWeek.number,
         effectiveActiveWeekNumber,
         ...userDays.map(
@@ -346,12 +382,8 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
         return secondStartDate.localeCompare(firstStartDate)
       })
     const allProductionDays = sortDays([
-      ...WEEK_36_2026_PRODUCTION_DAYS,
-      ...userDays.filter(
-        (day) =>
-          getOperationalWeekContextForIsoDate(day.date).number !==
-          SEEDED_WEEK_NUMBER,
-      ),
+      ...PERMANENT_PRODUCTION_DAYS,
+      ...userDays.filter((day) => !PERMANENT_DAY_DATES.has(day.date)),
     ])
 
     return {
@@ -363,7 +395,9 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
       setActiveWeekNumber,
       findProductionDay: (date) =>
         allProductionDays.find((day) => day.date === date),
-      isUserManagedDay: (date) => userDays.some((day) => day.date === date),
+      isUserManagedDay: (date) =>
+        !PERMANENT_DAY_DATES.has(date) &&
+        userDays.some((day) => day.date === date),
       upsertProductionDay,
     }
   }, [

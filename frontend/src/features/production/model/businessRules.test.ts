@@ -568,6 +568,39 @@ describe('production business rules', () => {
     expect(before.overallUtilization.percent).toBeCloseTo(79, 8)
     expect(utilization(after, 'RECORTE_CRUDO').percent).toBeCloseTo(80, 8)
     expect(after.overallUtilization.percent).toBeCloseTo(80, 8)
+    expect(before.overallControl).toMatchObject({
+      targetPercent: 80,
+      minimumFinishedKg100: kg(80),
+      missingToTargetKg100: kg(1),
+      status: 'BELOW_TARGET',
+    })
+    expect(after.overallControl).toMatchObject({
+      minimumFinishedKg100: kg(80),
+      missingToTargetKg100: kg(0),
+      status: 'COMPLIES',
+    })
+    expect(
+      before.groupClosingProjections.find(
+        (group) => group.groupId === 'RECORTE_CRUDO',
+      ),
+    ).toMatchObject({
+      productionBeforeClosingKg100: kg(79),
+      closingBalanceKg100: kg(0),
+      projectedProductionKg100: kg(79),
+      yieldBeforePercent: 79,
+      projectedYieldPercent: 79,
+    })
+    expect(
+      after.groupClosingProjections.find(
+        (group) => group.groupId === 'RECORTE_CRUDO',
+      ),
+    ).toMatchObject({
+      productionBeforeClosingKg100: kg(79),
+      closingBalanceKg100: kg(1),
+      projectedProductionKg100: kg(80),
+      yieldBeforePercent: 79,
+      projectedYieldPercent: 80,
+    })
   })
 
   it('blocks a 79.99% general yield and permits 80% with exact reconciliation', () => {
@@ -597,6 +630,7 @@ describe('production business rules', () => {
       { group: 'RECORTE_CRUDO', day: 100.01 },
     ])
     const calculation = calculateProductionDay(day)
+    const summary = calculateProductionBusinessSummary(day, calculation)
 
     expect(
       validateProductionClosure(day, calculation, {
@@ -605,6 +639,11 @@ describe('production business rules', () => {
     ).toContainEqual(
       expect.objectContaining({ code: 'GENERAL_YIELD_ABOVE_MAX' }),
     )
+    expect(summary.overallControl).toMatchObject({
+      status: 'INTEGRITY_ERROR',
+      excessKg100: kg(0.01),
+      capacityToOneHundredKg100: kg(0),
+    })
   })
 
   it('recalculates after treatment changes and blocks when Aleta moves from 90% to 102%', () => {

@@ -26,6 +26,10 @@ export function WeeklyProductSummary({
   totalFinishedKg100,
   performanceRatio,
 }: WeeklyProductSummaryProps) {
+  const productCount = groups.reduce(
+    (total, group) => total + group.products.length,
+    0,
+  )
   const yieldStatus = getYieldStatus(
     performanceRatio === null ? null : performanceRatio * 100,
   )
@@ -36,7 +40,10 @@ export function WeeklyProductSummary({
       title="Consolidado por grupo y producto"
       description="Mismas relaciones del RESUMEN, calculadas mediante identificadores estables."
     >
-      <DataTableScroll label="Consolidado semanal por grupo y producto">
+      <DataTableScroll
+        label="Consolidado semanal por grupo y producto"
+        showAuxiliaryScrollbar={productCount >= 12}
+      >
         <table className="erp-table w-full min-w-[64rem] border-collapse text-left">
           <caption className="sr-only">Consolidado semanal por grupo y producto</caption>
           <thead>

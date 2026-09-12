@@ -57,6 +57,26 @@ function completeShiftReport({
   fireEvent.change(captureInputs[1]!, { target: { value: nightReport } })
 }
 
+function addClosingBalanceProduct(query: string) {
+  const closingSection = screen
+    .getByRole('heading', { name: 'Saldo generado al cierre' })
+    .closest('section')!
+  fireEvent.change(
+    within(closingSection).getByRole('searchbox', {
+      name: 'Buscar producto para saldo',
+    }),
+    { target: { value: query } },
+  )
+  const productSelect = within(closingSection).getByRole('combobox', {
+    name: 'Producto exacto del catálogo',
+  })
+  const product = within(productSelect).getAllByRole(
+    'option',
+  )[1] as HTMLOptionElement
+  fireEvent.change(productSelect, { target: { value: product.value } })
+  fireEvent.click(within(closingSection).getByRole('button', { name: 'Agregar saldo' }))
+}
+
 describe('ProductionEntryPage product selector', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -225,6 +245,7 @@ describe('ProductionEntryPage product selector', () => {
       dayReport: '15.6',
       productSearch: 'aleta cruda codificada',
     })
+    addClosingBalanceProduct('aleta cruda codificada')
 
     const aletaCard = screen.getByRole('heading', { name: 'Aleta' }).closest('article')!
     expect(within(aletaCard).getAllByText('78.00%')).toHaveLength(3)
@@ -235,6 +256,49 @@ describe('ProductionEntryPage product selector', () => {
 
     expect(within(aletaCard).getByText('90.00%')).toBeInTheDocument()
     expect(within(aletaCard).getByText('Objetivo alcanzado')).toBeInTheDocument()
+  })
+
+  it('updates the compact closing control and the general 80% gap in real time', () => {
+    renderNewEntry()
+    completeShiftReport({
+      rawMaterial: '100',
+      dayReport: '79',
+      productSearch: 'recorte crudo manto',
+    })
+    addClosingBalanceProduct('recorte crudo manto')
+
+    const control = screen
+      .getAllByText('Control de rendimientos')[0]!
+      .closest('aside')!
+    expect(within(control).getByText('79.00%')).toBeInTheDocument()
+    expect(within(control).getByText('PT mínimo')).toBeInTheDocument()
+    expect(within(control).getByText('1.00 kg')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/^Saldo al cierre/), {
+      target: { value: '1' },
+    })
+
+    expect(within(control).getByText('80.00%')).toBeInTheDocument()
+    expect(within(control).getByText('Referencia general alcanzada')).toBeInTheDocument()
+  })
+
+  it('clears a zero kg value on focus, restores it when left empty, and preserves positive values', () => {
+    renderNewEntry()
+    completeShiftReport()
+    expect(screen.queryByLabelText(/^Saldo al cierre/)).not.toBeInTheDocument()
+    addClosingBalanceProduct('recorte crudo manto')
+
+    const closingInput = screen.getByLabelText(/^Saldo al cierre/)
+    expect(closingInput).toHaveValue(0)
+
+    fireEvent.focus(closingInput)
+    expect(closingInput).toHaveValue(null)
+    fireEvent.blur(closingInput)
+    expect(closingInput).toHaveValue(0)
+
+    fireEvent.change(closingInput, { target: { value: '2.5' } })
+    fireEvent.focus(closingInput)
+    expect(closingInput).toHaveValue(2.5)
   })
 
   it('updates Tunnel Day, Night and total reactively after reports reconcile', () => {

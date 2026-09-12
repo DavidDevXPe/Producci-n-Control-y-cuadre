@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
+import { MONDAY_WEEK_42_PRODUCTION_DAY } from '../data/mondayWeek42'
 import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
 
 import {
@@ -9,22 +10,38 @@ import {
 } from './ProductionDataContext'
 
 function ActiveWeekProbe() {
-  const { activeWeek, activeWeekNumber, availableWeekNumbers } =
+  const {
+    activeWeek,
+    activeWeekNumber,
+    availableWeekNumbers,
+    allProductionDays,
+    findProductionDay,
+    isUserManagedDay,
+  } =
     useProductionData()
+  const monday = findProductionDay('2026-09-07')
   return (
     <>
       <span>Semana {activeWeekNumber}</span>
       <span>{activeWeek.isHistorical ? 'Solo lectura' : 'Editable'}</span>
       <span data-testid="available-weeks">{availableWeekNumbers.join(',')}</span>
+      <span data-testid="active-days">
+        {activeWeek.productionDays.map((day) => day.date).join(',')}
+      </span>
+      <span data-testid="all-day-count">{allProductionDays.length}</span>
+      <span data-testid="monday-origin">
+        {isUserManagedDay('2026-09-07') ? 'local' : 'permanente'}
+      </span>
+      <span data-testid="monday-status">{monday?.status}</span>
     </>
   )
 }
 
 const editableDay = {
   ...WEDNESDAY_PRODUCTION_DAY,
-  id: 'production-day-2026-09-07',
-  date: '2026-09-07',
-  displayName: 'Lunes 07/09/2026',
+  id: 'production-day-2026-09-08',
+  date: '2026-09-08',
+  displayName: 'Martes 08/09/2026',
   status: 'DRAFT' as const,
 }
 
@@ -104,6 +121,43 @@ describe('ProductionDataProvider operational week recovery', () => {
     expect(
       window.localStorage.getItem('trabunda-active-operational-week-v1'),
     ).toBe('42')
+  })
+
+  it('loads the closed Monday permanently without depending on local storage', () => {
+    render(
+      <ProductionDataProvider>
+        <ActiveWeekProbe />
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByTestId('active-days')).toHaveTextContent('2026-09-07')
+    expect(screen.getByTestId('all-day-count')).toHaveTextContent('5')
+    expect(screen.getByTestId('monday-origin')).toHaveTextContent('permanente')
+    expect(screen.getByTestId('monday-status')).toHaveTextContent('CLOSED')
+  })
+
+  it('ignores an obsolete local copy of the permanently saved Monday', () => {
+    window.localStorage.setItem(
+      'trabunda-production-days-v1',
+      JSON.stringify([
+        {
+          ...MONDAY_WEEK_42_PRODUCTION_DAY,
+          status: 'DRAFT',
+          declaredFinishedTotalKg100: 1,
+        },
+      ]),
+    )
+
+    render(
+      <ProductionDataProvider>
+        <ActiveWeekProbe />
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByTestId('active-days')).toHaveTextContent('2026-09-07')
+    expect(screen.getByTestId('all-day-count')).toHaveTextContent('5')
+    expect(screen.getByTestId('monday-origin')).toHaveTextContent('permanente')
+    expect(screen.getByTestId('monday-status')).toHaveTextContent('CLOSED')
   })
 
   it('adds the new current week automatically after an operational rollover', () => {

@@ -6,6 +6,7 @@ import {
   ANILLA_POLAR_YIELD,
   ANILLA_USA_YIELD,
   GENERAL_MIN_YIELD,
+  GENERAL_MIN_YIELD_BPS,
   MANTO_STANDARD_YIELD,
   MANTO_STANDARD_YIELD_BPS,
   NUCA_BIKINI_REFERENCE_BPS,
@@ -93,15 +94,45 @@ export interface RejoReproductorAllocation {
   sharedYieldPercent: number | null
 }
 
+export interface GroupClosingProjection {
+  groupId: SummaryGroupId
+  label: string
+  productionBeforeClosingKg100: Kg100
+  closingBalanceKg100: Kg100
+  projectedProductionKg100: Kg100
+  yieldBeforePercent: number | null
+  projectedYieldPercent: number | null
+  capacityToOneHundredKg100: Kg100
+  excessKg100: Kg100
+  status: 'NO_TARGET' | 'INTEGRITY_ERROR'
+}
+
 export interface ProductionBusinessSummary {
   generalYieldPercent: number | null
   overallUtilization: OverallUtilization
+  overallControl: OverallUtilizationControl
   finishedKg100: Kg100
   families: readonly FamilyYieldProjection[]
   groupUtilizations: readonly GroupUtilization[]
+  groupClosingProjections: readonly GroupClosingProjection[]
   rejoReproductor: RejoReproductorAllocation
   tubeMpBalance: TubeMpBalance
   nucaBikiniReferenceKg100: Kg100 | null
+}
+
+export type OverallUtilizationControlStatus =
+  | 'UNAVAILABLE'
+  | 'BELOW_TARGET'
+  | 'COMPLIES'
+  | 'INTEGRITY_ERROR'
+
+export interface OverallUtilizationControl {
+  targetPercent: number
+  minimumFinishedKg100: Kg100
+  missingToTargetKg100: Kg100
+  capacityToOneHundredKg100: Kg100
+  excessKg100: Kg100
+  status: OverallUtilizationControlStatus
 }
 
 export interface ClosureMessage {
@@ -136,6 +167,41 @@ function percent(numeratorKg100: Kg100, denominatorKg100: Kg100) {
   return denominatorKg100 === 0
     ? null
     : (numeratorKg100 / denominatorKg100) * 100
+}
+
+export function getOverallUtilizationControl(
+  finishedKg100: Kg100,
+  rawMaterialKg100: Kg100,
+): OverallUtilizationControl {
+  const minimumFinishedKg100 = applyBasisPoints(
+    rawMaterialKg100,
+    GENERAL_MIN_YIELD_BPS,
+  )
+  const missingToTargetKg100 = kg100(
+    Math.max(minimumFinishedKg100 - finishedKg100, 0),
+  )
+  const capacityToOneHundredKg100 = kg100(
+    Math.max(rawMaterialKg100 - finishedKg100, 0),
+  )
+  const excessKg100 = kg100(
+    Math.max(finishedKg100 - rawMaterialKg100, 0),
+  )
+
+  return {
+    targetPercent: GENERAL_MIN_YIELD * 100,
+    minimumFinishedKg100,
+    missingToTargetKg100,
+    capacityToOneHundredKg100,
+    excessKg100,
+    status:
+      rawMaterialKg100 === 0
+        ? 'UNAVAILABLE'
+        : excessKg100 > 0
+          ? 'INTEGRITY_ERROR'
+          : finishedKg100 < minimumFinishedKg100
+            ? 'BELOW_TARGET'
+            : 'COMPLIES',
+  }
 }
 
 function productGroup(
@@ -432,8 +498,46 @@ export function calculateProductionBusinessSummary(
     productionDay,
     calculation,
   )
+  const groupUtilizations = getGroupUtilization(
+    outputPositions,
+    rawMaterialKg100,
+  )
+  const groupClosingProjections = groupUtilizations.map((group) => {
+    const products = productsForGroups(productionDay, calculation, [group.groupId])
+    const closingBalanceKg100 = sumKg100(
+      products.map((product) => product.newClosingBalanceKg100),
+    )
+    const productionBeforeClosingKg100 = kg100(
+      Math.max(group.finishedKg100 - closingBalanceKg100, 0),
+    )
+    const excessKg100 = kg100(
+      Math.max(group.finishedKg100 - rawMaterialKg100, 0),
+    )
+
+    return {
+      groupId: group.groupId,
+      label: group.label,
+      productionBeforeClosingKg100,
+      closingBalanceKg100,
+      projectedProductionKg100: group.finishedKg100,
+      yieldBeforePercent: percent(
+        productionBeforeClosingKg100,
+        rawMaterialKg100,
+      ),
+      projectedYieldPercent: group.percent,
+      capacityToOneHundredKg100: kg100(
+        Math.max(rawMaterialKg100 - productionBeforeClosingKg100, 0),
+      ),
+      excessKg100,
+      status: excessKg100 > 0 ? 'INTEGRITY_ERROR' : 'NO_TARGET',
+    } satisfies GroupClosingProjection
+  })
   const tubeMpBalance = getTubeMpBalance(productionDay, calculation)
   const overallUtilization = getOverallUtilization(
+    calculation.expectedFinishedKg100,
+    rawMaterialKg100,
+  )
+  const overallControl = getOverallUtilizationControl(
     calculation.expectedFinishedKg100,
     rawMaterialKg100,
   )
@@ -467,8 +571,10 @@ export function calculateProductionBusinessSummary(
   return {
     generalYieldPercent: overallUtilization.percent,
     overallUtilization,
+    overallControl,
     finishedKg100: calculation.expectedFinishedKg100,
-    groupUtilizations: getGroupUtilization(outputPositions, rawMaterialKg100),
+    groupUtilizations,
+    groupClosingProjections,
     families: [
       familyProjection(
         'ALETA',

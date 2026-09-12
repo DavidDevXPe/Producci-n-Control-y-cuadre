@@ -75,7 +75,10 @@ export function ReceivedBalancePanel({
             ))}
           </dl>
 
-          <DataTableScroll label="Saldo anterior recibido y procesado por turno">
+          <DataTableScroll
+            label="Saldo anterior recibido y procesado por turno"
+            showAuxiliaryScrollbar={lots.length >= 12}
+          >
             <table className="erp-table w-full min-w-[54rem] border-collapse text-left">
               <caption className="sr-only">Saldo anterior recibido y procesado por turno</caption>
               <thead>

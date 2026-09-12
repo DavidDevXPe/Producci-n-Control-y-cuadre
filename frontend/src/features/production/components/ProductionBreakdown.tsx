@@ -22,6 +22,10 @@ function sumField(
   return products.reduce((total, product) => total + selector(product), 0) as Kg100
 }
 
+function formatTunnelMovement(value: Kg100) {
+  return value === 0 ? '—' : formatCentiKg(value)
+}
+
 export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
   const groups = useMemo<readonly ProductGroup[]>(() => {
     const grouped = new Map<string, ProductGroup>()
@@ -44,6 +48,11 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
   const [query, setQuery] = useState('')
   const hasReconciledShiftBreakdown = products.some(
     (product) => product.shiftBreakdownConfidence === 'RECONCILED_INFERENCE',
+  )
+  const showTunnel = products.some(
+    (product) =>
+      product.tunnel.DAY.reportedKg100 !== 0 ||
+      product.tunnel.NIGHT.reportedKg100 !== 0,
   )
   const normalizedQuery = query.trim().toLocaleLowerCase('es')
 
@@ -133,9 +142,14 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
       <DataTableScroll
         label="Producción por familia, turno y concepto de cuadre"
         showEdgeIndicators={false}
+        showAuxiliaryScrollbar={products.length >= 12}
         className="data-scroll-clean-edge"
       >
-        <table className="erp-table w-full min-w-[100rem] border-collapse text-left">
+        <table
+          className={`erp-table w-full border-collapse text-left ${
+            showTunnel ? 'min-w-[100rem]' : 'min-w-[86rem]'
+          }`}
+        >
           <caption className="sr-only">
             Producción de la jornada agrupada por familia y producto
           </caption>
@@ -150,9 +164,11 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
               <th scope="colgroup" colSpan={3} className="border-l-2 border-slate-300 bg-slate-100 px-2.5 py-2 text-center text-slate-700 md:sticky md:top-14 md:z-30 xl:top-0">
                 Turno Noche
               </th>
-              <th scope="colgroup" colSpan={2} className="border-l-2 border-violet-200 bg-violet-50 px-2.5 py-2 text-center text-violet-800 md:sticky md:top-14 md:z-30 xl:top-0">
-                Túnel
-              </th>
+              {showTunnel ? (
+                <th scope="colgroup" colSpan={2} className="border-l-2 border-violet-200 bg-violet-50 px-2.5 py-2 text-center text-violet-800 md:sticky md:top-14 md:z-30 xl:top-0">
+                  Túnel
+                </th>
+              ) : null}
               <th scope="colgroup" colSpan={5} className="border-l-2 border-brand-200 bg-brand-50 px-2.5 py-2 text-center text-brand-800 md:sticky md:top-14 md:z-30 xl:top-0">
                 Cuadre
               </th>
@@ -164,8 +180,12 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
               <th scope="col" className="border-l-2 border-slate-300 bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Reportado</th>
               <th scope="col" className="bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Saldo ant.</th>
               <th scope="col" className="bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Propio</th>
-              <th scope="col" className="border-l-2 border-violet-200 bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Día</th>
-              <th scope="col" className="bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Noche</th>
+              {showTunnel ? (
+                <>
+                  <th scope="col" className="border-l-2 border-violet-200 bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Día</th>
+                  <th scope="col" className="bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Noche</th>
+                </>
+              ) : null}
               <th scope="col" className="border-l-2 border-brand-200 bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Ajustes</th>
               <th scope="col" className="bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Tratamiento</th>
               <th scope="col" className="bg-slate-50 px-2.5 py-2.5 text-right md:sticky md:top-[5.5625rem] md:z-30 xl:top-[2.0625rem]">Saldo al cierre</th>
@@ -177,6 +197,9 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
             const isExpanded = normalizedQuery.length > 0 || expandedFamilies.has(group.familyId)
             const subtotal = (selector: (product: ProductReconciliation) => number) =>
               formatCentiKg(sumField(group.products, selector))
+            const tunnelSubtotal = (
+              selector: (product: ProductReconciliation) => number,
+            ) => formatTunnelMovement(sumField(group.products, selector))
             const groupDifferenceKg100 = sumField(
               group.products,
               (product) => product.differenceKg100,
@@ -221,12 +244,16 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
                   <td className="number-tabular px-3 py-3 text-right text-xs font-bold text-slate-700">
                     {subtotal((product) => product.night.ownProductionKg100)}
                   </td>
-                  <td className="number-tabular border-l-2 border-violet-100 px-3 py-3 text-right text-xs font-bold text-slate-700">
-                    {subtotal((product) => product.tunnel.DAY.ownProductionKg100)}
-                  </td>
-                  <td className="number-tabular px-3 py-3 text-right text-xs font-bold text-slate-700">
-                    {subtotal((product) => product.tunnel.NIGHT.ownProductionKg100)}
-                  </td>
+                  {showTunnel ? (
+                    <>
+                      <td className="number-tabular border-l-2 border-violet-100 px-3 py-3 text-right text-xs font-bold text-slate-700">
+                        {tunnelSubtotal((product) => product.tunnel.DAY.ownProductionKg100)}
+                      </td>
+                      <td className="number-tabular px-3 py-3 text-right text-xs font-bold text-slate-700">
+                        {tunnelSubtotal((product) => product.tunnel.NIGHT.ownProductionKg100)}
+                      </td>
+                    </>
+                  ) : null}
                   <td className="number-tabular border-l border-brand-100 px-3 py-3 text-right text-xs font-bold text-slate-700">
                     {subtotal(
                       (product) =>
@@ -278,12 +305,16 @@ export function ProductionBreakdown({ products }: ProductionBreakdownProps) {
                         <td className="number-tabular whitespace-nowrap px-2.5 py-2.5 text-right text-xs text-slate-600">
                           {formatCentiKg(product.night.ownProductionKg100)}
                         </td>
-                        <td className="number-tabular whitespace-nowrap border-l-2 border-violet-100 px-2.5 py-2.5 text-right text-xs text-slate-600">
-                          {formatCentiKg(product.tunnel.DAY.ownProductionKg100)}
-                        </td>
-                        <td className="number-tabular whitespace-nowrap px-2.5 py-2.5 text-right text-xs text-slate-600">
-                          {formatCentiKg(product.tunnel.NIGHT.ownProductionKg100)}
-                        </td>
+                        {showTunnel ? (
+                          <>
+                            <td className="number-tabular whitespace-nowrap border-l-2 border-violet-100 px-2.5 py-2.5 text-right text-xs text-slate-600">
+                              {formatTunnelMovement(product.tunnel.DAY.ownProductionKg100)}
+                            </td>
+                            <td className="number-tabular whitespace-nowrap px-2.5 py-2.5 text-right text-xs text-slate-600">
+                              {formatTunnelMovement(product.tunnel.NIGHT.ownProductionKg100)}
+                            </td>
+                          </>
+                        ) : null}
                         <td className="number-tabular whitespace-nowrap border-l-2 border-brand-100 px-2.5 py-2.5 text-right text-xs text-slate-600">
                           {formatCentiKg(
                             (product.day.adjustmentKg100 +
