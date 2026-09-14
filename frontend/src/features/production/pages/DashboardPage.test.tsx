@@ -68,6 +68,47 @@ describe('dashboard page', () => {
     expect(screen.getAllByText('60,450.00').length).toBeGreaterThan(0)
     expect(screen.getAllByText('80.09%').length).toBeGreaterThan(0)
     expect(screen.queryByRole('link', { name: 'Nueva jornada' })).not.toBeInTheDocument()
+
+    const table = screen.getByRole('table', {
+      name: 'Estado operativo de las jornadas registradas',
+    })
+    const headers = within(table).getAllByRole('columnheader')
+    expect(table).toHaveClass('table-fixed', 'text-center')
+    expect(
+      [...table.querySelectorAll('col')].map((column) => column.className),
+    ).toEqual([
+      'w-[9%]',
+      'w-[12%]',
+      'w-[19%]',
+      'w-[20%]',
+      'w-[14%]',
+      'w-[17%]',
+      'w-[9%]',
+    ])
+    headers.forEach((header) => {
+      expect(header).toHaveClass('px-2', 'text-center', 'align-middle')
+    })
+
+    const mondayRow = within(table).getByText('LUNES').closest('tr')
+    expect(mondayRow).not.toBeNull()
+    expect(within(mondayRow!).getByRole('rowheader')).toHaveClass(
+      'px-2',
+      'text-center',
+      'align-middle',
+    )
+    within(mondayRow!).getAllByRole('cell').forEach((cell) => {
+      expect(cell).toHaveClass('px-2', 'text-center', 'align-middle')
+    })
+    expect(
+      within(mondayRow!).getByText('CUADRADO').closest('td')
+        ?.firstElementChild,
+    ).toHaveClass('w-full', 'justify-center')
+    expect(
+      within(mondayRow!).getByLabelText(/^Aprovechamiento /).firstElementChild,
+    ).toHaveClass('w-full', 'items-center', 'justify-center', 'text-center')
+    expect(
+      within(mondayRow!).getByRole('link', { name: /^Ver$/i }).parentElement,
+    ).toHaveClass('w-full', 'justify-center')
   })
 })
 

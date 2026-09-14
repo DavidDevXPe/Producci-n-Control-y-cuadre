@@ -25,6 +25,43 @@ describe('weekly summary page', () => {
     expect(
       within(validation!).getByText(/35 líneas de producto en 4 jornadas/),
     ).toBeInTheDocument()
+    const validationLabels = ['PT por jornadas', 'PT por productos', 'Diferencia']
+    validationLabels.forEach((label) => {
+      expect(within(validation!).getByText(label).parentElement).toHaveClass(
+        'items-center',
+        'justify-center',
+        'text-center',
+      )
+    })
+
+    const daysTable = screen.getByRole('table', {
+      name: 'Producto terminado diario de la semana 41',
+    })
+    const headers = within(daysTable).getAllByRole('columnheader')
+    expect(daysTable).toHaveClass('table-fixed', 'text-center')
+    expect(
+      [...daysTable.querySelectorAll('col')].map((column) => column.className),
+    ).toEqual(['w-[18%]', 'w-[20%]', 'w-[38%]', 'w-[24%]'])
+    headers.forEach((header) => {
+      expect(header).toHaveClass('px-3', 'text-center', 'align-middle')
+    })
+
+    const registeredRow = within(daysTable)
+      .getByText('243,818.00 kg')
+      .closest('tr')
+    expect(registeredRow).not.toBeNull()
+    expect(within(registeredRow!).getByRole('rowheader')).toHaveClass(
+      'px-3',
+      'text-center',
+      'align-middle',
+    )
+    within(registeredRow!).getAllByRole('cell').forEach((cell) => {
+      expect(cell).toHaveClass('px-3', 'text-center', 'align-middle')
+    })
+    expect(
+      within(registeredRow!).getByText('CUADRADO').closest('td')
+        ?.firstElementChild,
+    ).toHaveClass('w-full', 'justify-center')
     expect(screen.getByText('SEMANA CERRADA · 4 JORNADAS')).toBeInTheDocument()
     expect(screen.getByText('CERRADA')).toBeInTheDocument()
     expect(screen.queryByText('PARCIAL')).not.toBeInTheDocument()

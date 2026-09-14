@@ -12,7 +12,7 @@ import {
   getOperationalWeekState,
 } from '../../../utils/operationalContext'
 import {
-  formatCentiKg,
+  formatCentiKgValue,
   formatIsoDateCompact,
   formatIsoWeekday,
   formatRatioAsPercent,
@@ -20,6 +20,15 @@ import {
 import { calculateProductionDay } from '../model/calculations'
 import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
 import { useProductionData } from '../state/ProductionDataContext'
+
+function QuantityValue({ value }: { value: number }) {
+  return (
+    <span className="inline-flex w-full items-baseline justify-center whitespace-nowrap text-center">
+      <span>{formatCentiKgValue(value)}</span>
+      <span className="ml-1 text-[0.6875rem] font-medium opacity-70">kg</span>
+    </span>
+  )
+}
 
 export function ProductionDaysPage() {
   usePageTitle('Jornadas de producción')
@@ -60,7 +69,7 @@ export function ProductionDaysPage() {
         }
       />
 
-      <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de jornadas">
+      <section className="grid auto-rows-fr gap-3 sm:grid-cols-3" aria-label="Resumen de jornadas">
         <MetricCard
           label="Jornadas registradas"
           value={registeredDays.length}
@@ -100,7 +109,12 @@ export function ProductionDaysPage() {
               ? 'Actual'
               : 'Solo lectura'
         }`}
-        action={<StatusBadge tone="info">{registeredDays.length} REGISTROS</StatusBadge>}
+        action={
+          <StatusBadge tone="info">
+            {registeredDays.length}{' '}
+            {registeredDays.length === 1 ? 'REGISTRO' : 'REGISTROS'}
+          </StatusBadge>
+        }
       >
         {registeredDays.length === 0 ? (
           <div className="flex flex-col items-start gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
@@ -121,18 +135,28 @@ export function ProductionDaysPage() {
           </div>
         ) : (
         <DataTableScroll label={`Jornadas de producción registradas en la semana ${activeWeek.number}`}>
-          <table className="erp-table w-full min-w-[61rem] border-collapse text-left">
+          <table className="erp-table w-full min-w-[64rem] table-fixed border-collapse text-left">
             <caption className="sr-only">Jornadas de producción registradas</caption>
+            <colgroup>
+              <col className="w-[15%]" />
+              <col className="w-[12%]" />
+              <col className="w-[14%]" />
+              <col className="w-[10%]" />
+              <col className="w-[9%]" />
+              <col className="w-[11%]" />
+              <col className="w-[18%]" />
+              <col className="w-[11%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-slate-500">
-                <th scope="col" className="px-4 py-2.5 sm:px-5">Jornada</th>
-                <th scope="col" className="px-3 py-2.5 text-right">Materia prima</th>
-                <th scope="col" className="px-3 py-2.5 text-right">Producto terminado</th>
-                <th scope="col" className="px-3 py-2.5 text-right">Saldo final</th>
-                <th scope="col" className="px-3 py-2.5 text-right">Diferencia</th>
-                <th scope="col" className="px-3 py-2.5">Cuadre</th>
-                <th scope="col" className="px-3 py-2.5">Aprovechamiento</th>
-                <th scope="col" className="px-4 py-2.5 text-right sm:px-5"><span className="sr-only">Acciones</span></th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Jornada</th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Materia prima</th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Producto terminado</th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Saldo final</th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Diferencia</th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Cuadre</th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Aprovechamiento</th>
+                <th scope="col" className="px-3 py-2.5 text-center align-middle">Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -141,55 +165,61 @@ export function ProductionDaysPage() {
                 const isClosed = day.status === 'CLOSED'
                 const yieldStatus = getYieldStatus(calculation.performance.percent)
                 const yieldStyles = yieldVisualStyles[yieldStatus.colorVariant]
+                const rowAccentClass = !isClosed
+                  ? 'before:bg-amber-500'
+                  : isBalanced
+                    ? 'before:bg-emerald-500'
+                    : 'before:bg-rose-500'
 
                 return (
                   <tr
                     key={day.id}
-                    className={`border-l-4 bg-white hover:bg-brand-50/35 ${
-                      !isClosed
-                        ? 'border-amber-500'
-                        : isBalanced
-                          ? 'border-emerald-500'
-                          : 'border-rose-500'
-                    }`}
+                    className="bg-white hover:bg-brand-50/35"
                   >
-                    <th scope="row" className="px-4 py-3 sm:px-5">
-                      <span className="block text-xs font-bold tracking-[0.04em] text-slate-950">
-                        {formatIsoWeekday(day.date)}
-                      </span>
-                      <span className="number-tabular mt-0.5 block text-xs font-semibold text-slate-600">
-                        {formatIsoDateCompact(day.date)}
-                      </span>
-                      {day.date === latestDay?.date ? (
-                        <span className="mt-0.5 block text-[0.625rem] font-medium text-slate-400">
-                          Último cierre disponible
+                    <th
+                      scope="row"
+                      className={`relative px-3 py-3 text-center align-middle before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-[''] ${rowAccentClass}`}
+                    >
+                      <span className="flex w-full flex-col items-center justify-center text-center">
+                        <span className="block text-xs font-bold tracking-[0.04em] text-slate-950">
+                          {formatIsoWeekday(day.date)}
                         </span>
-                      ) : null}
+                        <span className="number-tabular mt-0.5 block text-xs font-semibold text-slate-600">
+                          {formatIsoDateCompact(day.date)}
+                        </span>
+                        {day.date === latestDay?.date ? (
+                          <span className="mt-0.5 block text-[0.625rem] font-medium text-slate-400">
+                            Último cierre disponible
+                          </span>
+                        ) : null}
+                      </span>
                     </th>
-                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
-                      {formatCentiKg(day.declaredRawMaterialKg100)}
+                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-center align-middle text-xs font-semibold text-slate-700">
+                      <QuantityValue value={day.declaredRawMaterialKg100} />
                     </td>
-                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
-                      {formatCentiKg(calculation.declaredFinishedKg100)}
+                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-center align-middle text-xs font-semibold text-slate-950">
+                      <QuantityValue value={calculation.declaredFinishedKg100} />
                     </td>
-                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-700">
-                      {formatCentiKg(calculation.newClosingBalanceKg100)}
+                    <td className="number-tabular whitespace-nowrap px-3 py-3 text-center align-middle text-xs font-semibold text-slate-700">
+                      <QuantityValue value={calculation.newClosingBalanceKg100} />
                     </td>
                     <td
-                      className={`number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold ${
+                      className={`number-tabular whitespace-nowrap px-3 py-3 text-center align-middle text-xs font-semibold ${
                         isBalanced ? 'text-emerald-700' : 'text-rose-700'
                       }`}
                     >
-                      {formatCentiKg(calculation.differenceKg100)}
+                      <QuantityValue value={calculation.differenceKg100} />
                     </td>
-                    <td className="px-3 py-3">
-                      <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
-                        {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
-                      </StatusBadge>
+                    <td className="px-3 py-3 text-center align-middle">
+                      <div className="flex w-full items-center justify-center">
+                        <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
+                          {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                        </StatusBadge>
+                      </div>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 text-center align-middle">
                       <div
-                        className="flex flex-col items-start gap-1"
+                        className="flex w-full flex-col items-center justify-center gap-1 text-center xl:flex-row xl:gap-2"
                         title={`${formatRatioAsPercent(calculation.performance.ratio)} · ${yieldStatus.label}: ${yieldStatus.interpretation}`}
                         aria-label={`Aprovechamiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${yieldStatus.label}. ${yieldStatus.interpretation}`}
                       >
@@ -205,15 +235,17 @@ export function ProductionDaysPage() {
                         </StatusBadge>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right sm:px-5">
-                      <ActionLink
-                        to={isClosed || activeWeekState.isReadOnly ? `/jornadas/${day.date}` : `/jornadas/${day.date}/editar`}
-                        variant="ghost"
-                        size="sm"
-                      >
-                        {isClosed || activeWeekState.isReadOnly ? 'Ver detalle' : 'Continuar'}
-                        <ArrowRight className="size-4" aria-hidden="true" />
-                      </ActionLink>
+                    <td className="px-3 py-3 text-center align-middle">
+                      <div className="flex w-full items-center justify-center">
+                        <ActionLink
+                          to={isClosed || activeWeekState.isReadOnly ? `/jornadas/${day.date}` : `/jornadas/${day.date}/editar`}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          {isClosed || activeWeekState.isReadOnly ? 'Ver detalle' : 'Continuar'}
+                          <ArrowRight className="size-4" aria-hidden="true" />
+                        </ActionLink>
+                      </div>
                     </td>
                   </tr>
                 )

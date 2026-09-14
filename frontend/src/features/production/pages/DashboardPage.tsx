@@ -356,19 +356,28 @@ export function DashboardPage() {
           className="xl:order-2"
         >
           <DataTableScroll label={`Estado de las jornadas reales de la semana ${activeWeek.number}`}>
-            <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
+            <table className="erp-table w-full min-w-[48rem] table-fixed border-collapse text-center">
               <caption className="sr-only">
                 Estado operativo de las jornadas registradas
               </caption>
+              <colgroup>
+                <col className="w-[9%]" />
+                <col className="w-[12%]" />
+                <col className="w-[19%]" />
+                <col className="w-[20%]" />
+                <col className="w-[14%]" />
+                <col className="w-[17%]" />
+                <col className="w-[9%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-[0.625rem] font-bold uppercase tracking-[0.07em] text-slate-500">
-                  <th scope="col" className="px-4 py-2">Día</th>
-                  <th scope="col" className="px-3 py-2">Fecha</th>
-                  <th scope="col" className="px-3 py-2">Estado</th>
-                  <th scope="col" className="px-3 py-2 text-right">Producto terminado</th>
-                  <th scope="col" className="px-3 py-2 text-right">Saldo</th>
-                  <th scope="col" className="px-3 py-2 text-right">Aprov.</th>
-                  <th scope="col" className="px-4 py-2 text-right">Acción</th>
+                  <th scope="col" className="px-2 py-2 text-center align-middle">Día</th>
+                  <th scope="col" className="px-2 py-2 text-center align-middle">Fecha</th>
+                  <th scope="col" className="px-2 py-2 text-center align-middle">Estado</th>
+                  <th scope="col" className="px-2 py-2 text-center align-middle">Producto terminado</th>
+                  <th scope="col" className="px-2 py-2 text-center align-middle">Saldo</th>
+                  <th scope="col" className="px-2 py-2 text-center align-middle">Aprov.</th>
+                  <th scope="col" className="px-2 py-2 text-center align-middle">Acción</th>
                 </tr>
               </thead>
               <tbody>
@@ -386,44 +395,58 @@ export function DashboardPage() {
                         isLatest ? 'bg-brand-50/50 dark:bg-[#102437]' : 'bg-white'
                       }`}
                     >
-                      <th scope="row" className="px-4 py-3 text-xs font-semibold text-slate-900">
-                        {formatIsoWeekday(day.date)}
+                      <th scope="row" className="px-2 py-3 text-center align-middle text-xs font-semibold text-slate-900">
+                        <span className="inline-flex w-full items-center justify-center">
+                          {formatIsoWeekday(day.date)}
+                        </span>
                       </th>
-                      <td className="number-tabular whitespace-nowrap px-3 py-3 text-xs text-slate-500">
-                        {formatIsoDateCompact(day.date)}
+                      <td className="number-tabular whitespace-nowrap px-2 py-3 text-center align-middle text-xs text-slate-500">
+                        <span className="inline-flex w-full items-center justify-center">
+                          {formatIsoDateCompact(day.date)}
+                        </span>
                       </td>
-                      <td className="px-3 py-3">
-                        <StatusBadge tone={!dayIsClosed ? 'warning' : dayIsBalanced ? 'success' : 'danger'}>
-                          {!dayIsClosed ? 'BORRADOR' : dayIsBalanced ? 'CUADRADO' : 'NO CUADRADO'}
-                        </StatusBadge>
+                      <td className="px-2 py-3 text-center align-middle">
+                        <div className="flex w-full items-center justify-center">
+                          <StatusBadge tone={!dayIsClosed ? 'warning' : dayIsBalanced ? 'success' : 'danger'}>
+                            {!dayIsClosed ? 'BORRADOR' : dayIsBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                          </StatusBadge>
+                        </div>
                       </td>
-                      <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs font-bold text-slate-950">
-                        {formatCentiKg(calculation.declaredFinishedKg100)}
+                      <td className="number-tabular whitespace-nowrap px-2 py-3 text-center align-middle text-xs font-bold text-slate-950">
+                        <span className="inline-flex w-full items-center justify-center">
+                          {formatCentiKg(calculation.declaredFinishedKg100)}
+                        </span>
                       </td>
-                      <td className="number-tabular whitespace-nowrap px-3 py-3 text-right text-xs text-slate-700">
-                        {formatCentiKg(calculation.newClosingBalanceKg100)}
+                      <td className="number-tabular whitespace-nowrap px-2 py-3 text-center align-middle text-xs text-slate-700">
+                        <span className="inline-flex w-full items-center justify-center">
+                          {formatCentiKg(calculation.newClosingBalanceKg100)}
+                        </span>
                       </td>
                       <td
-                        className="px-3 py-3 text-right"
+                        className="px-2 py-3 text-center align-middle"
                         title={`${formatRatioAsPercent(calculation.performance.ratio)} · ${dayYieldStatus.label}: ${dayYieldStatus.interpretation}`}
                         aria-label={`Aprovechamiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${dayYieldStatus.label}. ${dayYieldStatus.interpretation}`}
                       >
-                        <span className={`number-tabular block whitespace-nowrap text-xs font-bold ${dayYieldStyles.textClass}`}>
-                          {formatRatioAsPercent(calculation.performance.ratio)}
-                        </span>
-                        <span className={`mt-0.5 block whitespace-nowrap text-[0.625rem] font-bold ${dayYieldStyles.textClass}`}>
-                          {dayYieldStatus.label}
-                        </span>
+                        <div className="flex w-full flex-col items-center justify-center text-center">
+                          <span className={`number-tabular block whitespace-nowrap text-xs font-bold ${dayYieldStyles.textClass}`}>
+                            {formatRatioAsPercent(calculation.performance.ratio)}
+                          </span>
+                          <span className={`mt-0.5 block whitespace-nowrap text-[0.625rem] font-bold ${dayYieldStyles.textClass}`}>
+                            {dayYieldStatus.label}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <ActionLink
-                          to={`/jornadas/${day.date}`}
-                          variant="ghost"
-                          size="sm"
-                        >
-                          Ver
-                          <ArrowRight className="size-3.5" aria-hidden="true" />
-                        </ActionLink>
+                      <td className="px-2 py-3 text-center align-middle">
+                        <div className="flex w-full items-center justify-center">
+                          <ActionLink
+                            to={`/jornadas/${day.date}`}
+                            variant="ghost"
+                            size="sm"
+                          >
+                            Ver
+                            <ArrowRight className="size-3.5" aria-hidden="true" />
+                          </ActionLink>
+                        </div>
                       </td>
                     </tr>
                   )

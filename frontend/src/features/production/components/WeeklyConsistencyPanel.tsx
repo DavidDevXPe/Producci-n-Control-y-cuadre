@@ -23,7 +23,7 @@ export function WeeklyConsistencyPanel({ summary }: WeeklyConsistencyPanelProps)
       contentClassName="p-4 sm:p-5"
     >
       <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
-        <div className="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+        <div className="flex min-h-[4.75rem] flex-col items-center justify-center rounded-lg bg-slate-50 p-3 text-center ring-1 ring-slate-200">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
             PT por jornadas
           </p>
@@ -34,7 +34,7 @@ export function WeeklyConsistencyPanel({ summary }: WeeklyConsistencyPanelProps)
         <span className="text-center text-xl font-light text-slate-400" aria-hidden="true">
           =
         </span>
-        <div className="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+        <div className="flex min-h-[4.75rem] flex-col items-center justify-center rounded-lg bg-slate-50 p-3 text-center ring-1 ring-slate-200">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
             PT por productos
           </p>
@@ -46,7 +46,7 @@ export function WeeklyConsistencyPanel({ summary }: WeeklyConsistencyPanelProps)
           →
         </span>
         <div
-          className={`rounded-lg p-3 ring-1 ${
+          className={`flex min-h-[4.75rem] flex-col items-center justify-center rounded-lg p-3 text-center ring-1 ${
             isValid ? 'bg-emerald-50 ring-emerald-200' : 'bg-rose-50 ring-rose-200'
           }`}
         >
