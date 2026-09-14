@@ -79,16 +79,24 @@ export function ReceivedBalancePanel({
             label="Saldo anterior recibido y procesado por turno"
             showAuxiliaryScrollbar={lots.length >= 12}
           >
-            <table className="erp-table w-full min-w-[54rem] border-collapse text-left">
+            <table className="erp-table w-full min-w-[54rem] table-fixed border-collapse text-left">
               <caption className="sr-only">Saldo anterior recibido y procesado por turno</caption>
+              <colgroup>
+                <col className="w-[40%]" />
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/90 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
                   <th scope="col" className="px-4 py-2.5 sm:px-5">Origen y producto</th>
-                  <th scope="col" className="px-3 py-2.5 text-right">Recibido</th>
-                  <th scope="col" className="px-3 py-2.5 text-right">Día</th>
-                  <th scope="col" className="px-3 py-2.5 text-right">Noche</th>
-                  <th scope="col" className="px-3 py-2.5 text-right">Pendiente</th>
-                  <th scope="col" className="px-4 py-2.5 text-right sm:px-5">Estado</th>
+                  <th scope="col" className="px-3 py-2.5 text-center align-middle">Recibido</th>
+                  <th scope="col" className="px-3 py-2.5 text-center align-middle">Día</th>
+                  <th scope="col" className="px-3 py-2.5 text-center align-middle">Noche</th>
+                  <th scope="col" className="px-3 py-2.5 text-center align-middle">Pendiente</th>
+                  <th scope="col" className="px-3 py-2.5 text-center align-middle">Estado</th>
                 </tr>
               </thead>
               <tbody>
@@ -107,11 +115,11 @@ export function ReceivedBalancePanel({
                           {product?.productName ?? lot.productId}
                         </span>
                       </th>
-                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-slate-700">{formatCentiKg(position.originalKg100)}</td>
-                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-600">{formatCentiKg(position.processedDayKg100)}</td>
-                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-600">{formatCentiKg(position.processedNightKg100)}</td>
-                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-brand-900">{formatCentiKg(position.pendingKg100)}</td>
-                      <td className="px-4 py-2.5 text-right sm:px-5">
+                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs font-semibold text-slate-700">{formatCentiKg(position.originalKg100)}</td>
+                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs text-slate-600">{formatCentiKg(position.processedDayKg100)}</td>
+                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs text-slate-600">{formatCentiKg(position.processedNightKg100)}</td>
+                      <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs font-semibold text-brand-900">{formatCentiKg(position.pendingKg100)}</td>
+                      <td className="px-3 py-2.5 text-center align-middle">
                         <StatusBadge tone={position.isValid ? 'success' : 'danger'}>
                           {position.isValid ? 'TRAZABLE' : 'SOBRECONSUMO'}
                         </StatusBadge>

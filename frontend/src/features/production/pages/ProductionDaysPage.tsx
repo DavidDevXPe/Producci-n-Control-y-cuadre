@@ -219,7 +219,7 @@ export function ProductionDaysPage() {
                     </td>
                     <td className="px-3 py-3 text-center align-middle">
                       <div
-                        className="flex w-full flex-col items-center justify-center gap-1 text-center xl:flex-row xl:gap-2"
+                        className="flex w-full flex-col items-center justify-center gap-1 text-center"
                         title={`${formatRatioAsPercent(calculation.performance.ratio)} · ${yieldStatus.label}: ${yieldStatus.interpretation}`}
                         aria-label={`Aprovechamiento ${formatRatioAsPercent(calculation.performance.ratio)}. Estado ${yieldStatus.label}. ${yieldStatus.interpretation}`}
                       >

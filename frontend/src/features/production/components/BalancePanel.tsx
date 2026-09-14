@@ -191,19 +191,26 @@ export function BalancePanel({
         showAuxiliaryScrollbar={balances.length >= 12}
         className="data-scroll-clean-edge"
       >
-        <table className="erp-table w-full min-w-[48rem] border-collapse text-left">
+        <table className="erp-table w-full min-w-[48rem] table-fixed border-collapse text-left">
           <caption className="sr-only">
             {isOutstandingView
               ? 'Detalle del saldo pendiente por producto'
               : 'Detalle del saldo generado al cierre por producto'}
           </caption>
+          <colgroup>
+            <col className="w-[48%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-slate-500">
               <th scope="col" className="px-4 py-2.5 sm:px-5">Producto</th>
-              <th scope="col" className="px-3 py-2.5 text-right">Generado</th>
-              <th scope="col" className="px-3 py-2.5 text-right">Procesado Día</th>
-              <th scope="col" className="px-3 py-2.5 text-right">Procesado Noche</th>
-              <th scope="col" className="px-4 py-2.5 text-right text-brand-800 sm:px-5">
+              <th scope="col" className="px-3 py-2.5 text-center align-middle">Generado</th>
+              <th scope="col" className="px-3 py-2.5 text-center align-middle">Procesado Día</th>
+              <th scope="col" className="px-3 py-2.5 text-center align-middle">Procesado Noche</th>
+              <th scope="col" className="px-3 py-2.5 text-center align-middle text-brand-800">
                 {isOutstandingView ? 'Pendiente' : 'Saldo pendiente actual'}
               </th>
             </tr>
@@ -240,15 +247,17 @@ export function BalancePanel({
                       </span>
                     </button>
                   </th>
-                  <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-slate-700">
+                  <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs font-semibold text-slate-700">
                     {formatCentiKg(generatedTotal)}
                   </td>
                   <td colSpan={2} />
-                  <td className="number-tabular whitespace-nowrap px-4 py-2.5 text-right text-xs font-bold text-brand-900 sm:px-5">
-                    <span className="mr-2 text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-brand-600">
-                      Total
+                  <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs font-bold text-brand-900">
+                    <span className="inline-flex w-full items-baseline justify-center gap-2">
+                      <span className="text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-brand-600">
+                        Total
+                      </span>
+                      {formatCentiKg(pendingTotal)}
                     </span>
-                    {formatCentiKg(pendingTotal)}
                   </td>
                 </tr>
                 {isExpanded
@@ -268,17 +277,17 @@ export function BalancePanel({
                               {product.productName}
                             </span>
                           </th>
-                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs font-medium text-slate-600">
+                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs font-medium text-slate-600">
                             {formatCentiKg(product.newClosingBalanceKg100)}
                           </td>
-                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-500">
+                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs text-slate-500">
                             {formatCentiKg(position.processedDayKg100)}
                           </td>
-                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-500">
+                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs text-slate-500">
                             {formatCentiKg(position.processedNightKg100)}
                           </td>
-                          <td className="number-tabular whitespace-nowrap px-4 py-2.5 text-right text-xs font-semibold text-brand-900 sm:px-5">
-                            <span className="inline-flex items-center gap-1.5">
+                          <td className="number-tabular whitespace-nowrap px-3 py-2.5 text-center align-middle text-xs font-semibold text-brand-900">
+                            <span className="inline-flex w-full items-center justify-center gap-1.5">
                               <ArrowRight className="size-3.5 text-brand-600" aria-hidden="true" />
                               {formatCentiKg(position.pendingKg100)}
                             </span>

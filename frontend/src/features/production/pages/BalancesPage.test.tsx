@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ProductionDataProvider } from '../state/ProductionDataContext'
 import { BalancesPage } from './BalancesPage'
 
 describe('balances page', () => {
@@ -23,4 +24,42 @@ describe('balances page', () => {
       screen.queryByRole('heading', { name: 'Saldo pendiente por producto' }),
     ).not.toBeInTheDocument()
   })
+
+  it('centers balance quantities on one explicit column grid', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-10T12:00:00-05:00'))
+    window.localStorage.clear()
+
+    render(
+      <ProductionDataProvider>
+        <BalancesPage />
+      </ProductionDataProvider>,
+    )
+
+    const table = screen.getByRole('table', {
+      name: 'Detalle del saldo pendiente por producto',
+    })
+    const headers = within(table).getAllByRole('columnheader')
+
+    expect(table).toHaveClass('table-fixed', 'min-w-[48rem]')
+    expect(
+      [...table.querySelectorAll('col')].map((column) => column.className),
+    ).toEqual(['w-[48%]', 'w-[13%]', 'w-[13%]', 'w-[13%]', 'w-[13%]'])
+    headers.slice(1).forEach((header) => {
+      expect(header).toHaveClass('px-3', 'text-center', 'align-middle')
+    })
+
+    const firstProductRow = table.querySelector<HTMLElement>(
+      'tbody tr:nth-child(2)',
+    )
+    expect(firstProductRow).not.toBeNull()
+    within(firstProductRow!).getAllByRole('cell').forEach((cell) => {
+      expect(cell).toHaveClass('px-3', 'text-center', 'align-middle')
+    })
+  })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  window.localStorage.clear()
 })

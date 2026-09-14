@@ -108,10 +108,11 @@ describe('production days page', () => {
     const utilization = within(latestRow!).getByLabelText(/^Aprovechamiento /)
     expect(utilization).toHaveClass(
       'w-full',
+      'flex-col',
       'items-center',
       'justify-center',
-      'xl:flex-row',
     )
+    expect(utilization).not.toHaveClass('xl:flex-row')
     expect(
       within(latestRow!).getByRole('link', { name: /Ver detalle/i })
         .parentElement,

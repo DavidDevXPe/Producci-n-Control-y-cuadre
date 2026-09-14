@@ -65,6 +65,36 @@ describe('weekly summary page', () => {
     expect(screen.getByText('SEMANA CERRADA · 4 JORNADAS')).toBeInTheDocument()
     expect(screen.getByText('CERRADA')).toBeInTheDocument()
     expect(screen.queryByText('PARCIAL')).not.toBeInTheDocument()
+
+    const productTable = screen.getByRole('table', {
+      name: 'Consolidado semanal por grupo y producto',
+    })
+    const productHeaders = within(productTable).getAllByRole('columnheader')
+
+    expect(productTable).toHaveClass('table-fixed', 'min-w-[64rem]')
+    expect(
+      [...productTable.querySelectorAll('col')].map((column) => column.className),
+    ).toEqual(['w-[48%]', 'w-[15%]', 'w-[13%]', 'w-[12%]', 'w-[12%]'])
+    productHeaders.slice(1).forEach((header) => {
+      expect(header).toHaveClass('px-3', 'text-center', 'align-middle')
+    })
+
+    const firstProductGroup = productTable.querySelector<HTMLElement>('tbody tr')
+    expect(firstProductGroup).not.toBeNull()
+    within(firstProductGroup!).getAllByRole('cell').forEach((cell) => {
+      expect(cell).toHaveClass('px-3', 'text-center', 'align-middle')
+    })
+
+    const weeklyYield = productTable.querySelector<HTMLElement>(
+      'tfoot td:last-child > div',
+    )
+    expect(weeklyYield).toHaveClass(
+      'w-full',
+      'flex-col',
+      'items-center',
+      'justify-center',
+      'text-center',
+    )
   })
 
   it('separates the 15% semilimpia and 7% Bikini references', () => {
