@@ -9,6 +9,7 @@ import type {
   ProductionCaptureDraft,
   ProductionCaptureRow,
 } from './productionCapture'
+import { isSundayIsoDate } from '../model/productionDayMode'
 
 interface ProductRowDefinition {
   row: number
@@ -232,9 +233,14 @@ export function createCaptureDraftFromImportedSheet(
 
   return {
     date: sheet.date,
+    process: 'PACKING',
     source: 'EXCEL',
     sourceSheet: sheet.sheetName,
     shiftAllocationMode: 'RECONCILED_INFERENCE',
+    operationMode:
+      isSundayIsoDate(sheet.date) && sheet.rawMaterialKg === 0
+        ? 'BALANCE_ONLY'
+        : 'NORMAL',
     rawMaterialKg: String(sheet.rawMaterialKg),
     declaredDayTotalKg: String(sheet.declaredDayTotalKg),
     declaredNightTotalKg: String(sheet.declaredNightTotalKg),

@@ -23,7 +23,7 @@ function ActiveWeekProbe() {
   return (
     <>
       <span>Semana {activeWeekNumber}</span>
-      <span>{activeWeek.isHistorical ? 'Solo lectura' : 'Editable'}</span>
+      <span>{activeWeek.isReadOnly ? 'Solo lectura' : 'Editable'}</span>
       <span data-testid="available-weeks">{availableWeekNumbers.join(',')}</span>
       <span data-testid="active-days">
         {activeWeek.productionDays.map((day) => day.date).join(',')}
@@ -63,6 +63,90 @@ function PersistenceProbe() {
       <button type="button" onClick={() => save(false)}>Crear</button>
       <button type="button" onClick={() => save(true)}>Reemplazar</button>
       <span role="status">{message}</span>
+    </>
+  )
+}
+
+function WeekClosureProbe() {
+  const { activeWeek, closeWeekManually, upsertProductionDay } = useProductionData()
+  const [message, setMessage] = useState('')
+
+  const close = () => {
+    try {
+      closeWeekManually(activeWeek.number)
+      setMessage('cerrada')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'error')
+    }
+  }
+
+  const save = () => {
+    try {
+      upsertProductionDay(editableDay)
+      setMessage('guardado')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'error')
+    }
+  }
+
+  return (
+    <>
+      <span data-testid="business-status">{activeWeek.businessStatus}</span>
+      <span data-testid="closure-type">{activeWeek.closureType ?? 'NINGUNO'}</span>
+      <button type="button" onClick={close}>Cerrar semana</button>
+      <button type="button" onClick={save}>Crear jornada</button>
+      <span role="status">{message}</span>
+    </>
+  )
+}
+
+function ProcessPersistenceProbe() {
+  const { allProductionDays, upsertProductionDay } = useProductionData()
+  const [message, setMessage] = useState('')
+  const save = (process: 'PACKING' | 'FREEZING') => {
+    try {
+      upsertProductionDay({
+        ...editableDay,
+        id:
+          process === 'PACKING'
+            ? editableDay.id
+            : 'production-day-freezing-2026-09-08',
+        process,
+      })
+      setMessage('guardado')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'error')
+    }
+  }
+
+  return (
+    <>
+      <button type="button" onClick={() => save('PACKING')}>Guardar Envasado</button>
+      <button type="button" onClick={() => save('FREEZING')}>Guardar Congelamiento</button>
+      <span data-testid="same-date-count">
+        {allProductionDays.filter((day) => day.date === editableDay.date).length}
+      </span>
+      <span role="status">{message}</span>
+    </>
+  )
+}
+
+function ProcessClosureProbe() {
+  const { closeWeekManually, getWeekView } = useProductionData()
+  const [, refresh] = useState(0)
+  return (
+    <>
+      <span data-testid="packing-week">{getWeekView(42, 'PACKING').businessStatus}</span>
+      <span data-testid="freezing-week">{getWeekView(42, 'FREEZING').businessStatus}</span>
+      <button
+        type="button"
+        onClick={() => {
+          closeWeekManually(42, 'PACKING')
+          refresh((value) => value + 1)
+        }}
+      >
+        Cerrar Envasado
+      </button>
     </>
   )
 }
@@ -176,8 +260,97 @@ describe('ProductionDataProvider operational week recovery', () => {
     })
 
     expect(screen.getByText('Semana 42')).toBeInTheDocument()
-    expect(screen.getByText('Solo lectura')).toBeInTheDocument()
+    expect(screen.getByText('Editable')).toBeInTheDocument()
     expect(screen.getByTestId('available-weeks')).toHaveTextContent('43,42,41')
+  })
+
+  it('keeps week 42 editable after it becomes a past week', () => {
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    window.localStorage.setItem('trabunda-active-operational-week-v1', '42')
+
+    render(
+      <ProductionDataProvider>
+        <PersistenceProbe />
+      </ProductionDataProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear' }))
+    expect(screen.getByRole('status')).toHaveTextContent('guardado')
+  })
+
+  it('persists a manual close without creating missing production days', () => {
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    window.localStorage.setItem('trabunda-active-operational-week-v1', '42')
+
+    const firstRender = render(
+      <ProductionDataProvider>
+        <WeekClosureProbe />
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByTestId('business-status')).toHaveTextContent('OPEN')
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar semana' }))
+    expect(screen.getByRole('status')).toHaveTextContent('cerrada')
+    expect(screen.getByTestId('business-status')).toHaveTextContent('CLOSED')
+    expect(screen.getByTestId('closure-type')).toHaveTextContent('MANUAL')
+    fireEvent.click(screen.getByRole('button', { name: 'Crear jornada' }))
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'La semana está cerrada y es de solo lectura.',
+    )
+    expect(
+      JSON.parse(
+        window.localStorage.getItem('trabunda-week-process-closures-v2') ?? '[]',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        weekNumber: 42,
+        status: 'CLOSED',
+        closureType: 'MANUAL',
+      }),
+    ])
+    expect(window.localStorage.getItem('trabunda-production-days-v2')).toBeNull()
+
+    firstRender.unmount()
+    render(
+      <ProductionDataProvider>
+        <WeekClosureProbe />
+      </ProductionDataProvider>,
+    )
+    expect(screen.getByTestId('business-status')).toHaveTextContent('CLOSED')
+    expect(screen.getByTestId('closure-type')).toHaveTextContent('MANUAL')
+  })
+
+  it('closes automatically when all seven dates are registered, closed and valid', () => {
+    const dates = [
+      '2026-09-08',
+      '2026-09-09',
+      '2026-09-10',
+      '2026-09-11',
+      '2026-09-12',
+      '2026-09-13',
+    ]
+    window.localStorage.setItem(
+      'trabunda-production-days-v1',
+      JSON.stringify(
+        dates.map((date) => ({
+          ...WEDNESDAY_PRODUCTION_DAY,
+          id: `production-day-${date}`,
+          date,
+          displayName: date,
+          status: 'CLOSED',
+        })),
+      ),
+    )
+
+    render(
+      <ProductionDataProvider>
+        <WeekClosureProbe />
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByTestId('business-status')).toHaveTextContent('CLOSED')
+    expect(screen.getByTestId('closure-type')).toHaveTextContent('AUTOMATIC')
+    expect(window.localStorage.getItem('trabunda-week-process-closures-v2')).toBeNull()
   })
 
   it('does not silently overwrite another journey with the same date', () => {
@@ -195,7 +368,7 @@ describe('ProductionDataProvider operational week recovery', () => {
       'Ya existe una jornada para esta fecha.',
     )
     const stored = JSON.parse(
-      window.localStorage.getItem('trabunda-production-days-v1') ?? '[]',
+      window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',
     )
     expect(stored).toHaveLength(1)
   })
@@ -216,5 +389,64 @@ describe('ProductionDataProvider operational week recovery', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Una jornada cerrada es de solo lectura',
     )
+  })
+
+  it('allows Packing and Freezing on the same date but not duplicate process/date', () => {
+    render(
+      <ProductionDataProvider>
+        <ProcessPersistenceProbe />
+      </ProductionDataProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar Envasado' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar Congelamiento' }))
+    expect(screen.getByTestId('same-date-count')).toHaveTextContent('2')
+    expect(
+      JSON.parse(
+        window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',
+      ).map((day: { process: string }) => day.process),
+    ).toEqual(['FREEZING', 'PACKING'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar Congelamiento' }))
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Ya existe una jornada para esta fecha.',
+    )
+  })
+
+  it('migrates legacy days to explicit Packing records without data loss', () => {
+    window.localStorage.setItem(
+      'trabunda-production-days-v1',
+      JSON.stringify([editableDay]),
+    )
+
+    render(
+      <ProductionDataProvider>
+        <ActiveWeekProbe />
+      </ProductionDataProvider>,
+    )
+
+    const migrated = JSON.parse(
+      window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',
+    )
+    expect(migrated).toHaveLength(1)
+    expect(migrated[0]).toMatchObject({
+      date: editableDay.date,
+      process: 'PACKING',
+    })
+  })
+
+  it('keeps weekly closure independent for each process', () => {
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    render(
+      <ProductionDataProvider>
+        <ProcessClosureProbe />
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByTestId('packing-week')).toHaveTextContent('OPEN')
+    expect(screen.getByTestId('freezing-week')).toHaveTextContent('OPEN')
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar Envasado' }))
+    expect(screen.getByTestId('packing-week')).toHaveTextContent('CLOSED')
+    expect(screen.getByTestId('freezing-week')).toHaveTextContent('OPEN')
   })
 })

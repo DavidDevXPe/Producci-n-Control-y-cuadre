@@ -19,10 +19,13 @@ export interface WeekSelectorOption {
   endDate: string
   periodLabel: string
   isCurrent?: boolean | undefined
+  isPast?: boolean | undefined
   isClosed?: boolean | undefined
+  businessStatus?: 'OPEN' | 'CLOSED' | undefined
   isFuture?: boolean | undefined
   isReadOnly?: boolean | undefined
   hasRecords?: boolean | undefined
+  recordCount?: number | undefined
   disabled?: boolean | undefined
 }
 
@@ -332,6 +335,12 @@ export function WeekSelector({
                       className={`mt-1.5 block text-[0.5625rem] font-bold uppercase tracking-[0.08em] text-[#7f9bad] ${isSelected ? 'dark:text-[#a5bed0]' : 'dark:text-[#7f9bad]'}`}
                     >
                       Sin registros
+                    </span>
+                  ) : option.businessStatus === 'OPEN' ? (
+                    <span
+                      className={`mt-1.5 block text-[0.5625rem] font-bold uppercase tracking-[0.08em] text-[#168bb4] ${isSelected ? 'dark:text-[#a5bed0]' : 'dark:text-[#7f9bad]'}`}
+                    >
+                      Abierta · {option.recordCount ?? 0} de 7 registros
                     </span>
                   ) : option.isReadOnly ? (
                     <span

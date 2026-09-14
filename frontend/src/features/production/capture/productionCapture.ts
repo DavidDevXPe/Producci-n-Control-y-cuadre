@@ -7,6 +7,7 @@ import {
   sumKg100,
   toKilograms,
 } from '../model/calculations'
+import { calculateFreezingAvailability } from '../model/freezing'
 import { calculateProductionBusinessSummary } from '../model/businessRules'
 import {
   GENERAL_MIN_YIELD_BPS,
@@ -17,9 +18,13 @@ import type {
   Kg100,
   ProductionDay,
   ProductionDayCalculation,
+  ProductionDayOperationMode,
+  ProductionProcess,
   ProductionDayStatus,
   ShiftCode,
 } from '../model/types'
+import { getProductionProcess } from '../model/productionProcess'
+import { isSundayIsoDate } from '../model/productionDayMode'
 import type { ProductionCatalogItem } from './productionCatalog'
 
 export type CaptureSource = 'MANUAL' | 'EXCEL'
@@ -60,9 +65,11 @@ export interface ImportedBalanceNotice {
 
 export interface ProductionCaptureDraft {
   date: string
+  process: ProductionProcess
   source: CaptureSource
   sourceSheet: string
   shiftAllocationMode: ShiftAllocationMode
+  operationMode: ProductionDayOperationMode
   rawMaterialKg: string
   declaredDayTotalKg: string
   declaredNightTotalKg: string
@@ -146,15 +153,17 @@ function getInferredReports(
 
 function buildReceivedBalanceLots(
   dayId: string,
+  process: ProductionProcess,
   balanceUses: readonly ProductionCaptureBalanceUse[],
   previousDays: readonly ProductionDay[],
   subsequentLots: readonly BalanceLot[],
   quantityFor: (value: string, label: string) => Kg100,
   errors: string[],
 ): readonly BalanceLot[] {
-  const positions = calculateOutstandingBalances(
-    previousDays,
-    subsequentLots,
+  const positions = (
+    process === 'FREEZING'
+      ? calculateFreezingAvailability(previousDays)
+      : calculateOutstandingBalances(previousDays, subsequentLots)
   ).filter((position) => position.pendingKg100 > 0)
 
   return balanceUses.map((selection) => {
@@ -201,6 +210,7 @@ function buildReceivedBalanceLots(
 
     return {
       id: `balance-lot-${dayId}-${selection.originDayId}-${selection.productId}`,
+      process,
       originDayId: selection.originDayId,
       familyId: selection.familyId,
       productId: selection.productId,
@@ -210,13 +220,23 @@ function buildReceivedBalanceLots(
   })
 }
 
-export function createEmptyCaptureDraft(date: string): ProductionCaptureDraft {
+export function createEmptyCaptureDraft(
+  date: string,
+  process: ProductionProcess = 'PACKING',
+): ProductionCaptureDraft {
+  const operationMode: ProductionDayOperationMode = isSundayIsoDate(date)
+    ? 'BALANCE_ONLY'
+    : 'NORMAL'
+
   return {
     date,
+    process,
     source: 'MANUAL',
     sourceSheet: 'CAPTURA WEB',
     shiftAllocationMode: 'EXPLICIT',
-    rawMaterialKg: '',
+    operationMode,
+    rawMaterialKg:
+      operationMode === 'BALANCE_ONLY' || process === 'FREEZING' ? '0' : '',
     declaredDayTotalKg: '',
     declaredNightTotalKg: '',
     declaredFinishedTotalKg: '',
@@ -238,6 +258,7 @@ export function createCaptureDraftFromDay(
 
   return {
     date: productionDay.date,
+    process: getProductionProcess(productionDay),
     source:
       productionDay.lines.at(0)?.source.sheet === 'CAPTURA WEB'
         ? 'MANUAL'
@@ -247,6 +268,7 @@ export function createCaptureDraftFromDay(
       productionDay.lines.at(0)?.shiftBreakdownConfidence === 'EXPLICIT'
         ? 'EXPLICIT'
         : 'RECONCILED_INFERENCE',
+    operationMode: productionDay.operationMode ?? 'NORMAL',
     rawMaterialKg: String(toKilograms(productionDay.declaredRawMaterialKg100)),
     declaredDayTotalKg: String(
       toKilograms(productionDay.declaredShiftTotalsKg100.DAY),
@@ -348,9 +370,20 @@ export function buildProductionDayFromCapture(
   status: ProductionDayStatus = 'DRAFT',
 ): CaptureBuildResult {
   const errors: string[] = []
+  const operationMode: ProductionDayOperationMode =
+    isSundayIsoDate(draft.date) && draft.operationMode === 'BALANCE_ONLY'
+      ? 'BALANCE_ONLY'
+      : 'NORMAL'
+  const isBalanceOnly = operationMode === 'BALANCE_ONLY'
+  const isFreezing = draft.process === 'FREEZING'
+  const usesExternalAvailability = isBalanceOnly || isFreezing
+  const keepsImportedFinishedTotals =
+    draft.source === 'EXCEL' && !usesExternalAvailability
   const quantityFor = (value: string, label: string) =>
     parseQuantity(value, label, errors)
-  const rawMaterial = quantityFor(draft.rawMaterialKg, 'Materia prima')
+  const rawMaterial = usesExternalAvailability
+    ? ZERO_KG100
+    : quantityFor(draft.rawMaterialKg, 'Materia prima')
   const declaredDay = quantityFor(draft.declaredDayTotalKg, 'Total del turno Día')
   const declaredNight = quantityFor(
     draft.declaredNightTotalKg,
@@ -372,10 +405,16 @@ export function buildProductionDayFromCapture(
     errors.push(`Hay productos duplicados: ${[...duplicateProducts].join(', ')}.`)
   }
 
-  const dayId = `production-day-${draft.date}`
-  const previousDays = allProductionDays.filter((day) => day.date < draft.date)
+  const dayId =
+    draft.process === 'PACKING'
+      ? `production-day-${draft.date}`
+      : `production-day-freezing-${draft.date}`
+  const previousDays = allProductionDays.filter((day) =>
+    draft.process === 'FREEZING' ? day.date <= draft.date : day.date < draft.date,
+  )
   const receivedBalanceLots = buildReceivedBalanceLots(
     dayId,
+    draft.process,
     draft.balanceUses,
     previousDays,
     subsequentLots,
@@ -425,30 +464,38 @@ export function buildProductionDayFromCapture(
       },
       tunnelShifts: {
         DAY: {
-          reportedKg100: quantityFor(
-            row.tunnelDayKg,
-            `${row.product.productName}: Túnel Día`,
-          ),
+          reportedKg100: usesExternalAvailability
+            ? ZERO_KG100
+            : quantityFor(
+                row.tunnelDayKg,
+                `${row.product.productName}: Túnel Día`,
+              ),
           adjustments: [],
         },
         NIGHT: {
-          reportedKg100: quantityFor(
-            row.tunnelNightKg,
-            `${row.product.productName}: Túnel Noche`,
-          ),
+          reportedKg100: usesExternalAvailability
+            ? ZERO_KG100
+            : quantityFor(
+                row.tunnelNightKg,
+                `${row.product.productName}: Túnel Noche`,
+              ),
           adjustments: [],
         },
       },
-      treatmentKg100: quantityFor(
-        row.treatmentKg,
-        `${row.product.productName}: tratamiento`,
-      ),
-      newClosingBalanceKg100: quantityFor(
-        row.closingBalanceKg,
-        `${row.product.productName}: saldo final`,
-      ),
+      treatmentKg100: usesExternalAvailability
+        ? ZERO_KG100
+        : quantityFor(
+            row.treatmentKg,
+            `${row.product.productName}: tratamiento`,
+          ),
+      newClosingBalanceKg100: usesExternalAvailability
+        ? ZERO_KG100
+        : quantityFor(
+            row.closingBalanceKg,
+            `${row.product.productName}: saldo final`,
+          ),
       declaredFinishedKg100:
-        draft.source === 'EXCEL'
+        keepsImportedFinishedTotals
           ? quantityFor(
               row.finishedKg,
               `${row.product.productName}: producto terminado de origen`,
@@ -462,23 +509,27 @@ export function buildProductionDayFromCapture(
     date: draft.date,
     displayName: formatDisplayName(draft.date),
     status,
-    rawMaterialEntries: [
-      {
-        id: `raw-material-${draft.date}-1`,
-        kg100: rawMaterial,
-        shift: null,
-      },
-    ],
+    process: draft.process,
+    operationMode,
+    rawMaterialEntries: usesExternalAvailability
+      ? []
+      : [
+          {
+            id: `raw-material-${draft.date}-1`,
+            kg100: rawMaterial,
+            shift: null,
+          },
+        ],
     declaredRawMaterialKg100: rawMaterial,
     declaredShiftTotalsKg100: { DAY: declaredDay, NIGHT: declaredNight },
     declaredFinishedTotalKg100:
-      draft.source === 'EXCEL'
+      keepsImportedFinishedTotals
         ? quantityFor(
             draft.declaredFinishedTotalKg,
             'Total de producto terminado de origen',
           )
         : ZERO_KG100,
-    hasTunnelProduction: draft.hasTunnelProduction,
+    hasTunnelProduction: usesExternalAvailability ? false : draft.hasTunnelProduction,
     lines: preliminaryLines,
     receivedBalanceLots,
     nucaWashAuthorization: draft.nucaWashConfirmed
@@ -494,7 +545,7 @@ export function buildProductionDayFromCapture(
   }
   const preliminaryCalculation = calculateProductionDay(preliminaryDay)
   const lines =
-    draft.source === 'EXCEL'
+    keepsImportedFinishedTotals
       ? preliminaryLines
       : preliminaryLines.map((line, index) => ({
           ...line,
@@ -509,7 +560,7 @@ export function buildProductionDayFromCapture(
     ...preliminaryDay,
     lines,
     declaredFinishedTotalKg100:
-      draft.source === 'EXCEL'
+      keepsImportedFinishedTotals
         ? preliminaryDay.declaredFinishedTotalKg100
         : calculatedFinishedKg100,
   }
@@ -522,7 +573,7 @@ export function buildProductionDayFromCapture(
   const productionDay: ProductionDay = {
     ...dayWithCalculatedFinished,
     rawMaterialAllocationOverridesKg100:
-      automaticReproductorAllocationKg100 > 0
+      !usesExternalAvailability && automaticReproductorAllocationKg100 > 0
         ? { REPRODUCTOR: automaticReproductorAllocationKg100 }
         : {},
   }

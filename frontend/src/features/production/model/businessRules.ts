@@ -18,7 +18,14 @@ import {
   REJO_REPRODUCTOR_TARGET_BPS,
   getAnillaYieldClass,
 } from './businessConfig'
-import { applyBasisPoints, kg100, sumKg100 } from './calculations'
+import {
+  applyBasisPoints,
+  calculateBalancePosition,
+  kg100,
+  sumKg100,
+} from './calculations'
+import { isBalanceOnlyProductionDay } from './productionDayMode'
+import { isFreezingProductionDay } from './productionProcess'
 import type {
   Kg100,
   ProductionDay,
@@ -758,7 +765,95 @@ export function validateProductionClosure(
     })
   }
   for (const issue of calculation.integrityIssues) {
-    blockers.push({ code: issue.code, message: issue.message })
+    const freezingLot =
+      isFreezingProductionDay(productionDay) &&
+      issue.code === 'BALANCE_OVERUSED'
+        ? productionDay.receivedBalanceLots.find(
+            (lot) => lot.id === issue.balanceLotId,
+          )
+        : undefined
+    const overusedKg100 = freezingLot
+      ? calculateBalancePosition(freezingLot).overusedKg100
+      : ZERO
+    blockers.push({
+      code: issue.code,
+      message:
+        overusedKg100 > 0
+          ? `Se están registrando ${kilograms(overusedKg100)} más de los disponibles para congelar.`
+          : issue.message,
+    })
+  }
+
+  if (isFreezingProductionDay(productionDay)) {
+    if (productionDay.declaredRawMaterialKg100 !== 0) {
+      blockers.push({
+        code: 'FREEZING_RAW_MATERIAL',
+        message: 'Congelamiento recibe producto envasado y no registra una nueva descarga de materia prima.',
+      })
+    }
+    if (
+      calculation.reportOwnProductionKg100 !== 0 ||
+      calculation.ownTurnProductionKg100 !== 0
+    ) {
+      blockers.push({
+        code: 'FREEZING_WITHOUT_AVAILABILITY',
+        message:
+          'Existe producto congelado sin disponibilidad trazable desde Envasado. Vincula el producto con su jornada de origen.',
+      })
+    }
+    if (
+      calculation.tunnel.totalKg100 !== 0 ||
+      calculation.treatmentKg100 !== 0 ||
+      calculation.newClosingBalanceKg100 !== 0
+    ) {
+      blockers.push({
+        code: 'FREEZING_PACKING_STAGE',
+        message:
+          'Congelamiento no utiliza Túnel, Tratamiento ni saldo productivo de Envasado.',
+      })
+    }
+
+    return {
+      canClose: blockers.length === 0,
+      blockers,
+      warnings,
+    }
+  }
+
+  if (isBalanceOnlyProductionDay(productionDay)) {
+    if (productionDay.declaredRawMaterialKg100 !== 0) {
+      blockers.push({
+        code: 'BALANCE_ONLY_RAW_MATERIAL',
+        message: 'Una jornada de saldos no puede registrar nueva materia prima.',
+      })
+    }
+    if (
+      calculation.reportOwnProductionKg100 !== 0 ||
+      calculation.ownTurnProductionKg100 !== 0
+    ) {
+      blockers.push({
+        code: 'BALANCE_ONLY_UNLINKED_PRODUCTION',
+        message:
+          'Existe producción reportada que no está vinculada a saldos anteriores. Vincula el saldo faltante o activa “Hubo descarga / producción nueva”.',
+      })
+    }
+    if (
+      calculation.tunnel.totalKg100 !== 0 ||
+      calculation.treatmentKg100 !== 0 ||
+      calculation.newClosingBalanceKg100 !== 0
+    ) {
+      blockers.push({
+        code: 'BALANCE_ONLY_NEW_PRODUCTION_MOVEMENT',
+        message:
+          'Una jornada de saldos no genera Túnel, Tratamiento ni saldo productivo nuevo.',
+      })
+    }
+
+    return {
+      canClose: blockers.length === 0,
+      blockers,
+      warnings,
+    }
   }
 
   const generalYield = businessSummary.generalYieldPercent

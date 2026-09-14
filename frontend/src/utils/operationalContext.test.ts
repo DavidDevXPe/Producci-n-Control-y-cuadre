@@ -49,7 +49,7 @@ describe('operational context', () => {
     })
   })
 
-  it('classifies current, closed and future weeks without fixed week numbers', () => {
+  it('separates temporal position from the operational week status', () => {
     const currentWeek = getOperationalWeekContextByNumber(42)
 
     expect(
@@ -58,7 +58,10 @@ describe('operational context', () => {
         currentWeek,
       ),
     ).toEqual({
+      temporalStatus: 'CURRENT',
+      businessStatus: 'OPEN',
       isCurrent: true,
+      isPast: false,
       isClosed: false,
       isFuture: false,
       isReadOnly: false,
@@ -71,6 +74,22 @@ describe('operational context', () => {
       ),
     ).toMatchObject({
       isCurrent: false,
+      isPast: true,
+      temporalStatus: 'PAST',
+      businessStatus: 'OPEN',
+      isClosed: false,
+      isReadOnly: false,
+      canCreate: true,
+    })
+    expect(
+      getOperationalWeekState(
+        getOperationalWeekContextByNumber(41),
+        currentWeek,
+        'CLOSED',
+      ),
+    ).toMatchObject({
+      isPast: true,
+      businessStatus: 'CLOSED',
       isClosed: true,
       isReadOnly: true,
       canCreate: false,
@@ -82,6 +101,7 @@ describe('operational context', () => {
       ),
     ).toMatchObject({
       isCurrent: false,
+      temporalStatus: 'FUTURE',
       isFuture: true,
       isReadOnly: true,
       canCreate: false,

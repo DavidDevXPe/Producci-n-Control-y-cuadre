@@ -44,6 +44,10 @@ describe('dashboard page', () => {
     expect(await screen.findByTestId('weekly-production-chart')).toBeInTheDocument()
     expect(screen.getByText('Semana 41 · Cerrada · Solo lectura')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Nueva jornada' })).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Envasado vs Congelamiento' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Aún no hay jornadas de Congelamiento')).toBeInTheDocument()
   })
 
   it('shows the permanently saved Monday in the editable current week', () => {
@@ -109,6 +113,26 @@ describe('dashboard page', () => {
     expect(
       within(mondayRow!).getByRole('link', { name: /^Ver$/i }).parentElement,
     ).toHaveClass('w-full', 'justify-center')
+  })
+
+  it('identifies week 42 as past but open after the calendar rollover', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    window.localStorage.clear()
+    window.localStorage.setItem('trabunda-active-operational-week-v1', '42')
+
+    render(
+      <ProductionDataProvider>
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+
+    expect(
+      screen.getByText('Semana 42 · Abierta · Reportes pendientes'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Semana 42 · Cerrada/)).not.toBeInTheDocument()
   })
 })
 

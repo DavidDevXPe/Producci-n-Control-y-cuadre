@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProductionDataProvider } from '../state/ProductionDataContext'
 import { BalancesPage } from './BalancesPage'
 
 describe('balances page', () => {
   it('consolidates current and inherited pending balances by origin day', () => {
-    render(<BalancesPage />)
+    render(<MemoryRouter><BalancesPage /></MemoryRouter>)
 
     const summary = screen.getByRole('region', { name: 'Resumen de saldos' })
     const totalCard = within(summary)
@@ -32,7 +33,7 @@ describe('balances page', () => {
 
     render(
       <ProductionDataProvider>
-        <BalancesPage />
+        <MemoryRouter><BalancesPage /></MemoryRouter>
       </ProductionDataProvider>,
     )
 

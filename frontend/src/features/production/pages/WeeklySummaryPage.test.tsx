@@ -1,11 +1,13 @@
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ProductionDataProvider } from '../state/ProductionDataContext'
 import { WeeklySummaryPage } from './WeeklySummaryPage'
 
 describe('weekly summary page', () => {
   it('validates Wednesday through Saturday against the independent product detail', () => {
-    render(<WeeklySummaryPage />)
+    render(<MemoryRouter><WeeklySummaryPage /></MemoryRouter>)
 
     const validationHeading = screen.getByRole('heading', {
       name: 'Validación de consistencia',
@@ -98,7 +100,7 @@ describe('weekly summary page', () => {
   })
 
   it('separates the 15% semilimpia and 7% Bikini references', () => {
-    render(<WeeklySummaryPage />)
+    render(<MemoryRouter><WeeklySummaryPage /></MemoryRouter>)
 
     const nucaHeading = screen.getByRole('heading', {
       name: 'Referencias de Nuca',
@@ -127,4 +129,54 @@ describe('weekly summary page', () => {
       within(nucaSection!).getByText(/no cambia el estado CUADRADO/),
     ).toBeInTheDocument()
   })
+
+  it('keeps a past open week as a partial week instead of marking it closed', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    window.localStorage.clear()
+    window.localStorage.setItem('trabunda-active-operational-week-v1', '42')
+
+    render(
+      <ProductionDataProvider>
+        <MemoryRouter>
+          <WeeklySummaryPage />
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByText('SEMANA PARCIAL · 1 DE 7')).toBeInTheDocument()
+    expect(screen.queryByText(/SEMANA CERRADA/)).not.toBeInTheDocument()
+  })
+
+  it('opens the Freezing and comparative summaries from the process selector URL', () => {
+    const freezingRender = render(
+      <ProductionDataProvider>
+        <MemoryRouter initialEntries={['/resumen?view=FREEZING']}>
+          <WeeklySummaryPage />
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByText('Reportes · Congelamiento')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Congelado por producto' })).toBeInTheDocument()
+    freezingRender.unmount()
+
+    render(
+      <ProductionDataProvider>
+        <MemoryRouter initialEntries={['/resumen?view=COMPARISON']}>
+          <WeeklySummaryPage />
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Envasado vs Congelamiento' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Comparativo por familia' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Comparativo por producto' })).toBeInTheDocument()
+  })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  window.localStorage.clear()
 })

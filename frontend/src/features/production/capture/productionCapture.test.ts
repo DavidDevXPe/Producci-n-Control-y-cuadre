@@ -39,6 +39,7 @@ describe('production capture', () => {
     const reportProduct = product('recorte-crudo-manto-japones')
     const originDraft = {
       ...createEmptyCaptureDraft('2026-09-06'),
+      operationMode: 'NORMAL' as const,
       rawMaterialKg: '100000',
       declaredDayTotalKg: '0',
       declaredNightTotalKg: '0',
@@ -222,6 +223,7 @@ describe('production capture', () => {
   it('splits a traceable 10,820 kg balance between Day and Night', () => {
     const originDraft = {
       ...createEmptyCaptureDraft('2026-09-06'),
+      operationMode: 'NORMAL' as const,
       rawMaterialKg: '20000',
       declaredDayTotalKg: '0',
       declaredNightTotalKg: '0',
@@ -271,6 +273,7 @@ describe('production capture', () => {
   it('flags use above the amount available from a traceable balance', () => {
     const originDraft = {
       ...createEmptyCaptureDraft('2026-09-06'),
+      operationMode: 'NORMAL' as const,
       rawMaterialKg: '20000',
       declaredDayTotalKg: '0',
       declaredNightTotalKg: '0',

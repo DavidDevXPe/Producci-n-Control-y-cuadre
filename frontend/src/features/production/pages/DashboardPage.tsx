@@ -22,10 +22,7 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
-import {
-  getOperationalWeekContext,
-  getOperationalWeekState,
-} from '../../../utils/operationalContext'
+import { DashboardProcessComparison } from '../components/DashboardProcessComparison'
 import {
   formatCentiKg,
   formatCentiKgValue,
@@ -38,6 +35,8 @@ import {
   calculateProductionDay,
   calculateWeeklySummary,
 } from '../model/calculations'
+import { calculateFreezingComparison } from '../model/freezing'
+import { isBalanceOnlyProductionDay } from '../model/productionDayMode'
 import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
 import { useProductionData } from '../state/ProductionDataContext'
 
@@ -47,12 +46,15 @@ const WeeklyProductionChart = lazy(
 
 export function DashboardPage() {
   usePageTitle('Dashboard')
-  const { activeWeek } = useProductionData()
+  const { activeWeekNumber, allProductionDays, getWeekView } = useProductionData()
+  const activeWeek = getWeekView(activeWeekNumber, 'PACKING')
   const productionDays = activeWeek.productionDays
-  const activeWeekState = getOperationalWeekState(
-    activeWeek,
-    getOperationalWeekContext(new Date()),
+  const activeWeekState = activeWeek
+  const processComparison = calculateFreezingComparison(
+    allProductionDays,
+    activeWeek.period,
   )
+  const hasFreezingData = processComparison.frozenKg100 > 0
 
   if (productionDays.length === 0) {
     return (
@@ -62,13 +64,15 @@ export function DashboardPage() {
             eyebrow="Vista operativa"
             title="Control de producción"
             description={
-              activeWeekState.isCurrent
-                ? `Semana ${activeWeek.number} · Actual · Sin registros.`
-                : `Semana ${activeWeek.number} · Cerrada · Solo lectura.`
+              activeWeekState.isClosed
+                ? `Semana ${activeWeek.number} · Cerrada · Solo lectura.`
+                : activeWeekState.isCurrent
+                  ? `Semana ${activeWeek.number} · Actual · Sin registros.`
+                  : `Semana ${activeWeek.number} · Abierta · Reportes pendientes.`
             }
             actions={
               activeWeekState.canCreate ? (
-                <ActionLink to="/jornadas/nueva" variant="primary" size="sm">
+                <ActionLink to="/jornadas/nueva?process=PACKING" variant="primary" size="sm">
                   Nueva jornada
                   <FilePlus2 className="size-4" aria-hidden="true" />
                 </ActionLink>
@@ -92,17 +96,23 @@ export function DashboardPage() {
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-sm leading-6 text-slate-600">
               {activeWeekState.canCreate
-                ? 'Las semanas anteriores permanecen disponibles como histórico de solo lectura.'
-                : 'Puedes consultar la semana desde Dashboard, Jornadas, Saldos y Resumen.'}
+              ? activeWeekState.isPast
+                ? 'Esta semana pasada continúa abierta para completar sus reportes pendientes.'
+                : 'La semana actual está lista para recibir su primera jornada.'
+              : 'Puedes consultar la semana desde Dashboard, Jornadas, Saldos y Resumen.'}
             </p>
             {activeWeekState.canCreate ? (
-              <ActionLink to="/jornadas/nueva">
+              <ActionLink to="/jornadas/nueva?process=PACKING">
                 <FilePlus2 className="size-4" aria-hidden="true" />
                 Nueva jornada
               </ActionLink>
             ) : null}
           </div>
         </SectionCard>
+        <DashboardProcessComparison
+          comparison={processComparison}
+          hasFreezingData={hasFreezingData}
+        />
       </div>
     )
   }
@@ -125,6 +135,7 @@ export function DashboardPage() {
   }))
   const isBalanced = latestCalculation.status === 'BALANCED'
   const isLatestClosed = latestDay.status === 'CLOSED'
+  const latestIsBalanceOnly = isBalanceOnlyProductionDay(latestDay)
   const isWeekValid =
     weekSummary.status === 'VALID' &&
     productionDays.every((day) => day.status === 'CLOSED')
@@ -146,7 +157,9 @@ export function DashboardPage() {
               description={
                 activeWeekState.isClosed
                   ? `Semana ${activeWeek.number} · Cerrada · Solo lectura`
-                  : `Último registro disponible y consistencia de la semana ${activeWeek.number}.`
+                  : activeWeekState.isPast
+                    ? `Semana ${activeWeek.number} · Abierta · Reportes pendientes`
+                    : `Último registro disponible y consistencia de la semana ${activeWeek.number}.`
               }
               actions={
                 <>
@@ -157,7 +170,7 @@ export function DashboardPage() {
                     {!isLatestClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                   </StatusBadge>
                   <ActionLink
-                    to={`/jornadas/${latestDay.date}`}
+                    to={`/jornadas/${latestDay.date}?process=PACKING`}
                     variant="primary"
                     size="sm"
                   >
@@ -207,11 +220,18 @@ export function DashboardPage() {
             />
             <MetricCard
               label="Aprovechamiento"
-              value={formatRatioAsPercent(latestCalculation.performance.ratio)}
+              value={
+                latestIsBalanceOnly
+                  ? 'NO APLICA'
+                  : formatRatioAsPercent(latestCalculation.performance.ratio)
+              }
               icon={<Gauge className="size-5" />}
-              tone={latestYieldStyles.metricTone}
-              valueClassName={latestYieldStyles.textClass}
+              tone={latestIsBalanceOnly ? 'neutral' : latestYieldStyles.metricTone}
+              valueClassName={latestIsBalanceOnly ? 'text-slate-700' : latestYieldStyles.textClass}
               description={
+                latestIsBalanceOnly ? (
+                  <p>Jornada de saldos sin nueva materia prima.</p>
+                ) : (
                 <div className="space-y-1.5">
                   <StatusBadge tone={latestYieldStyles.badgeTone} className="min-h-5 px-2 py-0.5">
                     {latestYieldStatus.label}
@@ -229,6 +249,7 @@ export function DashboardPage() {
                     <span className="absolute -top-1 bottom-[-0.25rem] left-[80%] w-px bg-slate-400" />
                   </div>
                 </div>
+                )
               }
             />
           </section>
@@ -299,7 +320,7 @@ export function DashboardPage() {
               </strong>
             </p>
             <ActionLink
-              to={`/jornadas/${latestDay.date}`}
+              to={`/jornadas/${latestDay.date}?process=PACKING`}
               variant="ghost"
               size="sm"
             >
@@ -348,6 +369,11 @@ export function DashboardPage() {
           </ActionLink>
         </SectionCard>
       </div>
+
+      <DashboardProcessComparison
+        comparison={processComparison}
+        hasFreezingData={hasFreezingData}
+      />
 
       <div className="grid items-stretch gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <SectionCard

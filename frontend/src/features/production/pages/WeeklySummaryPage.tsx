@@ -7,6 +7,8 @@ import {
   Scale,
   Waves,
 } from 'lucide-react'
+import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ActionLink } from '../../../components/ui/ActionLink'
 import { MetricCard } from '../../../components/ui/MetricCard'
 import { PageHeader } from '../../../components/ui/PageHeader'
@@ -14,15 +16,15 @@ import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import {
-  getOperationalWeekContext,
-  getOperationalWeekState,
-} from '../../../utils/operationalContext'
-import {
   formatCentiKg,
   formatRatioAsPercent,
 } from '../../../utils/formatters'
 import { WeeklyConsistencyPanel } from '../components/WeeklyConsistencyPanel'
 import { WeeklyDaysTable } from '../components/WeeklyDaysTable'
+import { FreezingSummaryView } from '../components/FreezingSummaryView'
+import { ProcessSelector, type ProductionView } from '../components/ProcessSelector'
+import { ProductionComparisonView } from '../components/ProductionComparisonView'
+import { isProductionProcess } from '../model/productionProcess'
 import {
   WeeklyProductSummary,
   type WeeklyProductGroupRow,
@@ -122,12 +124,60 @@ function productsForGroup(
 
 export function WeeklySummaryPage() {
   usePageTitle('Resumen semanal')
-  const { activeWeek } = useProductionData()
-  const productionDays = activeWeek.productionDays
-  const activeWeekState = getOperationalWeekState(
-    activeWeek,
-    getOperationalWeekContext(new Date()),
+  const {
+    activeProcess,
+    activeWeekNumber,
+    allProductionDays,
+    getWeekView,
+    setActiveProcess,
+  } = useProductionData()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const viewParam = searchParams.get('view')
+  const initialView: ProductionView =
+    viewParam === 'COMPARISON' || isProductionProcess(viewParam)
+      ? viewParam
+      : activeProcess
+  const [view, setView] = useState<ProductionView>(initialView)
+  const activeWeek = getWeekView(
+    activeWeekNumber,
+    view === 'COMPARISON' ? 'PACKING' : view,
   )
+  const productionDays = activeWeek.productionDays
+  const activeWeekState = activeWeek
+  const selector = (
+    <ProcessSelector
+      value={view}
+      includeComparison
+      onChange={(nextView) => {
+        setView(nextView)
+        setSearchParams({ view: nextView }, { replace: true })
+        if (nextView !== 'COMPARISON') setActiveProcess(nextView)
+      }}
+    />
+  )
+
+  if (view === 'FREEZING') {
+    return (
+      <FreezingSummaryView
+        week={activeWeek}
+        allProductionDays={allProductionDays}
+        selector={selector}
+      />
+    )
+  }
+
+  if (view === 'COMPARISON') {
+    return (
+      <ProductionComparisonView
+        weekNumber={activeWeek.number}
+        period={activeWeek.period}
+        productionDays={allProductionDays}
+        packingClosed={getWeekView(activeWeek.number, 'PACKING').isClosed}
+        freezingClosed={getWeekView(activeWeek.number, 'FREEZING').isClosed}
+        selector={selector}
+      />
+    )
+  }
 
   if (productionDays.length === 0) {
     return (
@@ -138,17 +188,20 @@ export function WeeklySummaryPage() {
           description={`Semana ${activeWeek.number} · ${
             activeWeekState.isClosed
               ? 'Cerrada · Solo lectura'
-              : 'Actual · Sin registros'
+              : activeWeekState.isCurrent
+                ? 'Actual · Sin registros'
+                : 'Abierta · Sin registros'
           }.`}
           actions={
             activeWeekState.canCreate ? (
-              <ActionLink to="/jornadas/nueva" size="sm">
+              <ActionLink to="/jornadas/nueva?process=PACKING" size="sm">
                 <FilePlus2 className="size-4" aria-hidden="true" />
                 Nueva jornada
               </ActionLink>
             ) : null
           }
         />
+        {selector}
         <SectionCard
           title="No hay información para consolidar"
           description="El resumen aparecerá a medida que guardes jornadas de esta semana."
@@ -157,7 +210,9 @@ export function WeeklySummaryPage() {
           <p className="text-sm leading-6 text-slate-600">
             {activeWeekState.isClosed
               ? 'Esta semana permanece disponible como histórico de solo lectura.'
-              : 'Las semanas anteriores permanecen disponibles como histórico de solo lectura.'}
+              : activeWeekState.isPast
+                ? 'Esta semana pasada continúa abierta para completar reportes pendientes.'
+                : 'La semana actual está lista para recibir jornadas.'}
           </p>
         </SectionCard>
       </div>
@@ -242,6 +297,7 @@ export function WeeklySummaryPage() {
           </StatusBadge>
         }
       />
+      {selector}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores semanales">
         <MetricCard

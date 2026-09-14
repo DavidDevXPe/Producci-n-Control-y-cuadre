@@ -43,8 +43,14 @@ export interface OperationalWeekContext {
   period: IsoDateRange
 }
 
+export type OperationalWeekTemporalStatus = 'CURRENT' | 'PAST' | 'FUTURE'
+export type OperationalWeekBusinessStatus = 'OPEN' | 'CLOSED'
+
 export interface OperationalWeekState {
+  temporalStatus: OperationalWeekTemporalStatus
+  businessStatus: OperationalWeekBusinessStatus
   isCurrent: boolean
+  isPast: boolean
   isClosed: boolean
   isFuture: boolean
   isReadOnly: boolean
@@ -173,16 +179,26 @@ export function getOperationalWeekContextForIsoDate(
 export function getOperationalWeekState(
   week: OperationalWeekContext,
   currentWeek: OperationalWeekContext,
+  businessStatus: OperationalWeekBusinessStatus = 'OPEN',
 ): OperationalWeekState {
   const isCurrent = week.number === currentWeek.number
-  const isClosed = week.period.endDate < currentWeek.period.startDate
   const isFuture = week.period.startDate > currentWeek.period.endDate
+  const isPast = !isCurrent && !isFuture
+  const temporalStatus: OperationalWeekTemporalStatus = isCurrent
+    ? 'CURRENT'
+    : isFuture
+      ? 'FUTURE'
+      : 'PAST'
+  const isClosed = businessStatus === 'CLOSED'
 
   return {
+    temporalStatus,
+    businessStatus,
     isCurrent,
+    isPast,
     isClosed,
     isFuture,
-    isReadOnly: !isCurrent,
-    canCreate: isCurrent,
+    isReadOnly: isClosed || isFuture,
+    canCreate: !isClosed && !isFuture,
   }
 }

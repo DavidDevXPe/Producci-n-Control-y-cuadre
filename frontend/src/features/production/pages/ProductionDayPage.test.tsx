@@ -2,6 +2,8 @@ import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
+import { ProductionDataProvider } from '../state/ProductionDataContext'
+import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
 import { ProductionDayPage } from './ProductionDayPage'
 
 function renderWednesdayPage() {
@@ -248,5 +250,39 @@ describe('Friday and Saturday production day pages', () => {
       'title',
       'El saldo mostrado corresponde al cierre de esta jornada. Los consumos posteriores permiten conocer cuánto permanece pendiente actualmente.',
     )
+  })
+})
+
+describe('Freezing production day page', () => {
+  it('shows the process-specific detail without Packing panels', () => {
+    const freezingDay = {
+      ...WEDNESDAY_PRODUCTION_DAY,
+      id: 'production-day-freezing-2026-09-08',
+      date: '2026-09-08',
+      displayName: 'Martes 08/09/2026',
+      process: 'FREEZING' as const,
+      status: 'DRAFT' as const,
+    }
+    window.localStorage.setItem(
+      'trabunda-production-days-v2',
+      JSON.stringify([freezingDay]),
+    )
+
+    render(
+      <ProductionDataProvider>
+        <MemoryRouter initialEntries={['/jornadas/2026-09-08?process=FREEZING']}>
+          <Routes>
+            <Route path="/jornadas/:date" element={<ProductionDayPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByText('Detalle de jornada · Congelamiento')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Productos congelados' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Origen Envasado y saldo' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Aprovechamiento general' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Exportar Excel' })).toBeNull()
+    window.localStorage.clear()
   })
 })

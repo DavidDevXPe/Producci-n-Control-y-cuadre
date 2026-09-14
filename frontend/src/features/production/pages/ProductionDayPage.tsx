@@ -12,14 +12,16 @@ import {
   Waves,
 } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ActionLink } from '../../../components/ui/ActionLink'
 import { MetricCard } from '../../../components/ui/MetricCard'
 import { PageHeader } from '../../../components/ui/PageHeader'
+import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import { formatCentiKg, formatIsoDate } from '../../../utils/formatters'
 import { BalancePanel } from '../components/BalancePanel'
+import { FreezingDayDetail } from '../components/FreezingDayDetail'
 import { PerformancePanel } from '../components/PerformancePanel'
 import { ProductionBreakdown } from '../components/ProductionBreakdown'
 import { ReceivedBalancePanel } from '../components/ReceivedBalancePanel'
@@ -28,10 +30,17 @@ import {
   calculateOutstandingBalances,
   calculateProductionDay,
 } from '../model/calculations'
+import { isBalanceOnlyProductionDay } from '../model/productionDayMode'
+import {
+  getProductionProcess,
+  isFreezingProductionDay,
+  isProductionProcess,
+} from '../model/productionProcess'
 import { useProductionData } from '../state/ProductionDataContext'
 
 export function ProductionDayPage() {
   const { date } = useParams()
+  const [searchParams] = useSearchParams()
   const [exportState, setExportState] = useState<
     'IDLE' | 'EXPORTING' | 'SUCCESS' | 'ERROR'
   >('IDLE')
@@ -41,7 +50,11 @@ export function ProductionDayPage() {
     findProductionDay,
     isUserManagedDay,
   } = useProductionData()
-  const productionDay = date ? findProductionDay(date) : undefined
+  const processParam = searchParams.get('process')
+  const requestedProcess = isProductionProcess(processParam)
+    ? processParam
+    : undefined
+  const productionDay = date ? findProductionDay(date, requestedProcess) : undefined
   usePageTitle(
     productionDay ? `Detalle del ${productionDay.displayName}` : 'Jornada no encontrada',
   )
@@ -63,6 +76,8 @@ export function ProductionDayPage() {
   }
 
   const calculation = calculateProductionDay(productionDay)
+  const process = getProductionProcess(productionDay)
+  const isFreezing = isFreezingProductionDay(productionDay)
   const weeklyBalancePositions = calculateOutstandingBalances(
     allProductionDays,
     subsequentBalanceLots,
@@ -72,11 +87,22 @@ export function ProductionDayPage() {
   )
   const isBalanced = calculation.status === 'BALANCED'
   const isClosed = productionDay.status === 'CLOSED'
+  const isBalanceOnly = isBalanceOnlyProductionDay(productionDay)
   const canExport =
     productionDay.status === 'CLOSED' &&
     isBalanced &&
     calculation.integrityIssues.length === 0
   const sourceSheet = productionDay.lines.at(0)?.source.sheet ?? 'la hoja operativa'
+
+  if (isFreezing) {
+    return (
+      <FreezingDayDetail
+        productionDay={productionDay}
+        allProductionDays={allProductionDays}
+        canEdit={isUserManagedDay(productionDay.date, process) && !isClosed}
+      />
+    )
+  }
 
   const handleExport = async () => {
     if (!canExport || exportState === 'EXPORTING') return
@@ -107,13 +133,20 @@ export function ProductionDayPage() {
       <PageHeader
         eyebrow="Detalle de jornada"
         title={formatIsoDate(productionDay.date)}
-        description={`Datos reconstruidos exclusivamente desde la hoja ${sourceSheet} y validados producto por producto.`}
+        description={
+          isBalanceOnly
+            ? 'Domingo de procesamiento físico vinculado íntegramente a saldos de jornadas anteriores.'
+            : `Datos reconstruidos exclusivamente desde la hoja ${sourceSheet} y validados producto por producto.`
+        }
         actions={
           <>
             <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
               {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
             </StatusBadge>
-            {isUserManagedDay(productionDay.date) && !isClosed ? (
+            {isBalanceOnly ? (
+              <StatusBadge tone="info">JORNADA DE SALDOS</StatusBadge>
+            ) : null}
+            {isUserManagedDay(productionDay.date, process) && !isClosed ? (
               <ActionLink
                 to={`/jornadas/${productionDay.date}/editar`}
                 variant="secondary"
@@ -178,8 +211,15 @@ export function ProductionDayPage() {
           className="xl:col-span-2"
         />
         <MetricCard
-          label="Producto terminado"
-          value={formatCentiKg(calculation.declaredFinishedKg100)}
+          label={isBalanceOnly ? 'Procesado físicamente' : 'Producto terminado'}
+          value={
+            isBalanceOnly
+              ? formatCentiKg(
+                  calculation.day.declaredReportedKg100 +
+                    calculation.night.declaredReportedKg100,
+                )
+              : formatCentiKg(calculation.declaredFinishedKg100)
+          }
           icon={<PackageCheck className="size-5" />}
           tone="brand"
           className="xl:col-span-2"
@@ -199,10 +239,21 @@ export function ProductionDayPage() {
 
       <section id="cuadre" className="grid scroll-mt-28 gap-5 xl:grid-cols-[1.35fr_0.85fr]">
         <ReconciliationPanel calculation={calculation} />
-        <PerformancePanel
-          calculation={calculation}
-          washAuthorization={productionDay.nucaWashAuthorization}
-        />
+        {isBalanceOnly ? (
+          <SectionCard
+            title="Aprovechamiento"
+            description="La referencia del 80% no aplica porque no existe nueva materia prima."
+            contentClassName="flex min-h-36 flex-col items-center justify-center p-5 text-center"
+          >
+            <p className="text-xl font-extrabold text-slate-950">NO APLICA</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">Jornada de saldos</p>
+          </SectionCard>
+        ) : (
+          <PerformancePanel
+            calculation={calculation}
+            washAuthorization={productionDay.nucaWashAuthorization}
+          />
+        )}
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Producción por turno">
@@ -221,11 +272,13 @@ export function ProductionDayPage() {
           productionDay={productionDay}
           calculation={calculation}
         />
-        <BalancePanel
-          products={calculation.products}
-          originDate={productionDay.date}
-          positions={balancePositions}
-        />
+        {!isBalanceOnly ? (
+          <BalancePanel
+            products={calculation.products}
+            originDate={productionDay.date}
+            positions={balancePositions}
+          />
+        ) : null}
       </div>
     </div>
   )

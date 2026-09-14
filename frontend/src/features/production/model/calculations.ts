@@ -31,6 +31,7 @@ import {
   NUCA_MP_SHARE_BPS,
   REJO_MP_SHARE_BPS,
 } from './businessConfig'
+import { getProductionProcess } from './productionProcess'
 
 export const KG100_SCALE = 100
 export const BASIS_POINTS_SCALE = 10_000
@@ -832,14 +833,24 @@ export function calculateOutstandingBalances(
   subsequentBalanceLots: readonly BalanceLot[] = [],
 ): readonly OutstandingBalancePosition[] {
   const positions: OutstandingBalancePosition[] = []
+  const packingDays = productionDays.filter(
+    (day) => getProductionProcess(day) === 'PACKING',
+  )
+  const packingSubsequentLots = subsequentBalanceLots.filter(
+    (lot) => (lot.process ?? 'PACKING') === 'PACKING',
+  )
 
-  productionDays.forEach((originDay, originIndex) => {
+  packingDays.forEach((originDay, originIndex) => {
     const originCalculation = calculateProductionDay(originDay)
-    const laterDays = productionDays.slice(originIndex + 1)
+    const laterDays = packingDays.slice(originIndex + 1)
     const laterDayIds = new Set(laterDays.map((day) => day.id))
     const laterLots = [
-      ...laterDays.flatMap((day) => day.receivedBalanceLots),
-      ...subsequentBalanceLots,
+      ...laterDays.flatMap((day) =>
+        day.receivedBalanceLots.filter(
+          (lot) => (lot.process ?? 'PACKING') === 'PACKING',
+        ),
+      ),
+      ...packingSubsequentLots,
     ]
 
     for (const product of originCalculation.products) {
@@ -852,7 +863,7 @@ export function calculateOutstandingBalances(
           ? lot.uses.filter(
               (use) =>
                 laterDayIds.has(use.targetDayId) ||
-                subsequentBalanceLots.includes(lot),
+                packingSubsequentLots.includes(lot),
             )
           : [],
       )
@@ -968,7 +979,7 @@ function collectWeeklyIntegrityIssues(
 ): readonly IntegrityIssue[] {
   const issues: IntegrityIssue[] = []
   const dayIds = new Set<string>()
-  const dates = new Set<string>()
+  const datesByProcess = new Set<string>()
   const productsById = new Map<string, { line: ProductionLine; dayId: string }>()
 
   for (const day of productionDays) {
@@ -993,7 +1004,8 @@ function collectWeeklyIntegrityIssues(
     }
     dayIds.add(day.id)
 
-    if (dates.has(day.date)) {
+    const dateProcessKey = `${day.date}|${getProductionProcess(day)}`
+    if (datesByProcess.has(dateProcessKey)) {
       issues.push({
         code: 'DUPLICATE_PRODUCTION_DAY_DATE',
         message: `La fecha ${day.date} fue incluida más de una vez en el resumen.`,
@@ -1001,7 +1013,7 @@ function collectWeeklyIntegrityIssues(
         dayId: day.id,
       })
     }
-    dates.add(day.date)
+    datesByProcess.add(dateProcessKey)
 
     for (const line of day.lines) {
       const first = productsById.get(line.productId)

@@ -116,6 +116,32 @@ describe('ProductionEntryPage product selector', () => {
     expect(within(productSelect).queryByText(/manto japonés/i)).not.toBeInTheDocument()
   })
 
+  it('adapts capture to Freezing and prioritizes traceable Packing availability', () => {
+    renderNewEntry('/jornadas/nueva?process=FREEZING')
+
+    expect(screen.getByRole('tab', { name: 'Congelamiento' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByLabelText(/^MP descarga/)).toBeDisabled()
+    expect(
+      screen.getByRole('heading', { name: 'Disponibilidad desde Envasado' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText('Existe producto para Túnel')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Balance MP Tubo' })).toBeNull()
+
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Buscar producto' }),
+      { target: { value: 'aleta cruda codificada' } },
+    )
+    const selector = screen.getByRole('combobox', {
+      name: 'Producto con movimiento',
+    })
+    expect(within(selector).getAllByRole('option')[1]).toHaveTextContent(
+      /Disponible:/,
+    )
+  })
+
   it('shows the Tube MP balance and distinguishes overall utilization', () => {
     renderNewEntry()
     completeShiftReport({
@@ -357,7 +383,7 @@ describe('ProductionEntryPage product selector', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
     const stored = JSON.parse(
-      window.localStorage.getItem('trabunda-production-days-v1') ?? '[]',
+      window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',
     )
     const storedDate = stored[0]?.date as string
     firstRender.unmount()
@@ -408,7 +434,7 @@ describe('ProductionEntryPage product selector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar de todas formas' }))
     expect(screen.getByText('Detalle guardado')).toBeInTheDocument()
     const stored = JSON.parse(
-      window.localStorage.getItem('trabunda-production-days-v1') ?? '[]',
+      window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',
     )
     expect(stored[0]).toMatchObject({ status: 'CLOSED' })
   })
@@ -420,7 +446,7 @@ describe('ProductionEntryPage product selector', () => {
 
     expect(screen.getByText('Detalle guardado')).toBeInTheDocument()
     const stored = JSON.parse(
-      window.localStorage.getItem('trabunda-production-days-v1') ?? '[]',
+      window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',
     )
     expect(stored).toHaveLength(1)
     expect(stored[0]).toMatchObject({ status: 'DRAFT' })
@@ -468,5 +494,96 @@ describe('ProductionEntryPage product selector', () => {
     expect(
       screen.queryByRole('heading', { name: 'Nueva jornada' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('suggests the next missing date inside a selected past open week', () => {
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    window.localStorage.setItem('trabunda-active-operational-week-v1', '42')
+
+    renderNewEntry()
+
+    expect(screen.getByRole('heading', { name: 'Nueva jornada' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Fecha')).toHaveValue('2026-09-08')
+    expect(screen.getByLabelText('Fecha')).toHaveAttribute('min', '2026-09-07')
+    expect(screen.getByLabelText('Fecha')).toHaveAttribute('max', '2026-09-13')
+  })
+
+  it('defaults Sunday to balance processing and enables the discharge exception explicitly', () => {
+    renderNewEntry()
+
+    fireEvent.change(screen.getByLabelText('Fecha'), {
+      target: { value: '2026-09-13' },
+    })
+
+    expect(screen.getByText('DOMINGO · PROCESAMIENTO DE SALDOS')).toBeInTheDocument()
+    const discharge = screen.getByLabelText(
+      'Hubo descarga / producción nueva el domingo',
+    )
+    expect(discharge).not.toBeChecked()
+    expect(screen.getByLabelText(/^Materia prima/)).toBeDisabled()
+    expect(screen.getByLabelText(/^Materia prima/)).toHaveValue(0)
+    expect(screen.queryByRole('heading', { name: 'Tratamiento' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Saldo generado al cierre' })).not.toBeInTheDocument()
+    expect(screen.getByText('NO APLICA')).toBeInTheDocument()
+
+    fireEvent.click(discharge)
+
+    expect(discharge).toBeChecked()
+    expect(screen.getByText('DOMINGO · PRODUCCIÓN NORMAL')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Materia prima/)).toBeEnabled()
+    expect(screen.getAllByRole('heading', { name: 'Tratamiento' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: 'Saldo generado al cierre' })).toBeInTheDocument()
+  })
+
+  it('closes a Sunday balance-only day with physical processing and zero own production', () => {
+    renderNewEntry()
+    fireEvent.change(screen.getByLabelText('Fecha'), {
+      target: { value: '2026-09-13' },
+    })
+
+    const balancesSection = screen
+      .getByRole('heading', { name: 'Saldos anteriores procesados' })
+      .closest('section')!
+    const balanceSelect = within(balancesSection).getByRole('combobox', {
+      name: 'Saldo pendiente disponible',
+    })
+    const balanceOption = within(balanceSelect).getAllByRole(
+      'option',
+    )[1] as HTMLOptionElement
+    fireEvent.change(balanceSelect, { target: { value: balanceOption.value } })
+    fireEvent.click(within(balancesSection).getByRole('button', { name: 'Usar saldo' }))
+
+    const processedDayInput = within(balancesSection).getByLabelText(/^Procesado Día/)
+    const processedKg = String((processedDayInput as HTMLInputElement).value)
+    fireEvent.change(screen.getByLabelText(/^Reporte Día/), {
+      target: { value: processedKg },
+    })
+    fireEvent.change(screen.getByLabelText(/^Reporte Noche/), {
+      target: { value: '0' },
+    })
+    const reportInputs = within(
+      screen.getByRole('region', { name: 'Captura por producto y turno' }),
+    ).getAllByRole('spinbutton')
+    fireEvent.change(reportInputs[0]!, { target: { value: processedKg } })
+    fireEvent.change(reportInputs[1]!, { target: { value: '0' } })
+
+    const ownProduction = screen
+      .getByRole('heading', { name: 'Producción productiva atribuida' })
+      .closest('article')!
+    expect(within(ownProduction).getByText('0.00 kg')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cerrar jornada' })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar jornada' }))
+    expect(screen.getByText('Detalle guardado')).toBeInTheDocument()
+    const stored = JSON.parse(
+      window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',
+    )
+    expect(stored[0]).toMatchObject({
+      date: '2026-09-13',
+      status: 'CLOSED',
+      operationMode: 'BALANCE_ONLY',
+      declaredRawMaterialKg100: 0,
+      declaredFinishedTotalKg100: 0,
+    })
   })
 })

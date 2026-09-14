@@ -17,12 +17,11 @@ import { UserIdentity } from '../components/ui/UserIdentity'
 import { WeekSelector } from '../components/ui/WeekSelector'
 import { localUser } from '../config/localUser'
 import { useProductionData } from '../features/production/state/ProductionDataContext'
+import { getProductionProcess } from '../features/production/model/productionProcess'
 import {
   formatLimaOperationalDate,
   formatOperationalPeriod,
-  getOperationalWeekContext,
   getOperationalWeekContextByNumber,
-  getOperationalWeekState,
   getLimaShiftLabel,
 } from '../utils/operationalContext'
 
@@ -203,30 +202,35 @@ export function AdminLayout() {
   const {
     activeWeek,
     activeWeekNumber,
+    activeProcess,
     allProductionDays,
     availableWeekNumbers,
+    getWeekState,
     setActiveWeekNumber,
   } = useProductionData()
   const isDashboard = location.pathname === '/'
   const sectionLabel = getSectionLabel(location.pathname)
   const operationalDate = formatLimaOperationalDate(currentTime)
   const operationalShift = getLimaShiftLabel(currentTime)
-  const currentOperationalWeek = useMemo(
-    () => getOperationalWeekContext(currentTime),
-    [currentTime],
-  )
   const operationalPeriod = formatOperationalPeriod(activeWeek.period)
+  const headerProcess = isDashboard ? 'PACKING' : activeProcess
   const weekSelectorOptions = useMemo(
     () =>
       availableWeekNumbers.map((weekNumber) => {
         const period = getOperationalWeekContextByNumber(weekNumber).period
         const hasRecords = allProductionDays.some(
-          (day) => day.date >= period.startDate && day.date <= period.endDate,
+          (day) =>
+            getProductionProcess(day) === headerProcess &&
+            day.date >= period.startDate &&
+            day.date <= period.endDate,
         )
-        const temporalState = getOperationalWeekState(
-          { number: weekNumber, period },
-          currentOperationalWeek,
-        )
+        const weekState = getWeekState(weekNumber, headerProcess)
+        const recordCount = allProductionDays.filter(
+          (day) =>
+            getProductionProcess(day) === headerProcess &&
+            day.date >= period.startDate &&
+            day.date <= period.endDate,
+        ).length
 
         return {
           number: weekNumber,
@@ -234,11 +238,12 @@ export function AdminLayout() {
           startDate: period.startDate,
           endDate: period.endDate,
           periodLabel: formatOperationalPeriod(period),
-          ...temporalState,
+          ...weekState,
           hasRecords,
+          recordCount,
         }
       }),
-    [allProductionDays, availableWeekNumbers, currentOperationalWeek],
+    [allProductionDays, availableWeekNumbers, getWeekState, headerProcess],
   )
 
   useEffect(() => {

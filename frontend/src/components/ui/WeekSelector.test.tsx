@@ -19,6 +19,7 @@ const options: readonly WeekSelectorOption[] = [
     endDate: '2026-09-06',
     periodLabel: '31 AGO — 06 SEP',
     isClosed: true,
+    businessStatus: 'CLOSED',
     isReadOnly: true,
     hasRecords: true,
   },
@@ -29,7 +30,9 @@ const options: readonly WeekSelectorOption[] = [
     endDate: '2026-09-13',
     periodLabel: '07 SEP — 13 SEP',
     isCurrent: true,
+    businessStatus: 'OPEN',
     hasRecords: false,
+    recordCount: 0,
   },
 ]
 
@@ -99,7 +102,9 @@ describe('WeekSelector', () => {
     render(
       <WeekSelector
         options={options.map((option) =>
-          option.number === 42 ? { ...option, hasRecords: true } : option,
+          option.number === 42
+            ? { ...option, hasRecords: true, recordCount: 1 }
+            : option,
         )}
         selectedWeekNumber={42}
         onChange={() => undefined}
@@ -112,8 +117,39 @@ describe('WeekSelector', () => {
     const currentWeek = screen.getByRole('option', { name: /Semana 42/ })
 
     expect(within(currentWeek).getByText('Actual')).toBeInTheDocument()
+    expect(within(currentWeek).getByText('Abierta · 1 de 7 registros')).toBeInTheDocument()
     expect(within(currentWeek).queryByText('Sin registros')).not.toBeInTheDocument()
     expect(screen.queryByRole('searchbox', { name: 'Buscar semana' })).not.toBeInTheDocument()
+  })
+
+  it('shows a past open week without a lock or read-only label', async () => {
+    const user = userEvent.setup()
+    const pastOpen: WeekSelectorOption = {
+      number: 42,
+      year: 2026,
+      startDate: '2026-09-07',
+      endDate: '2026-09-13',
+      periodLabel: '07 SEP — 13 SEP',
+      businessStatus: 'OPEN',
+      isPast: true,
+      hasRecords: true,
+      recordCount: 1,
+    }
+
+    render(
+      <WeekSelector
+        options={[pastOpen]}
+        selectedWeekNumber={42}
+        onChange={() => undefined}
+      />,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Seleccionar semana operativa. Semana 42' }),
+    )
+    const week = screen.getByRole('option', { name: /Semana 42/ })
+
+    expect(within(week).getByText('Abierta · 1 de 7 registros')).toBeInTheDocument()
+    expect(within(week).queryByText(/Solo lectura/)).not.toBeInTheDocument()
   })
 
   it('closes when clicking outside', async () => {

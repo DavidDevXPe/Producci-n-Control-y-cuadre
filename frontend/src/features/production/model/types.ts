@@ -17,6 +17,10 @@ export type ProductionDayStatus =
 
 export type ReconciliationStatus = 'BALANCED' | 'UNBALANCED'
 
+export type ProductionProcess = 'PACKING' | 'FREEZING'
+
+export type ProductionDayOperationMode = 'NORMAL' | 'BALANCE_ONLY'
+
 export type ReferenceStatus =
   | 'AT_OR_ABOVE_REFERENCE'
   | 'BELOW_REFERENCE'
@@ -109,6 +113,8 @@ export interface BalanceUse {
 
 export interface BalanceLot {
   readonly id: string
+  /** Omitted historical lots belong to the Packing balance ledger. */
+  readonly process?: ProductionProcess
   readonly originDayId: string
   readonly familyId: string
   readonly productId: string
@@ -130,6 +136,16 @@ export interface NucaWashAuthorization {
   readonly reason: string
 }
 
+/** Optional common metadata reserved for a later productivity module. */
+export interface OperationalPerformanceMetadata {
+  readonly supervisor?: string
+  readonly personnelCount?: number
+  readonly startedAt?: string
+  readonly finishedAt?: string
+  readonly downtimeMinutes?: number
+  readonly effectiveMinutes?: number
+}
+
 export interface IntegrityIssue {
   readonly code: IntegrityIssueCode
   readonly message: string
@@ -145,6 +161,10 @@ export interface ProductionDay {
   readonly date: string
   readonly displayName: string
   readonly status: ProductionDayStatus
+  /** Omitted historical records are Packing records for backward compatibility. */
+  readonly process?: ProductionProcess
+  /** Sundays default to balance processing; omitted historical records remain normal. */
+  readonly operationMode?: ProductionDayOperationMode
   readonly rawMaterialEntries: readonly RawMaterialEntry[]
   readonly declaredRawMaterialKg100: Kg100
   readonly declaredShiftTotalsKg100: Readonly<Record<ShiftCode, Kg100>>

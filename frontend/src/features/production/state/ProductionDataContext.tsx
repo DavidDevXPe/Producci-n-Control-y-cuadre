@@ -13,6 +13,9 @@ import {
   getOperationalWeekContextByNumber,
   getOperationalWeekContextForIsoDate,
   getOperationalWeekState,
+  type OperationalWeekBusinessStatus,
+  type OperationalWeekState,
+  type OperationalWeekTemporalStatus,
 } from '../../../utils/operationalContext'
 import {
   WEEK_36_2026_PRODUCTION_DAYS,
@@ -22,11 +25,26 @@ import { MONDAY_WEEK_42_PRODUCTION_DAY } from '../data/mondayWeek42'
 import type {
   BalanceLot,
   ProductionDay,
+  ProductionProcess,
   WeeklySummaryPeriod,
 } from '../model/types'
+import {
+  getProductionProcess,
+  isProductionProcess,
+  productionDayKey,
+} from '../model/productionProcess'
+import {
+  getWeekClosureBlockers,
+  isWeekAutomaticallyClosed,
+  type WeekClosureBlocker,
+} from '../model/weekLifecycle'
 
-const DAYS_STORAGE_KEY = 'trabunda-production-days-v1'
+const DAYS_STORAGE_KEY = 'trabunda-production-days-v2'
+const LEGACY_DAYS_STORAGE_KEY = 'trabunda-production-days-v1'
 const ACTIVE_WEEK_STORAGE_KEY = 'trabunda-active-operational-week-v1'
+const ACTIVE_PROCESS_STORAGE_KEY = 'trabunda-active-production-process-v1'
+const WEEK_CLOSURES_STORAGE_KEY = 'trabunda-week-process-closures-v2'
+const LEGACY_WEEK_CLOSURES_STORAGE_KEY = 'trabunda-week-closures-v1'
 const SEEDED_WEEK_NUMBER = getOperationalWeekContextForIsoDate(
   WEEK_36_2026_PRODUCTION_DAYS[0]!.date,
 ).number
@@ -34,8 +52,10 @@ const PERMANENT_PRODUCTION_DAYS: readonly ProductionDay[] = [
   ...WEEK_36_2026_PRODUCTION_DAYS,
   MONDAY_WEEK_42_PRODUCTION_DAY,
 ]
-const PERMANENT_DAY_DATES = new Set(
-  PERMANENT_PRODUCTION_DAYS.map((day) => day.date),
+const PERMANENT_DAY_KEYS = new Set(
+  PERMANENT_PRODUCTION_DAYS.map((day) =>
+    productionDayKey(day.date, getProductionProcess(day)),
+  ),
 )
 const PERMANENT_WEEK_NUMBERS = [
   ...new Set(
@@ -44,6 +64,17 @@ const PERMANENT_WEEK_NUMBERS = [
     ),
   ),
 ]
+const PERMANENTLY_CLOSED_WEEK_NUMBERS = new Set([SEEDED_WEEK_NUMBER])
+
+export type WeekClosureType = 'PERMANENT' | 'MANUAL' | 'AUTOMATIC'
+
+export interface StoredWeekClosure {
+  readonly weekNumber: number
+  readonly process: ProductionProcess
+  readonly status: 'CLOSED'
+  readonly closureType: 'MANUAL'
+  readonly closedAt: string
+}
 
 export interface OperationalCalendarDay {
   label: string
@@ -53,21 +84,50 @@ export interface OperationalCalendarDay {
 
 export interface OperationalWeekView {
   number: number
+  process: ProductionProcess
   period: WeeklySummaryPeriod
   calendarDays: readonly OperationalCalendarDay[]
   productionDays: readonly ProductionDay[]
-  isHistorical: boolean
+  temporalStatus: OperationalWeekTemporalStatus
+  businessStatus: OperationalWeekBusinessStatus
+  closureType: WeekClosureType | null
+  closedAt: string | null
+  isCurrent: boolean
+  isPast: boolean
+  isFuture: boolean
+  isClosed: boolean
+  isReadOnly: boolean
+  canCreate: boolean
+  canCloseManually: boolean
+  closureBlockers: readonly WeekClosureBlocker[]
 }
 
 interface ProductionDataValue {
   activeWeek: OperationalWeekView
+  activeProcess: ProductionProcess
   activeWeekNumber: number
   availableWeekNumbers: readonly number[]
   allProductionDays: readonly ProductionDay[]
   subsequentBalanceLots: readonly BalanceLot[]
   setActiveWeekNumber: (weekNumber: number) => void
-  findProductionDay: (date: string) => ProductionDay | undefined
-  isUserManagedDay: (date: string) => boolean
+  setActiveProcess: (process: ProductionProcess) => void
+  getWeekState: (
+    weekNumber: number,
+    process?: ProductionProcess,
+  ) => OperationalWeekState
+  getWeekView: (
+    weekNumber: number,
+    process?: ProductionProcess,
+  ) => OperationalWeekView
+  closeWeekManually: (
+    weekNumber: number,
+    process?: ProductionProcess,
+  ) => void
+  findProductionDay: (
+    date: string,
+    process?: ProductionProcess,
+  ) => ProductionDay | undefined
+  isUserManagedDay: (date: string, process?: ProductionProcess) => boolean
   upsertProductionDay: (
     productionDay: ProductionDay,
     options?: { allowReplace?: boolean },
@@ -119,7 +179,8 @@ function isProductionDay(value: unknown): value is ProductionDay {
     Array.isArray(candidate.lines) &&
     Array.isArray(candidate.receivedBalanceLots) &&
     typeof candidate.declaredRawMaterialKg100 === 'number' &&
-    typeof candidate.declaredFinishedTotalKg100 === 'number'
+    typeof candidate.declaredFinishedTotalKg100 === 'number' &&
+    (candidate.process === undefined || isProductionProcess(candidate.process))
   )
 }
 
@@ -167,16 +228,84 @@ function loadStoredDays(): readonly ProductionDay[] {
   if (typeof window === 'undefined') return []
 
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(DAYS_STORAGE_KEY) ?? '[]')
-    return Array.isArray(parsed)
+    const currentStored = window.localStorage.getItem(DAYS_STORAGE_KEY)
+    const legacyStored = window.localStorage.getItem(LEGACY_DAYS_STORAGE_KEY)
+    const stored = currentStored ?? legacyStored ?? '[]'
+    const parsed = JSON.parse(stored)
+    const normalized = Array.isArray(parsed)
       ? parsed
           .filter(isProductionDay)
           .map(normalizeNucaClassification)
-          .filter((day) => !PERMANENT_DAY_DATES.has(day.date))
+          .map((day) => ({
+            ...day,
+            process: getProductionProcess(day),
+            receivedBalanceLots: day.receivedBalanceLots.map((lot) => ({
+              ...lot,
+              process: isProductionProcess(lot.process)
+                ? lot.process
+                : getProductionProcess(day),
+            })),
+          }))
+          .filter(
+            (day) =>
+              !PERMANENT_DAY_KEYS.has(
+                productionDayKey(day.date, getProductionProcess(day)),
+              ),
+          )
       : []
+    if (currentStored === null && legacyStored !== null) {
+      window.localStorage.setItem(DAYS_STORAGE_KEY, JSON.stringify(normalized))
+    }
+    return normalized
   } catch {
     return []
   }
+}
+
+function isStoredWeekClosure(value: unknown): value is StoredWeekClosure {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<StoredWeekClosure>
+  return (
+    Number.isSafeInteger(candidate.weekNumber) &&
+    isProductionProcess(candidate.process ?? 'PACKING') &&
+    candidate.status === 'CLOSED' &&
+    candidate.closureType === 'MANUAL' &&
+    typeof candidate.closedAt === 'string'
+  )
+}
+
+function loadStoredWeekClosures(): readonly StoredWeekClosure[] {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const currentStored = window.localStorage.getItem(WEEK_CLOSURES_STORAGE_KEY)
+    const legacyStored = window.localStorage.getItem(LEGACY_WEEK_CLOSURES_STORAGE_KEY)
+    const stored = currentStored ?? legacyStored ?? '[]'
+    const parsed = JSON.parse(stored)
+    const normalized = Array.isArray(parsed)
+      ? parsed
+          .filter(isStoredWeekClosure)
+          .map((closure) => ({
+            ...closure,
+            process: closure.process ?? 'PACKING',
+          }))
+      : []
+    if (currentStored === null && legacyStored !== null) {
+      window.localStorage.setItem(
+        WEEK_CLOSURES_STORAGE_KEY,
+        JSON.stringify(normalized),
+      )
+    }
+    return normalized
+  } catch {
+    return []
+  }
+}
+
+function getInitialActiveProcess(): ProductionProcess {
+  if (typeof window === 'undefined') return 'PACKING'
+  const stored = window.localStorage.getItem(ACTIVE_PROCESS_STORAGE_KEY)
+  return isProductionProcess(stored) ? stored : 'PACKING'
 }
 
 function getInitialActiveWeek(): number {
@@ -210,37 +339,104 @@ function getInitialActiveWeek(): number {
 }
 
 function sortDays(days: readonly ProductionDay[]): readonly ProductionDay[] {
-  return [...days].sort((first, second) => first.date.localeCompare(second.date))
+  return [...days].sort(
+    (first, second) =>
+      first.date.localeCompare(second.date) ||
+      getProductionProcess(first).localeCompare(getProductionProcess(second)),
+  )
 }
 
-function buildWeekView(
+function getWeekProductionDays(
   number: number,
   userDays: readonly ProductionDay[],
-): OperationalWeekView {
+  process: ProductionProcess,
+): readonly ProductionDay[] {
   const { period } = getOperationalWeekContextByNumber(number)
-  const temporalState = getOperationalWeekState(
-    { number, period },
-    getOperationalWeekContext(new Date()),
-  )
   const permanentDays = PERMANENT_PRODUCTION_DAYS.filter(
-    (day) => day.date >= period.startDate && day.date <= period.endDate,
+    (day) =>
+      getProductionProcess(day) === process &&
+      day.date >= period.startDate &&
+      day.date <= period.endDate,
   )
-  const productionDays = [
+
+  return sortDays([
     ...permanentDays,
     ...userDays.filter(
       (day) =>
         day.date >= period.startDate &&
         day.date <= period.endDate &&
-        !PERMANENT_DAY_DATES.has(day.date),
+        getProductionProcess(day) === process &&
+        !PERMANENT_DAY_KEYS.has(productionDayKey(day.date, process)),
     ),
-  ]
+  ])
+}
+
+function resolveWeekClosure(
+  number: number,
+  process: ProductionProcess,
+  period: WeeklySummaryPeriod,
+  productionDays: readonly ProductionDay[],
+  storedClosures: readonly StoredWeekClosure[],
+): { closureType: WeekClosureType | null; closedAt: string | null } {
+  if (process === 'PACKING' && PERMANENTLY_CLOSED_WEEK_NUMBERS.has(number)) {
+    return { closureType: 'PERMANENT', closedAt: null }
+  }
+
+  const manualClosure = storedClosures.find(
+    (closure) =>
+      closure.weekNumber === number && closure.process === process,
+  )
+  if (manualClosure) {
+    return {
+      closureType: manualClosure.closureType,
+      closedAt: manualClosure.closedAt,
+    }
+  }
+
+  if (isWeekAutomaticallyClosed(period, productionDays)) {
+    return { closureType: 'AUTOMATIC', closedAt: null }
+  }
+
+  return { closureType: null, closedAt: null }
+}
+
+function buildWeekView(
+  number: number,
+  userDays: readonly ProductionDay[],
+  process: ProductionProcess = 'PACKING',
+  storedClosures: readonly StoredWeekClosure[] = [],
+  currentWeek = getOperationalWeekContext(new Date()),
+): OperationalWeekView {
+  const { period } = getOperationalWeekContextByNumber(number)
+  const productionDays = getWeekProductionDays(number, userDays, process)
+  const closure = resolveWeekClosure(
+    number,
+    process,
+    period,
+    productionDays,
+    storedClosures,
+  )
+  const businessStatus: OperationalWeekBusinessStatus = closure.closureType
+    ? 'CLOSED'
+    : 'OPEN'
+  const state = getOperationalWeekState(
+    { number, period },
+    currentWeek,
+    businessStatus,
+  )
+  const closureBlockers = getWeekClosureBlockers(productionDays)
 
   return {
     number,
+    process,
     period,
     calendarDays: buildCalendarDays(period),
-    productionDays: sortDays(productionDays),
-    isHistorical: temporalState.isClosed,
+    productionDays,
+    ...state,
+    closureType: closure.closureType,
+    closedAt: closure.closedAt,
+    canCloseManually: businessStatus === 'OPEN' && !state.isFuture,
+    closureBlockers,
   }
 }
 
@@ -249,6 +445,7 @@ const currentWeekAtStartup = getOperationalWeekContext(new Date()).number
 
 const fallbackValue: ProductionDataValue = {
   activeWeek: historicalWeek,
+  activeProcess: 'PACKING',
   activeWeekNumber: SEEDED_WEEK_NUMBER,
   availableWeekNumbers: [
     ...new Set([...PERMANENT_WEEK_NUMBERS, currentWeekAtStartup]),
@@ -256,8 +453,24 @@ const fallbackValue: ProductionDataValue = {
   allProductionDays: PERMANENT_PRODUCTION_DAYS,
   subsequentBalanceLots: WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
   setActiveWeekNumber: () => undefined,
-  findProductionDay: (date) =>
-    PERMANENT_PRODUCTION_DAYS.find((day) => day.date === date),
+  setActiveProcess: () => undefined,
+  getWeekState: (weekNumber, process = 'PACKING') => {
+    const week = buildWeekView(weekNumber, [], process)
+    return getOperationalWeekState(
+      week,
+      getOperationalWeekContext(new Date()),
+      week.businessStatus,
+    )
+  },
+  getWeekView: (weekNumber, process = 'PACKING') =>
+    buildWeekView(weekNumber, [], process),
+  closeWeekManually: () => {
+    throw new Error('ProductionDataProvider is required to close weeks.')
+  },
+  findProductionDay: (date, process = 'PACKING') =>
+    PERMANENT_PRODUCTION_DAYS.find(
+      (day) => day.date === date && getProductionProcess(day) === process,
+    ),
   isUserManagedDay: () => false,
   upsertProductionDay: () => {
     throw new Error('ProductionDataProvider is required to save production days.')
@@ -272,8 +485,14 @@ interface ProductionDataProviderProps {
 
 export function ProductionDataProvider({ children }: ProductionDataProviderProps) {
   const [userDays, setUserDays] = useState<readonly ProductionDay[]>(loadStoredDays)
+  const [storedWeekClosures, setStoredWeekClosures] = useState<
+    readonly StoredWeekClosure[]
+  >(loadStoredWeekClosures)
   const [activeWeekNumber, setActiveWeekNumberState] =
     useState(getInitialActiveWeek)
+  const [activeProcess, setActiveProcessState] = useState<ProductionProcess>(
+    getInitialActiveProcess,
+  )
   const [currentWeekNumber, setCurrentWeekNumber] = useState(
     () => getOperationalWeekContext(new Date()).number,
   )
@@ -298,29 +517,116 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
     }
   }, [])
 
+  const setActiveProcess = useCallback((process: ProductionProcess) => {
+    setActiveProcessState(process)
+    try {
+      window.localStorage.setItem(ACTIVE_PROCESS_STORAGE_KEY, process)
+    } catch {
+      // The process remains selected during this browser session.
+    }
+  }, [])
+
+  const getWeekState = useCallback((
+    weekNumber: number,
+    process: ProductionProcess = activeProcess,
+  ): OperationalWeekState => {
+    const week = getOperationalWeekContextByNumber(weekNumber)
+    const productionDays = getWeekProductionDays(weekNumber, userDays, process)
+    const closure = resolveWeekClosure(
+      weekNumber,
+      process,
+      week.period,
+      productionDays,
+      storedWeekClosures,
+    )
+
+    return getOperationalWeekState(
+      week,
+      getOperationalWeekContextByNumber(currentWeekNumber),
+      closure.closureType ? 'CLOSED' : 'OPEN',
+    )
+  }, [activeProcess, currentWeekNumber, storedWeekClosures, userDays])
+
+  const getWeekView = useCallback((
+    weekNumber: number,
+    process: ProductionProcess = activeProcess,
+  ): OperationalWeekView => buildWeekView(
+    weekNumber,
+    userDays,
+    process,
+    storedWeekClosures,
+    getOperationalWeekContextByNumber(currentWeekNumber),
+  ), [activeProcess, currentWeekNumber, storedWeekClosures, userDays])
+
+  const closeWeekManually = useCallback((
+    weekNumber: number,
+    process: ProductionProcess = activeProcess,
+  ) => {
+    const state = getWeekState(weekNumber, process)
+    if (state.isFuture) {
+      throw new Error('Una semana futura no puede cerrarse.')
+    }
+    if (state.isClosed) return
+
+    const blockers = getWeekClosureBlockers(
+      getWeekProductionDays(weekNumber, userDays, process),
+    )
+    if (blockers.length > 0) {
+      throw new Error(blockers[0]!.message)
+    }
+
+    const closure: StoredWeekClosure = {
+      weekNumber,
+      process,
+      status: 'CLOSED',
+      closureType: 'MANUAL',
+      closedAt: new Date().toISOString(),
+    }
+    const next = [
+      ...storedWeekClosures.filter(
+        (item) =>
+          item.weekNumber !== weekNumber || item.process !== process,
+      ),
+      closure,
+    ]
+
+    try {
+      window.localStorage.setItem(
+        WEEK_CLOSURES_STORAGE_KEY,
+        JSON.stringify(next),
+      )
+    } catch {
+      throw new Error('El navegador no permitió guardar el cierre semanal.')
+    }
+
+    setStoredWeekClosures(next)
+  }, [activeProcess, getWeekState, storedWeekClosures, userDays])
+
   const upsertProductionDay = useCallback((
     productionDay: ProductionDay,
     options: { allowReplace?: boolean } = {},
   ) => {
-    if (PERMANENT_DAY_DATES.has(productionDay.date)) {
+    const process = getProductionProcess(productionDay)
+    const dayKey = productionDayKey(productionDay.date, process)
+    if (PERMANENT_DAY_KEYS.has(dayKey)) {
       throw new Error(
         'Esta jornada cerrada forma parte del historial permanente y es de solo lectura.',
       )
     }
 
     const week = getOperationalWeekContextForIsoDate(productionDay.date)
-    const temporalState = getOperationalWeekState(
-      week,
-      getOperationalWeekContext(new Date()),
-    )
-    if (!temporalState.canCreate) {
+    const weekState = getWeekState(week.number, process)
+    if (!weekState.canCreate) {
       throw new Error(
-        'Solo la semana operativa actual permite crear o modificar jornadas.',
+        weekState.isClosed
+          ? 'La semana está cerrada y es de solo lectura.'
+          : 'Una semana futura no permite crear o modificar jornadas.',
       )
     }
 
     const existingDay = userDays.find(
-      (day) => day.date === productionDay.date,
+      (day) =>
+        productionDayKey(day.date, getProductionProcess(day)) === dayKey,
     )
     if (existingDay?.status === 'CLOSED') {
       throw new Error('Una jornada cerrada es de solo lectura y no puede modificarse.')
@@ -332,8 +638,11 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
     }
 
     const next = sortDays([
-      ...userDays.filter((day) => day.date !== productionDay.date),
-      productionDay,
+      ...userDays.filter(
+        (day) =>
+          productionDayKey(day.date, getProductionProcess(day)) !== dayKey,
+      ),
+      { ...productionDay, process },
     ])
 
     try {
@@ -344,7 +653,8 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
 
     setUserDays(next)
     setActiveWeekNumber(week.number)
-  }, [setActiveWeekNumber, userDays])
+    setActiveProcess(process)
+  }, [getWeekState, setActiveProcess, setActiveWeekNumber, userDays])
 
   const value = useMemo<ProductionDataValue>(() => {
     const currentWeek = getOperationalWeekContextByNumber(currentWeekNumber)
@@ -360,10 +670,14 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
       selectedWeekState?.isFuture === false
         ? activeWeekNumber
         : currentWeek.number
+    const sequentialWeekNumbers = Array.from(
+      { length: Math.max(currentWeek.number - SEEDED_WEEK_NUMBER + 1, 0) },
+      (_, index) => SEEDED_WEEK_NUMBER + index,
+    )
     const availableWeekNumbers = [
       ...new Set([
+        ...sequentialWeekNumbers,
         ...PERMANENT_WEEK_NUMBERS,
-        currentWeek.number,
         effectiveActiveWeekNumber,
         ...userDays.map(
           (day) => getOperationalWeekContextForIsoDate(day.date).number,
@@ -383,27 +697,55 @@ export function ProductionDataProvider({ children }: ProductionDataProviderProps
       })
     const allProductionDays = sortDays([
       ...PERMANENT_PRODUCTION_DAYS,
-      ...userDays.filter((day) => !PERMANENT_DAY_DATES.has(day.date)),
+      ...userDays.filter(
+        (day) =>
+          !PERMANENT_DAY_KEYS.has(
+            productionDayKey(day.date, getProductionProcess(day)),
+          ),
+      ),
     ])
 
     return {
-      activeWeek: buildWeekView(effectiveActiveWeekNumber, userDays),
+      activeWeek: buildWeekView(
+        effectiveActiveWeekNumber,
+        userDays,
+        activeProcess,
+        storedWeekClosures,
+        currentWeek,
+      ),
+      activeProcess,
       activeWeekNumber: effectiveActiveWeekNumber,
       availableWeekNumbers,
       allProductionDays,
       subsequentBalanceLots: WEEK_36_2026_SUBSEQUENT_BALANCE_LOTS,
       setActiveWeekNumber,
-      findProductionDay: (date) =>
-        allProductionDays.find((day) => day.date === date),
-      isUserManagedDay: (date) =>
-        !PERMANENT_DAY_DATES.has(date) &&
-        userDays.some((day) => day.date === date),
+      setActiveProcess,
+      getWeekState,
+      getWeekView,
+      closeWeekManually,
+      findProductionDay: (date, process = activeProcess) =>
+        allProductionDays.find(
+          (day) =>
+            day.date === date && getProductionProcess(day) === process,
+        ),
+      isUserManagedDay: (date, process = activeProcess) =>
+        !PERMANENT_DAY_KEYS.has(productionDayKey(date, process)) &&
+        userDays.some(
+          (day) =>
+            day.date === date && getProductionProcess(day) === process,
+        ),
       upsertProductionDay,
     }
   }, [
     activeWeekNumber,
+    activeProcess,
+    closeWeekManually,
     currentWeekNumber,
+    getWeekState,
+    getWeekView,
+    setActiveProcess,
     setActiveWeekNumber,
+    storedWeekClosures,
     upsertProductionDay,
     userDays,
   ])

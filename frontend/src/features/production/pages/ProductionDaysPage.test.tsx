@@ -1,7 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProductionDataProvider } from '../state/ProductionDataContext'
+import { WEDNESDAY_PRODUCTION_DAY } from '../data/wednesday'
 import { ProductionDaysPage } from './ProductionDaysPage'
 
 describe('production days page', () => {
@@ -117,6 +118,66 @@ describe('production days page', () => {
       within(latestRow!).getByRole('link', { name: /Ver detalle/i })
         .parentElement,
     ).toHaveClass('flex', 'w-full', 'justify-center')
+  })
+
+  it('keeps past week 42 open and closes it manually without fictitious days', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    window.localStorage.clear()
+    window.localStorage.setItem('trabunda-active-operational-week-v1', '42')
+
+    render(
+      <ProductionDataProvider>
+        <MemoryRouter>
+          <ProductionDaysPage />
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+
+    expect(screen.getByText(/07 SEP — 13 SEP · Abierta · 1 de 7/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Nueva jornada' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar semana' }))
+    const dialog = screen.getByRole('dialog', { name: 'Cerrar semana 42 · Envasado' })
+    expect(within(dialog).getByText('Martes 08/09/2026 · SIN REGISTRO')).toBeInTheDocument()
+    expect(within(dialog).getByText('Domingo 13/09/2026 · SIN REGISTRO')).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cerrar semana' }))
+
+    expect(screen.getByText(/07 SEP — 13 SEP · Cerrada · Solo lectura/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Nueva jornada' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cerrar semana' })).not.toBeInTheDocument()
+  })
+
+  it('identifies a registered draft that blocks manual week closure', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-14T12:00:00-05:00'))
+    window.localStorage.clear()
+    window.localStorage.setItem('trabunda-active-operational-week-v1', '42')
+    window.localStorage.setItem(
+      'trabunda-production-days-v1',
+      JSON.stringify([{
+        ...WEDNESDAY_PRODUCTION_DAY,
+        id: 'production-day-2026-09-08',
+        date: '2026-09-08',
+        displayName: 'Martes 08/09/2026',
+        status: 'DRAFT',
+      }]),
+    )
+
+    render(
+      <ProductionDataProvider>
+        <MemoryRouter>
+          <ProductionDaysPage />
+        </MemoryRouter>
+      </ProductionDataProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar semana' }))
+    const dialog = screen.getByRole('dialog', { name: 'Cerrar semana 42 · Envasado' })
+
+    expect(within(dialog).getByText(/Martes 08\/09\/2026 todavía está en estado DRAFT/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Cerrar semana' })).toBeDisabled()
   })
 })
 
