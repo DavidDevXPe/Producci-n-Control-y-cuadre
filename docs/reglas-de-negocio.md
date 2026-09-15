@@ -13,6 +13,40 @@ La numeración de semanas es la numeración operacional utilizada por Trabunda, 
 
 La exportación diaria solo se habilita cuando la jornada está cerrada, el cuadre es válido y no existen observaciones de integridad. El rendimiento se exporta como indicador independiente y nunca determina por sí mismo si una jornada está cuadrada.
 
+## Procesos operativos
+
+El modelo distingue dos procesos sin duplicar rutas, catálogos ni pantallas completas:
+
+- `PACKING` representa **Envasado** y conserva todas las reglas históricas del sistema.
+- `FREEZING` representa **Congelamiento** y consume producto disponible desde Envasado.
+
+Una jornada se identifica de forma única por `fecha + proceso`; por tanto, Envasado y Congelamiento pueden registrar la misma fecha. Todo registro histórico sin `process` se interpreta como Envasado. Los lotes sin proceso explícito también pertenecen al libro de saldos de Envasado.
+
+El cierre semanal se mantiene por proceso. Una semana cerrada para Envasado no bloquea las capturas ni consultas de Congelamiento. El ciclo semanal completo solo se considera cerrado cuando ambos procesos están cerrados y la diferencia no explicada entre ellos es cero.
+
+## Balance Envasado → Congelamiento
+
+Cada línea de producto de una jornada de Envasado cerrada y cuadrada genera disponibilidad para Congelamiento. Esa disponibilidad mantiene `productId`, familia, jornada y fecha de origen.
+
+```text
+Disponible para congelar =
+  producto envasado de origen
+  − usos de Congelamiento vinculados al origen
+
+Diferencia no explicada =
+  Envasado
+  − Congelado atribuible
+  − Pendiente trazable
+```
+
+Congelamiento registra reportes físicos Día/Noche propios. El detalle de productos debe coincidir con cada reporte y cada kilo congelado debe estar vinculado a disponibilidad real. No se permite cerrar cuando el consumo supera lo disponible o cuando existe producto sin origen trazable; sí se permite conservar un borrador para investigar la incidencia.
+
+Congelamiento no registra nueva materia prima, Túnel, Tratamiento ni saldo productivo de Envasado. Tampoco aplica el aprovechamiento anatómico del 80%. Su referencia es el producto disponible desde Envasado.
+
+El rendimiento operativo se persiste en un repositorio versionado independiente. Supervisor, personal, inicio, fin y horas muertas no participan en el cuadre productivo y se reutilizan para ambos procesos.
+
+Un uso posterior reduce el pendiente del origen, incluso cuando ocurre otro día o en otra semana. El domingo puede dedicarse completamente a terminar pendientes, con materia prima nueva igual a cero y sin volver a atribuir esos kilos como producción nueva.
+
 ## Producción por turno y saldos anteriores
 
 Un saldo conserva su jornada de origen aunque se termine de procesar en una jornada posterior. Debe trazarse por familia, producto, cantidad, jornada de origen y turno que lo procesa.
@@ -89,6 +123,38 @@ Rendimiento semanal =
   ÷ materia prima total de la semana
   × 100
 ```
+
+### Rendimiento operativo
+
+El módulo de Rendimiento Operativo mide eficiencia física y no modifica `CUADRADO`, saldos ni propiedad productiva. Los kilos son siempre de solo lectura y proceden de `Reporte Día` o `Reporte Noche` de la jornada y proceso seleccionados. Por ello, un domingo que procesa saldo usa su reporte físico para eficiencia sin cambiar `originDayId`.
+
+```text
+Horas programadas = diferencia entre hora final e inicial
+Horas efectivas = horas programadas − horas muertas
+Persona-h = personal × horas efectivas
+Kg/h = reporte físico ÷ horas efectivas
+Kg/persona-h = reporte físico ÷ persona-h
+```
+
+El turno Noche admite cruce de medianoche. Divisiones con personal u horas efectivas iguales a cero se muestran como no calculables; nunca como `NaN` o infinito.
+
+Los benchmarks se configuran por proceso y opcionalmente por turno. La configuración inicial está vacía para no inventar objetivos. Cuando exista un benchmark validado:
+
+```text
+Cumplimiento = kg/persona-h ÷ benchmark × 100
+Potencial = persona-h × benchmark
+Brecha = potencial − producción real
+```
+
+Los indicadores semanales son ponderados: `SUMA kg / SUMA horas efectivas` y `SUMA kg / SUMA persona-h`. El mejor turno se determina por `kg/persona-h` agregado, no por toneladas. La persistencia usa `trabunda-performance-records-v1` y queda encapsulada en `performanceRepository` para facilitar una futura API.
+
+## Cuadre matemático y ciclo de vida
+
+El estado del cuadre (`BALANCED`/`UNBALANCED`) se calcula independientemente del ciclo de vida (`DRAFT`/`CLOSED`). Una jornada puede ser `DRAFT + BALANCED`: la interfaz la identifica como **LISTA PARA CERRAR**, pero no cambia a `CLOSED` hasta que el usuario confirma el cierre.
+
+`canClose` exige datos completos, cuadre matemático, integridad, conciliación de turnos, saldo declarado consistente, consumos dentro de disponibilidad y aprovechamiento general mínimo de 80% para Envasado. Los objetivos familiares por debajo de referencia son advertencias y permiten **Cerrar de todas formas** cuando no existen bloqueos críticos.
+
+Los saldos anteriores se asignan explícitamente por producto y turno; no se cargan automáticamente al Día. Si una asignación supera el reporte físico del mismo producto/turno, se muestra el máximo consumible y el exceso exacto. Un saldo legacy sin producto exacto queda como **REQUIERE DISTRIBUCIÓN** hasta que el operador seleccione una presentación del catálogo.
 
 ## Referencias de Nuca
 

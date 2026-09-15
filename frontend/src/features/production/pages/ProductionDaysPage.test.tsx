@@ -17,7 +17,7 @@ describe('production days page', () => {
     expect(screen.getByText('Bajo referencia (<80%)')).toBeInTheDocument()
     expect(screen.getAllByText('CUADRADO')).toHaveLength(4)
     expect(screen.getAllByRole('link', { name: /Ver detalle/i })).toHaveLength(4)
-    expect(screen.getByText('Último cierre disponible')).toBeInTheDocument()
+    expect(screen.getByText('Último registro disponible')).toBeInTheDocument()
     expect(screen.getByText('SÁBADO')).toBeInTheDocument()
     expect(screen.queryByText('DOMINGO')).not.toBeInTheDocument()
   })

@@ -14,6 +14,7 @@ import {
   sumKg100,
 } from './calculations'
 import {
+  buildBalanceShiftDiagnostics,
   calculateReportFamilySubtotals,
   calculateProductionBusinessSummary,
   validateProductionClosure,
@@ -765,6 +766,49 @@ describe('production business rules', () => {
         pendingKg100: kg(4_660),
       }),
     )
+  })
+
+  it('reports an exact actionable excess independently for Day and Night', () => {
+    const base = productionDay(100, [
+      { group: 'REJOS', day: 3_120, night: 31_560 },
+    ])
+    const line = base.lines[0]!
+    const withBadDistribution: ProductionDay = {
+      ...base,
+      receivedBalanceLots: [
+        {
+          id: 'previous-rejo-balance',
+          originDayId: 'production-day-2026-09-06',
+          familyId: line.familyId,
+          productId: line.productId,
+          originalKg100: kg(13_405),
+          uses: [
+            {
+              id: 'previous-rejo-balance-day',
+              targetDayId: base.id,
+              shift: 'DAY',
+              kg100: kg(13_405),
+            },
+          ],
+        },
+      ],
+    }
+
+    const diagnostics = buildBalanceShiftDiagnostics(
+      calculateProductionDay(withBadDistribution),
+    )
+
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        productName: line.productName,
+        shift: 'DAY',
+        reportedKg100: kg(3_120),
+        assignedBalanceKg100: kg(13_405),
+        maximumConsumableKg100: kg(3_120),
+        excessKg100: kg(10_285),
+      }),
+    ])
+    expect(diagnostics[0]?.message).toContain('Redistribuye')
   })
 
   it('blocks when technical Anillas MP exceeds the available process MP', () => {

@@ -30,6 +30,7 @@ import {
   buildProductionDayFromCapture,
   createCaptureDraftFromDay,
   createEmptyCaptureDraft,
+  hasSufficientCaptureData,
   sumImportedBalances,
   type ProductionCaptureDraft,
   type ProductionCaptureBalanceUse,
@@ -41,6 +42,7 @@ import {
 } from '../capture/productionCatalog'
 import type { ParsedProductionSheet } from '../capture/parseProductionWorkbook'
 import {
+  buildBalanceShiftDiagnostics,
   buildProductionDiagnostics,
   calculateReportFamilySubtotals,
   calculateProductionBusinessSummary,
@@ -50,7 +52,6 @@ import {
   calculateOutstandingBalances,
   kg100,
   sumKg100,
-  toKilograms,
 } from '../model/calculations'
 import { calculateFreezingAvailability } from '../model/freezing'
 import { isSundayIsoDate } from '../model/productionDayMode'
@@ -151,25 +152,6 @@ function createRow(productId: string, index: number): ProductionCaptureRow | nul
   }
 }
 
-function hasSufficientCaptureData(draft: ProductionCaptureDraft) {
-  const hasRequiredTotals = [
-    ...(draft.operationMode === 'BALANCE_ONLY' || draft.process === 'FREEZING'
-      ? []
-      : [draft.rawMaterialKg]),
-    draft.declaredDayTotalKg,
-    draft.declaredNightTotalKg,
-  ].every((value) => value.trim() !== '')
-  const hasCompleteRows =
-    draft.rows.length > 0 &&
-    draft.rows.every(
-      (row) =>
-        (draft.shiftAllocationMode === 'RECONCILED_INFERENCE' ||
-          (row.dayReportedKg.trim() !== '' && row.nightReportedKg.trim() !== '')),
-    )
-
-  return /^\d{4}-\d{2}-\d{2}$/.test(draft.date) && hasRequiredTotals && hasCompleteRows
-}
-
 function shiftDifferenceMessage(
   label: 'Día' | 'Noche',
   differenceKg100: ReturnType<typeof kg100>,
@@ -186,6 +168,20 @@ function captureQuantityKg100(value: string) {
   return Number.isFinite(quantity) && quantity >= 0
     ? kg100(Math.round(quantity * 100))
     : kg100(0)
+}
+
+function isCaptureDraftEmpty(draft: ProductionCaptureDraft): boolean {
+  return (
+    draft.source === 'MANUAL' &&
+    draft.declaredDayTotalKg.trim() === '' &&
+    draft.declaredNightTotalKg.trim() === '' &&
+    (draft.rawMaterialKg.trim() === '' || draft.rawMaterialKg === '0') &&
+    draft.rows.length === 0 &&
+    draft.balanceUses.length === 0 &&
+    draft.importedBalances.length === 0 &&
+    !draft.hasTunnelProduction &&
+    !draft.nucaWashConfirmed
+  )
 }
 
 function captureBalancePosition(balance: ProductionCaptureBalanceUse) {
@@ -282,6 +278,14 @@ export function ProductionEntryPage() {
       ? createCaptureDraftFromDay(existingDay, allProductionDays)
       : createEmptyCaptureDraft(suggestedDate, selectedProcess),
   )
+  const processDraftsRef = useRef<
+    Partial<Record<ProductionProcess, ProductionCaptureDraft>>
+  >({ [draft.process]: draft })
+  const processModesRef = useRef<Partial<Record<ProductionProcess, CaptureMode>>>(
+    { [draft.process]: mode },
+  )
+  const [pendingProcessChange, setPendingProcessChange] =
+    useState<ProductionProcess | null>(null)
   const [productSearch, setProductSearch] = useState('')
   const [selectedProductId, setSelectedProductId] = useState('')
   const [treatmentSearch, setTreatmentSearch] = useState('')
@@ -364,6 +368,10 @@ export function ProductionEntryPage() {
         : buildProductionDiagnostics(buildResult.calculation, businessSummary),
     [buildResult.calculation, businessSummary, usesExternalAvailability],
   )
+  const balanceShiftDiagnostics = useMemo(
+    () => buildBalanceShiftDiagnostics(buildResult.calculation),
+    [buildResult.calculation],
+  )
   const dayHasReportData =
     draft.declaredDayTotalKg.trim() !== '' && draft.rows.length > 0
   const nightHasReportData =
@@ -396,24 +404,31 @@ export function ProductionEntryPage() {
   const importedBalanceTotal = sumImportedBalances(draft.importedBalances)
   const importedBalanceMatches =
     importedBalanceTotal === buildResult.calculation.newClosingBalanceKg100
+  const freezingAvailabilityPositions = useMemo(
+    () =>
+      isFreezing
+        ? calculateFreezingAvailability(
+            allProductionDays.filter(
+              (day) =>
+                productionDayKey(day.date, getProductionProcess(day)) !==
+                productionDayKey(draft.date, draft.process),
+            ),
+            draft.date,
+          )
+        : [],
+    [allProductionDays, draft.date, draft.process, isFreezing],
+  )
   const freezingAvailabilityByProduct = useMemo(() => {
     if (!isFreezing) return new Map<string, ReturnType<typeof kg100>>()
     const totals = new Map<string, ReturnType<typeof kg100>>()
-    for (const position of calculateFreezingAvailability(
-      allProductionDays.filter(
-        (day) =>
-          productionDayKey(day.date, getProductionProcess(day)) !==
-          productionDayKey(draft.date, draft.process),
-      ),
-      draft.date,
-    )) {
+    for (const position of freezingAvailabilityPositions) {
       totals.set(
         position.productId,
         kg100((totals.get(position.productId) ?? 0) + position.pendingKg100),
       )
     }
     return totals
-  }, [allProductionDays, draft.date, draft.process, isFreezing])
+  }, [freezingAvailabilityPositions, isFreezing])
   const filteredCatalogItems = useMemo(
     () =>
       filterProductionCatalogItems(productSearch).filter(
@@ -462,19 +477,13 @@ export function ProductionEntryPage() {
   const availableBalances = useMemo(() => {
     const selectedKeys = new Set(
       draft.balanceUses.map(
-        (balance) => `${balance.originDayId}|${balance.productId}`,
+        (balance) =>
+          `${balance.originDayId}|${balance.sourceProductId ?? balance.productId}`,
       ),
     )
 
     const positions = isFreezing
-      ? calculateFreezingAvailability(
-          allProductionDays.filter(
-            (day) =>
-              productionDayKey(day.date, getProductionProcess(day)) !==
-              productionDayKey(draft.date, draft.process),
-          ),
-          draft.date,
-        )
+      ? freezingAvailabilityPositions
       : calculateOutstandingBalances(
           allProductionDays.filter(
             (day) => isPackingProductionDay(day) && day.date < draft.date,
@@ -485,16 +494,13 @@ export function ProductionEntryPage() {
     return positions.filter(
       (balance) =>
         balance.pendingKg100 > 0 &&
-        PRODUCTION_CATALOG_ITEMS.some(
-          (product) => product.productId === balance.productId,
-        ) &&
         !selectedKeys.has(`${balance.originDayId}|${balance.productId}`),
     )
   }, [
     allProductionDays,
     draft.balanceUses,
     draft.date,
-    draft.process,
+    freezingAvailabilityPositions,
     isFreezing,
     subsequentBalanceLots,
   ])
@@ -502,8 +508,37 @@ export function ProductionEntryPage() {
     buildResult.calculation.day.declaredReportedKg100,
     buildResult.calculation.night.declaredReportedKg100,
   ])
+  const freezingAvailableFromPackingKg100 = sumKg100(
+    freezingAvailabilityPositions
+      .filter((position) => position.originDate === draft.date)
+      .map((position) => position.pendingKg100),
+  )
+  const freezingPreviousPendingKg100 = sumKg100(
+    freezingAvailabilityPositions
+      .filter((position) => position.originDate < draft.date)
+      .map((position) => position.pendingKg100),
+  )
+  const freezingTotalAvailableKg100 = sumKg100([
+    freezingAvailableFromPackingKg100,
+    freezingPreviousPendingKg100,
+  ])
+  const freezingLinkedThisDayKg100 = sumKg100(
+    draft.balanceUses.flatMap((balance) => [
+      captureQuantityKg100(balance.dayKg),
+      captureQuantityKg100(balance.nightKg),
+    ]),
+  )
+  const freezingPendingAfterKg100 = kg100(
+    Math.max(
+      freezingTotalAvailableKg100 - freezingLinkedThisDayKg100,
+      0,
+    ),
+  )
+  const freezingUnexplainedDifferenceKg100 = kg100(
+    totalReportedKg100 - freezingLinkedThisDayKg100,
+  )
 
-  const changeProcess = (process: ProductionProcess) => {
+  const applyProcessChange = (process: ProductionProcess) => {
     if (editingDate || process === draft.process) return
     const processWeek = getWeekView(activeWeek.number, process)
     const nextDate = processWeek.calendarDays.find(
@@ -512,8 +547,14 @@ export function ProductionEntryPage() {
 
     setActiveProcess(process)
     setSearchParams({ process }, { replace: true })
-    setMode('MANUAL')
-    setDraft(createEmptyCaptureDraft(nextDate, process))
+    processDraftsRef.current[draft.process] = draft
+    processModesRef.current[draft.process] = mode
+    const nextDraft =
+      processDraftsRef.current[process] ??
+      createEmptyCaptureDraft(nextDate, process)
+    processDraftsRef.current[process] = nextDraft
+    setMode(processModesRef.current[process] ?? 'MANUAL')
+    setDraft(nextDraft)
     setProductSearch('')
     setSelectedProductId('')
     setSelectedBalanceKey('')
@@ -523,6 +564,15 @@ export function ProductionEntryPage() {
     setImportState('IDLE')
     setClosingProductIds(new Set())
     setSaveError('')
+  }
+
+  const changeProcess = (process: ProductionProcess) => {
+    if (editingDate || process === draft.process) return
+    if (!isCaptureDraftEmpty(draft)) {
+      setPendingProcessChange(process)
+      return
+    }
+    applyProcessChange(process)
   }
 
   if (!isEditingAllowed || (editingDate && !existingDay)) {
@@ -648,10 +698,7 @@ export function ProductionEntryPage() {
     const catalogProduct = PRODUCTION_CATALOG_ITEMS.find(
       (product) => product.productId === position.productId,
     )
-    if (!catalogProduct) {
-      setSaveError('El producto del saldo ya no existe en el catálogo.')
-      return
-    }
+    const requiresProductDistribution = !catalogProduct
 
     const balanceUse: ProductionCaptureBalanceUse = {
       key: `balance-${position.originDayId}-${position.productId}`,
@@ -660,15 +707,18 @@ export function ProductionEntryPage() {
       familyId: position.familyId,
       familyName: position.familyName,
       productId: position.productId,
-      productName: position.productName,
+      productName:
+        catalogProduct?.productName ?? 'Producto exacto no identificado',
       availableKg100: position.pendingKg100,
-      dayKg: String(toKilograms(position.pendingKg100)),
+      dayKg: '0',
       nightKg: '0',
+      sourceProductId: position.productId,
+      requiresProductDistribution,
     }
     const productExists = draft.rows.some(
       (row) => row.product.productId === position.productId,
     )
-    const row = productExists
+    const row = !catalogProduct || productExists
       ? null
       : createRow(position.productId, draft.rows.length)
 
@@ -698,6 +748,48 @@ export function ProductionEntryPage() {
         balance.key === key ? { ...balance, [field]: value } : balance,
       ),
     }))
+  }
+
+  const distributeLegacyBalance = (key: string, productId: string) => {
+    const product = PRODUCTION_CATALOG_ITEMS.find(
+      (candidate) => candidate.productId === productId,
+    )
+    if (!product) return
+
+    setDraft((current) => {
+      const hasProductRow = current.rows.some(
+        (row) => row.product.productId === product.productId,
+      )
+      const row = hasProductRow
+        ? null
+        : createRow(product.productId, current.rows.length)
+
+      return {
+        ...current,
+        rows:
+          row === null
+            ? current.rows
+            : [
+                ...current.rows,
+                { ...row, dayReportedKg: '0', nightReportedKg: '0' },
+              ],
+        balanceUses: current.balanceUses.map((balance) =>
+          balance.key === key
+            ? {
+                ...balance,
+                familyId: product.familyId,
+                familyName: product.familyName,
+                productId: product.productId,
+                productName: product.productName,
+                sourceProductId:
+                  balance.sourceProductId ?? balance.productId,
+                requiresProductDistribution: false,
+              }
+            : balance,
+        ),
+      }
+    })
+    setSaveError('')
   }
 
   const removeBalanceUse = (key: string) => {
@@ -819,7 +911,7 @@ export function ProductionEntryPage() {
         )
         return
       }
-      if (validation.warnings.length > 0 && !confirmedWarnings) {
+      if (!confirmedWarnings) {
         setIsCloseConfirmationOpen(true)
         return
       }
@@ -856,20 +948,20 @@ export function ProductionEntryPage() {
         description={
           isFreezing
             ? 'Registra lo congelado por turno y vincula cada kilo con el producto disponible desde Envasado.'
-            : isBalanceOnly
-            ? 'Domingo de saldos: concilia el procesamiento físico sin atribuir nueva producción a esta jornada.'
-            : 'Ingresa los datos manualmente o precárgalos desde el Excel. Nada se cierra hasta que el cuadre sea exacto.'
+            : 'Registra los reportes de producción y concilia cada turno hasta obtener un cuadre exacto.'
         }
         actions={
-          <StatusBadge tone={usesExternalAvailability ? 'info' : canClose ? 'success' : 'warning'}>
-            {isFreezing
-              ? 'CONGELAMIENTO'
-              : isBalanceOnly
-                ? 'JORNADA DE SALDOS'
-              : canClose
-                ? 'LISTO PARA CERRAR'
-                : 'EN CAPTURA'}
-          </StatusBadge>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatusBadge tone="info">
+              {isFreezing ? 'CONGELAMIENTO' : 'ENVASADO'}
+            </StatusBadge>
+            <StatusBadge tone={canClose ? 'success' : 'warning'}>
+              {canClose ? 'LISTA PARA CERRAR' : 'EN CAPTURA'}
+            </StatusBadge>
+            {isBalanceOnly ? (
+              <StatusBadge tone="neutral">JORNADA DE SALDOS</StatusBadge>
+            ) : null}
+          </div>
         }
       />
 
@@ -881,11 +973,15 @@ export function ProductionEntryPage() {
         }}
       />
 
-      <div
-        className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
-        role="tablist"
-        aria-label="Forma de ingreso"
-      >
+      <div>
+        <p className="mb-1.5 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-500">
+          Modo de registro
+        </p>
+        <div
+          className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+          role="tablist"
+          aria-label="Forma de ingreso"
+        >
         <button
           type="button"
           role="tab"
@@ -904,6 +1000,11 @@ export function ProductionEntryPage() {
           role="tab"
           aria-selected={mode === 'EXCEL'}
           disabled={isFreezing}
+          title={
+            isFreezing
+              ? 'Importación de Congelamiento aún no disponible.'
+              : undefined
+          }
           className={`min-h-9 rounded-lg px-4 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
             mode === 'EXCEL'
               ? 'bg-brand-700 text-white'
@@ -913,6 +1014,7 @@ export function ProductionEntryPage() {
         >
           Importar Excel
         </button>
+        </div>
       </div>
 
       {mode === 'EXCEL' ? (
@@ -1026,7 +1128,7 @@ export function ProductionEntryPage() {
             </div>
           </div>
         ) : null}
-        <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-5">
+        <div className={`grid gap-4 p-4 sm:grid-cols-2 sm:p-5 ${isFreezing ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>
           <label className="block">
             <span className="mb-1.5 block text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-slate-500">
               Fecha
@@ -1041,17 +1143,19 @@ export function ProductionEntryPage() {
               className="number-tabular h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             />
           </label>
-          <QuantityInput
-            label={isFreezing ? 'MP descarga (no aplica)' : 'Materia prima'}
-            value={usesExternalAvailability ? '0' : draft.rawMaterialKg}
-            disabled={usesExternalAvailability}
-            onChange={(value) => updateDraft('rawMaterialKg', value)}
-          />
+          {!isFreezing ? (
+            <QuantityInput
+              label="Materia prima"
+              value={usesExternalAvailability ? '0' : draft.rawMaterialKg}
+              disabled={usesExternalAvailability}
+              onChange={(value) => updateDraft('rawMaterialKg', value)}
+            />
+          ) : null}
           <QuantityInput label="Reporte Día" value={draft.declaredDayTotalKg} onChange={(value) => updateDraft('declaredDayTotalKg', value)} />
           <QuantityInput label="Reporte Noche" value={draft.declaredNightTotalKg} onChange={(value) => updateDraft('declaredNightTotalKg', value)} />
           <div>
             <span className="mb-1.5 block text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-slate-500">
-              Total reportado
+              {isFreezing ? 'Total congelado' : 'Total reportado'}
             </span>
             <div className="number-tabular flex h-10 items-center justify-end rounded-lg border border-brand-200 bg-brand-50 px-3 text-sm font-extrabold text-brand-900">
               {formatCentiKg(totalReportedKg100)}
@@ -1178,13 +1282,13 @@ export function ProductionEntryPage() {
                 <div>
                   <dt className="text-slate-500">Reporte supervisor</dt>
                   <dd className="number-tabular mt-1 font-bold text-slate-900">
-                    {formatCentiKg(shift.declaredReportedKg100)}
+                    {hasShiftData ? formatCentiKg(shift.declaredReportedKg100) : '—'}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-slate-500">Productos registrados</dt>
                   <dd className="number-tabular mt-1 font-bold text-slate-900">
-                    {formatCentiKg(shift.reportedKg100)}
+                    {hasShiftData ? formatCentiKg(shift.reportedKg100) : '—'}
                   </dd>
                 </div>
                 <div>
@@ -1196,7 +1300,7 @@ export function ProductionEntryPage() {
                         : 'text-amber-700'
                     }`}
                   >
-                    {formatCentiKg(shift.detailDifferenceKg100)}
+                    {hasShiftData ? formatCentiKg(shift.detailDifferenceKg100) : '—'}
                   </dd>
                 </div>
               </dl>
@@ -1679,7 +1783,7 @@ export function ProductionEntryPage() {
       ) : null}
 
       <SectionCard
-        title={isFreezing ? 'Disponibilidad desde Envasado' : 'Saldos anteriores procesados'}
+        title={isFreezing ? 'Disponibilidad para congelar' : 'Saldos anteriores procesados'}
         description={
           isFreezing
             ? 'Selecciona producto envasado pendiente de congelar y distribuye lo ejecutado entre Día y Noche.'
@@ -1689,6 +1793,35 @@ export function ProductionEntryPage() {
         }
         action={<StatusBadge tone="info">ORIGEN TRAZABLE</StatusBadge>}
       >
+        {isFreezing ? (
+          <dl className="grid gap-px border-b border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-6">
+            {[
+              ['Disponible desde Envasado', freezingAvailableFromPackingKg100],
+              ['Pendiente anterior', freezingPreviousPendingKg100],
+              ['Total disponible', freezingTotalAvailableKg100],
+              ['Congelado en esta jornada', freezingLinkedThisDayKg100],
+              ['Pendiente posterior', freezingPendingAfterKg100],
+              ['Diferencia no explicada', freezingUnexplainedDifferenceKg100],
+            ].map(([label, value], index) => (
+              <div key={String(label)} className="bg-white px-4 py-3 text-center">
+                <dt className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-slate-500">
+                  {String(label)}
+                </dt>
+                <dd
+                  className={`number-tabular mt-1 whitespace-nowrap text-sm font-extrabold ${
+                    index === 5 && freezingUnexplainedDifferenceKg100 !== 0
+                      ? 'text-rose-700'
+                      : index === 4 && freezingPendingAfterKg100 > 0
+                        ? 'text-amber-700'
+                        : 'text-slate-950'
+                  }`}
+                >
+                  {formatCentiKg(value as ReturnType<typeof kg100>)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
         <fieldset disabled={!usesExternalAvailability && !reportsReconciled} className="disabled:opacity-65">
           <legend className="sr-only">Consumo de saldos anteriores</legend>
           <div className="grid gap-3 border-b border-slate-200 p-4 sm:p-5 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -1740,6 +1873,11 @@ export function ProductionEntryPage() {
             <div className="divide-y divide-slate-100">
               {draft.balanceUses.map((balance) => {
                 const position = captureBalancePosition(balance)
+                const requiresProductDistribution =
+                  balance.requiresProductDistribution === true
+                const productShiftDiagnostics = balanceShiftDiagnostics.filter(
+                  (diagnostic) => diagnostic.productId === balance.productId,
+                )
 
                 return (
                   <div key={balance.key} className="px-4 py-4 sm:px-5">
@@ -1762,7 +1900,60 @@ export function ProductionEntryPage() {
                         <Trash2 className="size-4" aria-hidden="true" />
                       </button>
                     </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3 sm:items-end">
+                    {requiresProductDistribution ? (
+                      <div
+                        role="alert"
+                        className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-3"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                          <div>
+                            <p className="text-[0.6875rem] font-extrabold uppercase tracking-[0.06em] text-amber-900">
+                              Requiere distribución
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-amber-800">
+                              Este saldo histórico solo identifica la familia. Selecciona el producto comercial exacto; el sistema no lo asignará automáticamente.
+                            </p>
+                          </div>
+                          <label className="min-w-0 sm:w-[28rem]">
+                            <span className="mb-1 block text-[0.6875rem] font-bold text-amber-900">
+                              Producto exacto
+                            </span>
+                            <select
+                              value=""
+                              onChange={(event) =>
+                                distributeLegacyBalance(
+                                  balance.key,
+                                  event.target.value,
+                                )
+                              }
+                              className="h-10 w-full rounded-lg border border-amber-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-400"
+                            >
+                              <option value="">Seleccionar producto…</option>
+                              {PRODUCTION_CATALOG_ITEMS.filter(
+                                (product) =>
+                                  product.familyId === balance.familyId,
+                              ).map((product) => (
+                                <option
+                                  key={product.productId}
+                                  value={product.productId}
+                                >
+                                  {product.productName}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-slate-500">
+                          Disponible
+                        </p>
+                        <p className="number-tabular mt-1 text-sm font-extrabold text-slate-900">
+                          {formatCentiKg(balance.availableKg100)}
+                        </p>
+                      </div>
                       <QuantityInput
                         label="Procesado Día"
                         value={balance.dayKg}
@@ -1775,7 +1966,15 @@ export function ProductionEntryPage() {
                       />
                       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                         <p className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-slate-500">
-                          Pendiente del lote
+                          Total procesado
+                        </p>
+                        <p className="number-tabular mt-1 text-sm font-extrabold text-slate-900">
+                          {formatCentiKg(position.processedKg100)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-slate-500">
+                          Pendiente
                         </p>
                         <p className={`number-tabular mt-1 text-sm font-extrabold ${position.overusedKg100 > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
                           {position.overusedKg100 > 0
@@ -1783,7 +1982,58 @@ export function ProductionEntryPage() {
                             : formatCentiKg(position.pendingKg100)}
                         </p>
                       </div>
+                      <div className="flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
+                        <StatusBadge
+                          tone={
+                            requiresProductDistribution ||
+                            position.overusedKg100 > 0 ||
+                            productShiftDiagnostics.length > 0
+                              ? requiresProductDistribution
+                                ? 'warning'
+                                : 'danger'
+                              : position.pendingKg100 === 0
+                                ? 'success'
+                                : 'warning'
+                          }
+                        >
+                          {requiresProductDistribution
+                            ? 'REQUIERE DISTRIBUCIÓN'
+                            : position.overusedKg100 > 0 ||
+                          productShiftDiagnostics.length > 0
+                            ? 'REVISAR'
+                            : position.pendingKg100 === 0
+                              ? 'CONSUMIDO'
+                              : 'PENDIENTE'}
+                        </StatusBadge>
+                      </div>
                     </div>
+                    {productShiftDiagnostics.length > 0 ? (
+                      <div
+                        role="alert"
+                        className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-rose-900"
+                      >
+                        <p className="text-[0.6875rem] font-extrabold uppercase tracking-[0.06em]">
+                          Saldo anterior mal distribuido
+                        </p>
+                        {productShiftDiagnostics.map((diagnostic) => (
+                          <div
+                            key={`${diagnostic.productId}-${diagnostic.shift}`}
+                            className="mt-2 text-xs leading-5"
+                          >
+                            <p className="font-bold">{diagnostic.productName} · Turno {diagnostic.shift === 'DAY' ? 'Día' : 'Noche'}</p>
+                            <p>
+                              Reporte físico: {formatCentiKg(diagnostic.reportedKg100)} ·
+                              Saldo asignado: {formatCentiKg(diagnostic.assignedBalanceKg100)} ·
+                              Máximo consumible: {formatCentiKg(diagnostic.maximumConsumableKg100)} ·
+                              Exceso: {formatCentiKg(diagnostic.excessKg100)}
+                            </p>
+                            <p className="mt-1">
+                              El saldo asignado supera los kg físicamente reportados para este producto. Redistribuye el consumo entre Día/Noche o deja el remanente pendiente.
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 )
               })}
@@ -1967,15 +2217,17 @@ export function ProductionEntryPage() {
         />
       ) : null}
 
-      {closureValidation.blockers.length > 0 || diagnostics.length > 0 ? (
+      {!canClose && (closureValidation.blockers.length > 0 || diagnostics.length > 0) ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-[0.06em] text-amber-900">Validación y diagnóstico</p>
+          <p className="text-xs font-bold uppercase tracking-[0.06em] text-amber-900">Pendientes para cerrar</p>
           <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-900">
             {[
               ...closureValidation.blockers
                 .filter((blocker) => blocker.code !== 'TUNNEL_MOVEMENTS_REQUIRED')
                 .map((blocker) => blocker.message),
-              ...diagnostics.map((diagnostic) => diagnostic.message),
+              ...diagnostics
+                .filter((diagnostic) => diagnostic.code !== 'SHIFT_BALANCED')
+                .map((diagnostic) => diagnostic.message),
             ]
               .filter((message, index, messages) => messages.indexOf(message) === index)
               .slice(0, 12)
@@ -1987,6 +2239,51 @@ export function ProductionEntryPage() {
       {saveError ? (
         <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
           {saveError}
+        </div>
+      ) : null}
+
+      {pendingProcessChange ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="process-change-title"
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6"
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700">
+                <AlertTriangle className="size-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 id="process-change-title" className="text-base font-bold text-slate-950">
+                  Cambiar a {pendingProcessChange === 'FREEZING' ? 'Congelamiento' : 'Envasado'}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Existen datos sin guardar en la jornada de {draft.process === 'FREEZING' ? 'Congelamiento' : 'Envasado'}. Se conservarán separados mientras cambias de proceso.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingProcessChange(null)}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const process = pendingProcessChange
+                  setPendingProcessChange(null)
+                  applyProcessChange(process)
+                }}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-brand-700 px-4 text-sm font-bold text-white hover:bg-brand-800"
+              >
+                Cambiar proceso
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
 
@@ -2004,14 +2301,33 @@ export function ProductionEntryPage() {
               </span>
               <div>
                 <h2 id="yield-warning-title" className="text-base font-bold text-slate-950">
-                  Rendimientos por debajo del objetivo
+                  Cerrar jornada
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  La jornada está cuadrada, pero existen familias por debajo de su referencia.
+                  Después del cierre, esta jornada quedará en solo lectura.
                 </p>
               </div>
             </div>
+            <dl className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+              {[
+                ['Fecha', formatIsoDate(draft.date)],
+                ['Materia prima', isFreezing ? 'No aplica' : formatCentiKg(buildResult.productionDay.declaredRawMaterialKg100)],
+                ['Producto terminado', formatCentiKg(buildResult.calculation.declaredFinishedKg100)],
+                ['Saldo final', formatCentiKg(buildResult.calculation.newClosingBalanceKg100)],
+                ['Diferencia', formatCentiKg(buildResult.calculation.differenceKg100)],
+                ['Aprovechamiento', usesExternalAvailability ? 'No aplica' : `${businessSummary.generalYieldPercent?.toFixed(2) ?? '—'}%`],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-[0.625rem] font-bold uppercase tracking-[0.06em] text-slate-500">{label}</dt>
+                  <dd className="number-tabular mt-0.5 text-xs font-bold text-slate-900">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {closureValidation.warnings.length > 0 ? (
             <div className="mt-4 space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.06em] text-amber-900">
+                Advertencias de familia
+              </p>
               {businessSummary.families
                 .filter((family) => family.status === 'BELOW_TARGET')
                 .map((family) => (
@@ -2023,6 +2339,7 @@ export function ProductionEntryPage() {
                   </div>
                 ))}
             </div>
+            ) : null}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
@@ -2036,7 +2353,9 @@ export function ProductionEntryPage() {
                 onClick={() => persist(true, true)}
                 className="inline-flex min-h-10 items-center justify-center rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800"
               >
-                Cerrar de todas formas
+                {closureValidation.warnings.length > 0
+                  ? 'Cerrar de todas formas'
+                  : 'Cerrar jornada'}
               </button>
             </div>
           </section>

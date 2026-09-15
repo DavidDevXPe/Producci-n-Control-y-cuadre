@@ -25,7 +25,10 @@ import type {
 } from '../model/types'
 import { getProductionProcess } from '../model/productionProcess'
 import { isSundayIsoDate } from '../model/productionDayMode'
-import type { ProductionCatalogItem } from './productionCatalog'
+import {
+  PRODUCTION_CATALOG_ITEMS,
+  type ProductionCatalogItem,
+} from './productionCatalog'
 
 export type CaptureSource = 'MANUAL' | 'EXCEL'
 export type ShiftAllocationMode = 'EXPLICIT' | 'RECONCILED_INFERENCE'
@@ -56,6 +59,10 @@ export interface ProductionCaptureBalanceUse {
   availableKg100: Kg100
   dayKg: string
   nightKg: string
+  /** Original ledger product key; retained when a legacy family-only balance is mapped. */
+  sourceProductId?: string
+  /** Legacy balances cannot be closed until the operator selects the exact product. */
+  requiresProductDistribution?: boolean
 }
 
 export interface ImportedBalanceNotice {
@@ -90,6 +97,32 @@ export interface CaptureBuildResult {
 }
 
 const ZERO_KG100 = kg100(0)
+
+export function hasSufficientCaptureData(
+  draft: ProductionCaptureDraft,
+): boolean {
+  const hasRequiredTotals = [
+    ...(draft.operationMode === 'BALANCE_ONLY' || draft.process === 'FREEZING'
+      ? []
+      : [draft.rawMaterialKg]),
+    draft.declaredDayTotalKg,
+    draft.declaredNightTotalKg,
+  ].every((value) => value.trim() !== '')
+  const hasCompleteRows =
+    draft.rows.length > 0 &&
+    draft.rows.every(
+      (row) =>
+        draft.shiftAllocationMode === 'RECONCILED_INFERENCE' ||
+        (row.dayReportedKg.trim() !== '' &&
+          row.nightReportedKg.trim() !== ''),
+    )
+
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(draft.date) &&
+    hasRequiredTotals &&
+    hasCompleteRows
+  )
+}
 
 function parseQuantity(value: string, label: string, errors: string[]): Kg100 {
   const normalized = value.trim().replace(',', '.')
@@ -167,11 +200,12 @@ function buildReceivedBalanceLots(
   ).filter((position) => position.pendingKg100 > 0)
 
   return balanceUses.map((selection) => {
+    const sourceProductId = selection.sourceProductId ?? selection.productId
     const position = positions.find(
       (candidate) =>
         candidate.originDayId === selection.originDayId &&
         candidate.familyId === selection.familyId &&
-        candidate.productId === selection.productId,
+        candidate.productId === sourceProductId,
     )
     const availableKg100 = position?.pendingKg100 ?? ZERO_KG100
     const dayKg100 = quantityFor(
@@ -186,6 +220,11 @@ function buildReceivedBalanceLots(
     if (!position) {
       errors.push(
         `El saldo de ${selection.productName} ya no está disponible o no tiene un origen válido.`,
+      )
+    }
+    if (selection.requiresProductDistribution) {
+      errors.push(
+        `El saldo de ${selection.familyName} requiere distribución. Selecciona el producto exacto antes de cerrar.`,
       )
     }
 
@@ -214,6 +253,7 @@ function buildReceivedBalanceLots(
       originDayId: selection.originDayId,
       familyId: selection.familyId,
       productId: selection.productId,
+      ...(sourceProductId !== selection.productId ? { sourceProductId } : {}),
       originalKg100: availableKg100,
       uses,
     }
@@ -328,6 +368,10 @@ export function createCaptureDraftFromDay(
       const product = productionDay.lines.find(
         (line) => line.productId === lot.productId,
       )
+      const catalogProduct = PRODUCTION_CATALOG_ITEMS.find(
+        (candidate) => candidate.productId === lot.productId,
+      )
+      const requiresProductDistribution = !catalogProduct && !product
       const originDay = allProductionDays.find(
         (day) => day.id === lot.originDayId,
       )
@@ -353,10 +397,15 @@ export function createCaptureDraftFromDay(
         familyId: lot.familyId,
         familyName: product?.familyName ?? lot.familyId,
         productId: lot.productId,
-        productName: product?.productName ?? lot.productId,
+        productName:
+          product?.productName ??
+          catalogProduct?.productName ??
+          'Producto exacto no identificado',
         availableKg100: lot.originalKg100,
         dayKg: String(toKilograms(processedDayKg100)),
         nightKg: String(toKilograms(processedNightKg100)),
+        sourceProductId: lot.sourceProductId ?? lot.productId,
+        requiresProductDistribution,
       }
     }),
     importedBalances: [],
@@ -509,6 +558,7 @@ export function buildProductionDayFromCapture(
     date: draft.date,
     displayName: formatDisplayName(draft.date),
     status,
+    captureRequiredDataComplete: hasSufficientCaptureData(draft),
     process: draft.process,
     operationMode,
     rawMaterialEntries: usesExternalAvailability

@@ -16,9 +16,10 @@ import {
   formatIsoWeekday,
   formatRatioAsPercent,
 } from '../../../utils/formatters'
-import { calculateProductionDay, kg100, sumKg100 } from '../model/calculations'
+import { kg100, sumKg100 } from '../model/calculations'
 import { calculateFreezingAvailability } from '../model/freezing'
 import { isBalanceOnlyProductionDay } from '../model/productionDayMode'
+import { getProductionDayOperationalState } from '../model/productionLifecycle'
 import { isProductionProcess, productionProcessLabels } from '../model/productionProcess'
 import { getYieldStatus, yieldVisualStyles } from '../presentation/yieldStatus'
 import { useProductionData } from '../state/ProductionDataContext'
@@ -54,16 +55,22 @@ export function ProductionDaysPage() {
   const activeWeekState = activeWeek
   const [isWeekCloseOpen, setIsWeekCloseOpen] = useState(false)
   const [weekCloseError, setWeekCloseError] = useState('')
-  const registeredDays = activeWeek.productionDays.map((day) => ({
-    day,
-    calculation: calculateProductionDay(day),
-  }))
+  const registeredDays = activeWeek.productionDays.map((day) => {
+    const operationalState = getProductionDayOperationalState(day)
+    return {
+      day,
+      calculation: operationalState.calculation,
+      operationalState,
+    }
+  })
   const balancedCount = registeredDays.filter(
-    ({ day, calculation }) =>
-      day.status === 'CLOSED' &&
-      calculation.status === 'BALANCED' &&
-      (selectedProcess !== 'FREEZING' ||
-        calculation.ownTurnProductionKg100 === 0),
+    ({ operationalState }) => operationalState.isBalanced,
+  ).length
+  const closedCount = registeredDays.filter(
+    ({ operationalState }) => operationalState.lifecycle === 'CLOSED',
+  ).length
+  const readyToCloseCount = registeredDays.filter(
+    ({ operationalState }) => operationalState.state === 'READY_TO_CLOSE',
   ).length
   const belowReferenceCount = registeredDays.filter(
     ({ day, calculation }) => {
@@ -217,8 +224,8 @@ export function ProductionDaysPage() {
                   : 'warning'
               }
               description={
-                registeredDays.length > 0 && balancedCount === registeredDays.length
-                  ? 'Sin diferencias pendientes'
+                balancedCount > 0
+                  ? `${closedCount} cerrada${closedCount === 1 ? '' : 's'} · ${readyToCloseCount} lista${readyToCloseCount === 1 ? '' : 's'} para cerrar`
                   : 'Requiere revisión'
               }
             />
@@ -293,19 +300,19 @@ export function ProductionDaysPage() {
               </tr>
             </thead>
             <tbody>
-              {registeredDays.map(({ day, calculation }) => {
-                const isBalanced =
-                  calculation.status === 'BALANCED' &&
-                  (!isFreezing || calculation.ownTurnProductionKg100 === 0)
-                const isClosed = day.status === 'CLOSED'
+              {registeredDays.map(({ day, calculation, operationalState }) => {
+                const isBalanced = operationalState.isBalanced
+                const isClosed = operationalState.lifecycle === 'CLOSED'
+                const isReadyToClose =
+                  operationalState.state === 'READY_TO_CLOSE'
                 const isBalanceOnly = isBalanceOnlyProductionDay(day)
                 const yieldStatus = getYieldStatus(calculation.performance.percent)
                 const yieldStyles = yieldVisualStyles[yieldStatus.colorVariant]
-                const rowAccentClass = !isClosed
-                  ? 'before:bg-amber-500'
-                  : isBalanced
+                const rowAccentClass = isBalanced
                     ? 'before:bg-emerald-500'
-                    : 'before:bg-rose-500'
+                    : isClosed
+                      ? 'before:bg-rose-500'
+                      : 'before:bg-amber-500'
 
                 return (
                   <tr
@@ -325,7 +332,7 @@ export function ProductionDaysPage() {
                         </span>
                         {day.date === latestDay?.date ? (
                           <span className="mt-0.5 block text-[0.625rem] font-medium text-slate-400">
-                            Último cierre disponible
+                            Último registro disponible
                           </span>
                         ) : null}
                       </span>
@@ -348,8 +355,8 @@ export function ProductionDaysPage() {
                     </td>
                     <td className="px-3 py-3 text-center align-middle">
                       <div className="flex w-full items-center justify-center">
-                        <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
-                          {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                        <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
+                          {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                         </StatusBadge>
                       </div>
                     </td>
@@ -393,11 +400,15 @@ export function ProductionDaysPage() {
                     <td className="px-3 py-3 text-center align-middle">
                       <div className="flex w-full items-center justify-center">
                         <ActionLink
-                          to={`${isClosed || activeWeekState.isReadOnly ? `/jornadas/${day.date}` : `/jornadas/${day.date}/editar`}?process=${activeProcess}`}
+                          to={`${isClosed || activeWeekState.isReadOnly ? `/jornadas/${day.date}` : `/jornadas/${day.date}/editar`}?process=${selectedProcess}`}
                           variant="ghost"
                           size="sm"
                         >
-                          {isClosed || activeWeekState.isReadOnly ? 'Ver detalle' : 'Continuar'}
+                          {isClosed || activeWeekState.isReadOnly
+                            ? 'Ver detalle'
+                            : isReadyToClose
+                              ? 'Cerrar jornada'
+                              : 'Continuar captura'}
                           <ArrowRight className="size-4" aria-hidden="true" />
                         </ActionLink>
                       </div>

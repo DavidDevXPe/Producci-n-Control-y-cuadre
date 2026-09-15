@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BarChart3,
+  Activity,
   CalendarDays,
   History,
   LayoutDashboard,
@@ -81,6 +82,7 @@ const primaryNavigation: readonly NavigationItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard, end: true },
   { label: 'Jornadas', to: '/jornadas', icon: CalendarDays },
   { label: 'Saldos', to: '/saldos', icon: PackageOpen },
+  { label: 'Rendimiento', to: '/rendimiento', icon: Activity },
   { label: 'Resumen', to: '/resumen', icon: BarChart3 },
 ]
 

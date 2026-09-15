@@ -118,6 +118,8 @@ export interface BalanceLot {
   readonly originDayId: string
   readonly familyId: string
   readonly productId: string
+  /** Ledger key retained when a legacy family-only balance is mapped to an exact product. */
+  readonly sourceProductId?: string
   readonly originalKg100: Kg100
   readonly uses: readonly BalanceUse[]
 }
@@ -161,8 +163,13 @@ export interface ProductionDay {
   readonly date: string
   readonly displayName: string
   readonly status: ProductionDayStatus
+  readonly createdAt?: string
+  readonly updatedAt?: string
   /** Omitted historical records are Packing records for backward compatibility. */
   readonly process?: ProductionProcess
+  readonly operationalPerformance?: OperationalPerformanceMetadata
+  /** Preserves whether the web draft had every required capture field completed. */
+  readonly captureRequiredDataComplete?: boolean
   /** Sundays default to balance processing; omitted historical records remain normal. */
   readonly operationMode?: ProductionDayOperationMode
   readonly rawMaterialEntries: readonly RawMaterialEntry[]

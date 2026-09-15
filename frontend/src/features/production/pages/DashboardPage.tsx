@@ -54,7 +54,9 @@ export function DashboardPage() {
     allProductionDays,
     activeWeek.period,
   )
-  const hasFreezingData = processComparison.frozenKg100 > 0
+  const hasFreezingData =
+    processComparison.frozenKg100 > 0 ||
+    processComparison.unexplainedDifferenceKg100 !== 0
 
   if (productionDays.length === 0) {
     return (
@@ -134,7 +136,6 @@ export function DashboardPage() {
     balanceKg100: calculation.newClosingBalanceKg100,
   }))
   const isBalanced = latestCalculation.status === 'BALANCED'
-  const isLatestClosed = latestDay.status === 'CLOSED'
   const latestIsBalanceOnly = isBalanceOnlyProductionDay(latestDay)
   const isWeekValid =
     weekSummary.status === 'VALID' &&
@@ -164,10 +165,10 @@ export function DashboardPage() {
               actions={
                 <>
                   <StatusBadge
-                    tone={!isLatestClosed ? 'warning' : isBalanced ? 'success' : 'danger'}
+                    tone={isBalanced ? 'success' : 'danger'}
                     className="min-h-[1.875rem] px-3.5"
                   >
-                    {!isLatestClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                    {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                   </StatusBadge>
                   <ActionLink
                     to={`/jornadas/${latestDay.date}?process=PACKING`}
@@ -261,8 +262,8 @@ export function DashboardPage() {
           title="Última jornada registrada"
           description={formatIsoDate(latestDay.date)}
           action={
-            <StatusBadge tone={!isLatestClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
-              {!isLatestClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+            <StatusBadge tone={isBalanced ? 'success' : 'danger'}>
+              {isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
             </StatusBadge>
           }
           contentClassName="p-4"
@@ -409,7 +410,6 @@ export function DashboardPage() {
               <tbody>
                 {calculatedDays.map(({ day, calculation }) => {
                   const dayIsBalanced = calculation.status === 'BALANCED'
-                  const dayIsClosed = day.status === 'CLOSED'
                   const dayYieldStatus = getYieldStatus(calculation.performance.percent)
                   const dayYieldStyles = yieldVisualStyles[dayYieldStatus.colorVariant]
                   const isLatest = day.date === latestDay.date
@@ -433,8 +433,8 @@ export function DashboardPage() {
                       </td>
                       <td className="px-2 py-3 text-center align-middle">
                         <div className="flex w-full items-center justify-center">
-                          <StatusBadge tone={!dayIsClosed ? 'warning' : dayIsBalanced ? 'success' : 'danger'}>
-                            {!dayIsClosed ? 'BORRADOR' : dayIsBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+                          <StatusBadge tone={dayIsBalanced ? 'success' : 'danger'}>
+                            {dayIsBalanced ? 'CUADRADO' : 'NO CUADRADO'}
                           </StatusBadge>
                         </div>
                       </td>

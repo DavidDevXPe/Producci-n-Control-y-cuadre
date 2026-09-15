@@ -6,6 +6,7 @@ import { ProductionDayPage } from '../features/production/pages/ProductionDayPag
 import { ProductionEntryPage } from '../features/production/pages/ProductionEntryPage'
 import { BalancesPage } from '../features/production/pages/BalancesPage'
 import { WeeklySummaryPage } from '../features/production/pages/WeeklySummaryPage'
+import { OperationalPerformancePage } from '../features/performance/pages/OperationalPerformancePage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter(
@@ -20,6 +21,7 @@ export const router = createBrowserRouter(
         { path: 'jornadas/:date/editar', element: <ProductionEntryPage /> },
         { path: 'jornadas/:date', element: <ProductionDayPage /> },
         { path: 'saldos', element: <BalancesPage /> },
+        { path: 'rendimiento', element: <OperationalPerformancePage /> },
         { path: 'resumen', element: <WeeklySummaryPage /> },
         { path: '*', element: <NotFoundPage /> },
       ],

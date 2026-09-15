@@ -28,9 +28,9 @@ import { ReceivedBalancePanel } from '../components/ReceivedBalancePanel'
 import { ReconciliationPanel } from '../components/ReconciliationPanel'
 import {
   calculateOutstandingBalances,
-  calculateProductionDay,
 } from '../model/calculations'
 import { isBalanceOnlyProductionDay } from '../model/productionDayMode'
+import { getProductionDayOperationalState } from '../model/productionLifecycle'
 import {
   getProductionProcess,
   isFreezingProductionDay,
@@ -75,7 +75,8 @@ export function ProductionDayPage() {
     )
   }
 
-  const calculation = calculateProductionDay(productionDay)
+  const operationalState = getProductionDayOperationalState(productionDay)
+  const calculation = operationalState.calculation
   const process = getProductionProcess(productionDay)
   const isFreezing = isFreezingProductionDay(productionDay)
   const weeklyBalancePositions = calculateOutstandingBalances(
@@ -85,8 +86,9 @@ export function ProductionDayPage() {
   const balancePositions = weeklyBalancePositions.filter(
     (position) => position.originDayId === productionDay.id,
   )
-  const isBalanced = calculation.status === 'BALANCED'
-  const isClosed = productionDay.status === 'CLOSED'
+  const isBalanced = operationalState.isBalanced
+  const isClosed = operationalState.lifecycle === 'CLOSED'
+  const isReadyToClose = operationalState.state === 'READY_TO_CLOSE'
   const isBalanceOnly = isBalanceOnlyProductionDay(productionDay)
   const canExport =
     productionDay.status === 'CLOSED' &&
@@ -140,20 +142,26 @@ export function ProductionDayPage() {
         }
         actions={
           <>
-            <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
-              {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+            <StatusBadge tone={isClosed ? (isBalanced ? 'success' : 'danger') : isReadyToClose ? 'success' : 'warning'}>
+              {isClosed
+                ? isBalanced
+                  ? 'CERRADA · SOLO LECTURA'
+                  : 'CERRADA · REVISAR'
+                : isReadyToClose
+                  ? 'LISTA PARA CERRAR'
+                  : 'BORRADOR · REVISAR'}
             </StatusBadge>
             {isBalanceOnly ? (
               <StatusBadge tone="info">JORNADA DE SALDOS</StatusBadge>
             ) : null}
             {isUserManagedDay(productionDay.date, process) && !isClosed ? (
               <ActionLink
-                to={`/jornadas/${productionDay.date}/editar`}
-                variant="secondary"
+                to={`/jornadas/${productionDay.date}/editar?process=${process}`}
+                variant={isReadyToClose ? 'primary' : 'secondary'}
                 size="sm"
               >
                 <Pencil className="size-4" aria-hidden="true" />
-                Continuar captura
+                {isReadyToClose ? 'Cerrar jornada' : 'Continuar captura'}
               </ActionLink>
             ) : null}
             <button

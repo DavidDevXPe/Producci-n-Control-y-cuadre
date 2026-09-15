@@ -123,9 +123,9 @@ describe('ProductionEntryPage product selector', () => {
       'aria-selected',
       'true',
     )
-    expect(screen.getByLabelText(/^MP descarga/)).toBeDisabled()
+    expect(screen.queryByLabelText(/^MP descarga/)).not.toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Disponibilidad desde Envasado' }),
+      screen.getByRole('heading', { name: 'Disponibilidad para congelar' }),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Existe producto para Túnel')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Balance MP Tubo' })).toBeNull()
@@ -140,6 +140,47 @@ describe('ProductionEntryPage product selector', () => {
     expect(within(selector).getAllByRole('option')[1]).toHaveTextContent(
       /Disponible:/,
     )
+  })
+
+  it('changes process immediately while the form is empty', () => {
+    renderNewEntry()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Congelamiento' }))
+
+    expect(screen.getByRole('tab', { name: 'Congelamiento' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('confirms a process change with data and restores independent drafts', () => {
+    renderNewEntry()
+    fireEvent.change(screen.getByLabelText(/^Materia prima/), {
+      target: { value: '123' },
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Congelamiento' }))
+    const freezingDialog = screen.getByRole('dialog', {
+      name: 'Cambiar a Congelamiento',
+    })
+    fireEvent.click(
+      within(freezingDialog).getByRole('button', { name: 'Cambiar proceso' }),
+    )
+    fireEvent.change(screen.getByLabelText(/^Reporte Día/), {
+      target: { value: '45' },
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Envasado' }))
+    const packingDialog = screen.getByRole('dialog', {
+      name: 'Cambiar a Envasado',
+    })
+    fireEvent.click(
+      within(packingDialog).getByRole('button', { name: 'Cambiar proceso' }),
+    )
+
+    expect(screen.getByLabelText(/^Materia prima/)).toHaveValue(123)
+    expect(screen.getByLabelText(/^Reporte Día/)).toHaveValue(null)
   })
 
   it('shows the Tube MP balance and distinguishes overall utilization', () => {
@@ -426,7 +467,7 @@ describe('ProductionEntryPage product selector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar jornada' }))
 
     expect(
-      screen.getByRole('dialog', { name: 'Rendimientos por debajo del objetivo' }),
+      screen.getByRole('dialog', { name: 'Cerrar jornada' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Volver a revisar' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Cerrar de todas formas' })).toBeEnabled()
@@ -554,7 +595,11 @@ describe('ProductionEntryPage product selector', () => {
     fireEvent.click(within(balancesSection).getByRole('button', { name: 'Usar saldo' }))
 
     const processedDayInput = within(balancesSection).getByLabelText(/^Procesado Día/)
-    const processedKg = String((processedDayInput as HTMLInputElement).value)
+    const processedNightInput = within(balancesSection).getByLabelText(/^Procesado Noche/)
+    expect(processedDayInput).toHaveValue(0)
+    expect(processedNightInput).toHaveValue(0)
+    const processedKg = '100'
+    fireEvent.change(processedDayInput, { target: { value: processedKg } })
     fireEvent.change(screen.getByLabelText(/^Reporte Día/), {
       target: { value: processedKg },
     })
@@ -574,6 +619,10 @@ describe('ProductionEntryPage product selector', () => {
     expect(screen.getByRole('button', { name: 'Cerrar jornada' })).toBeEnabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar jornada' }))
+    const closeDialog = screen.getByRole('dialog', { name: 'Cerrar jornada' })
+    fireEvent.click(
+      within(closeDialog).getByRole('button', { name: 'Cerrar jornada' }),
+    )
     expect(screen.getByText('Detalle guardado')).toBeInTheDocument()
     const stored = JSON.parse(
       window.localStorage.getItem('trabunda-production-days-v2') ?? '[]',

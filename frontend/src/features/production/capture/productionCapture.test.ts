@@ -343,6 +343,81 @@ describe('production capture', () => {
     )
   })
 
+  it('requires an exact product before closing a legacy family-only balance', () => {
+    const knownProduct = row().product
+    const originDraft = {
+      ...createEmptyCaptureDraft('2026-09-06'),
+      operationMode: 'NORMAL' as const,
+      rawMaterialKg: '100',
+      declaredDayTotalKg: '0',
+      declaredNightTotalKg: '0',
+      rows: [
+        row({
+          dayReportedKg: '0',
+          nightReportedKg: '0',
+          closingBalanceKg: '10',
+        }),
+      ],
+    }
+    const builtOrigin = buildProductionDayFromCapture(originDraft, [], [])
+      .productionDay
+    const legacyProductId = 'legacy-family-only-aleta'
+    const origin = {
+      ...builtOrigin,
+      lines: builtOrigin.lines.map((line) => ({
+        ...line,
+        productId: legacyProductId,
+        productName: 'Producto exacto no identificado',
+      })),
+    }
+    const draft = {
+      ...createEmptyCaptureDraft('2026-09-07'),
+      rawMaterialKg: '100',
+      declaredDayTotalKg: '10',
+      declaredNightTotalKg: '0',
+      rows: [row({ dayReportedKg: '10', nightReportedKg: '0', closingBalanceKg: '0' })],
+      balanceUses: [
+        {
+          key: 'legacy-balance',
+          originDayId: origin.id,
+          originDate: origin.date,
+          familyId: knownProduct.familyId,
+          familyName: knownProduct.familyName,
+          productId: knownProduct.productId,
+          productName: knownProduct.productName,
+          sourceProductId: legacyProductId,
+          requiresProductDistribution: true,
+          availableKg100: kg100(1_000),
+          dayKg: '10',
+          nightKg: '0',
+        },
+      ],
+    }
+
+    const unresolved = buildProductionDayFromCapture(draft, [origin], [])
+    expect(unresolved.inputErrors).toContain(
+      `El saldo de ${knownProduct.familyName} requiere distribución. Selecciona el producto exacto antes de cerrar.`,
+    )
+
+    const resolved = buildProductionDayFromCapture(
+      {
+        ...draft,
+        balanceUses: draft.balanceUses.map((balance) => ({
+          ...balance,
+          requiresProductDistribution: false,
+        })),
+      },
+      [origin],
+      [],
+    )
+    expect(resolved.inputErrors).toEqual([])
+    expect(resolved.productionDay.receivedBalanceLots[0]).toMatchObject({
+      originDayId: origin.id,
+      productId: knownProduct.productId,
+      sourceProductId: legacyProductId,
+    })
+  })
+
   it('allows an incomplete but syntactically valid draft to be built', () => {
     const result = buildProductionDayFromCapture(
       createEmptyCaptureDraft('2026-09-07'),

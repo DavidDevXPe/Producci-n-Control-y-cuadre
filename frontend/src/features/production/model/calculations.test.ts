@@ -268,6 +268,11 @@ describe('daily integrity validation', () => {
     expect(codes).toContain('BALANCE_PRODUCT_NOT_FOUND')
     expect(codes).toContain('NEGATIVE_OWN_PRODUCTION')
     expect(result.status).toBe('UNBALANCED')
+    expect(
+      result.integrityIssues.find(
+        (issue) => issue.code === 'BALANCE_PRODUCT_NOT_FOUND',
+      )?.message,
+    ).toContain('REQUIERE DISTRIBUCIÓN')
   })
 
   it('detects duplicate product, lot and balance-use identifiers', () => {

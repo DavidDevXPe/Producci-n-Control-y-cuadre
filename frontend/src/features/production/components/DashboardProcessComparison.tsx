@@ -59,21 +59,21 @@ export function DashboardProcessComparison({
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-sky-200 bg-sky-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-[#2b5268] bg-[#123247] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-sky-100 text-sky-700">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#2b5268] bg-[#0d2534] text-[#58c8ea]">
               <Snowflake className="size-4" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-sm font-bold text-slate-800">
+              <p className="text-sm font-bold text-[#f3f8fb]">
                 Aún no hay jornadas de Congelamiento
               </p>
-              <p className="mt-0.5 text-xs leading-5 text-slate-500">
+              <p className="mt-0.5 text-xs leading-5 text-[#a5bed0]">
                 El comparativo se activará cuando se registre producto congelado.
               </p>
             </div>
           </div>
-          <ActionLink to="/jornadas?process=FREEZING" variant="ghost" size="sm">
+          <ActionLink to="/jornadas?process=FREEZING" variant="ghost" size="sm" className="text-[#58c8ea] hover:bg-[#153b50] hover:text-[#f3f8fb]">
             <PackageCheck className="size-4" aria-hidden="true" />
             Ver Congelamiento
             <ArrowRight className="size-4" aria-hidden="true" />

@@ -31,6 +31,7 @@ import type {
   ProductionDay,
   ProductionDayCalculation,
   ProductReconciliation,
+  ShiftCode,
   SummaryGroupId,
 } from './types'
 import {
@@ -152,6 +153,17 @@ export interface ProductionClosureValidation {
   canClose: boolean
   blockers: readonly ClosureMessage[]
   warnings: readonly ClosureMessage[]
+}
+
+export interface BalanceShiftDiagnostic {
+  readonly productId: string
+  readonly productName: string
+  readonly shift: ShiftCode
+  readonly reportedKg100: Kg100
+  readonly assignedBalanceKg100: Kg100
+  readonly maximumConsumableKg100: Kg100
+  readonly excessKg100: Kg100
+  readonly message: string
 }
 
 interface ClosureValidationOptions {
@@ -644,6 +656,43 @@ function kilograms(value: Kg100) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} kg`
+}
+
+export function buildBalanceShiftDiagnostics(
+  calculation: ProductionDayCalculation,
+): readonly BalanceShiftDiagnostic[] {
+  return calculation.products.flatMap((product) =>
+    ([
+      ['DAY', product.day],
+      ['NIGHT', product.night],
+    ] as const).flatMap(([shift, entry]) => {
+      const maximumConsumableKg100 = kg100(
+        entry.reportedKg100 + entry.adjustmentKg100,
+      )
+      const excessKg100 = kg100(
+        Math.max(
+          entry.previousBalanceProcessedKg100 - maximumConsumableKg100,
+          0,
+        ),
+      )
+      if (excessKg100 === 0) return []
+
+      const shiftLabel = shift === 'DAY' ? 'Día' : 'Noche'
+      return [{
+        productId: product.productId,
+        productName: product.productName,
+        shift,
+        reportedKg100: maximumConsumableKg100,
+        assignedBalanceKg100: entry.previousBalanceProcessedKg100,
+        maximumConsumableKg100,
+        excessKg100,
+        message:
+          `${product.productName} · Turno ${shiftLabel}: el saldo asignado supera ` +
+          `los kg físicamente reportados en ${kilograms(excessKg100)}. ` +
+          'Redistribuye el consumo entre Día/Noche o deja el remanente pendiente.',
+      }]
+    }),
+  )
 }
 
 export function buildProductionDiagnostics(

@@ -68,9 +68,9 @@ export function WeeklyDaysTable({
                   <div className="flex w-full items-center justify-center">
                     {day.calculation ? (
                       <StatusBadge
-                        tone={day.status && day.status !== 'CLOSED' ? 'warning' : day.calculation.status === 'BALANCED' ? 'success' : 'danger'}
+                        tone={day.calculation.status === 'BALANCED' ? 'success' : 'danger'}
                       >
-                        {day.status && day.status !== 'CLOSED' ? 'BORRADOR' : day.calculation.status === 'BALANCED' ? 'CUADRADO' : 'NO CUADRADO'}
+                        {day.calculation.status === 'BALANCED' ? 'CUADRADO' : 'NO CUADRADO'}
                       </StatusBadge>
                     ) : (
                       <StatusBadge tone="neutral">SIN REGISTRO</StatusBadge>

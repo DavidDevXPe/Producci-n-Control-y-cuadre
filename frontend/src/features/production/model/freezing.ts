@@ -80,7 +80,7 @@ export function calculateFreezingAvailability(
         const matchingUses = freezingDays.flatMap((freezingDay) =>
           freezingDay.receivedBalanceLots.flatMap((lot) =>
             lot.originDayId === originDay.id &&
-            lot.productId === line.productId &&
+            (lot.sourceProductId ?? lot.productId) === line.productId &&
             lot.familyId === line.familyId
               ? lot.uses.filter((use) => use.targetDayId === freezingDay.id)
               : [],
@@ -157,15 +157,19 @@ function aggregateComparisonRows(
   }
 
   for (const [id, unlinked] of unlinkedById) {
+    if (unlinked.kg100 === 0) {
+      continue
+    }
+
     const current = rows.get(id)
     rows.set(
       id,
       current
         ? {
-        ...current,
-        unexplainedDifferenceKg100: kg100(
+            ...current,
+            unexplainedDifferenceKg100: kg100(
               current.unexplainedDifferenceKg100 - unlinked.kg100,
-        ),
+            ),
           }
         : {
             id,

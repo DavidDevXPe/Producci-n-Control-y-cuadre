@@ -7,8 +7,9 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { formatCentiKg, formatIsoDate } from '../../../utils/formatters'
-import { calculateProductionDay, kg100, sumKg100 } from '../model/calculations'
+import { kg100, sumKg100 } from '../model/calculations'
 import { calculateFrozenPhysicalKg100 } from '../model/freezing'
+import { getProductionDayOperationalState } from '../model/productionLifecycle'
 import type { ProductionDay } from '../model/types'
 
 interface FreezingDayDetailProps {
@@ -22,12 +23,14 @@ export function FreezingDayDetail({
   allProductionDays,
   canEdit,
 }: FreezingDayDetailProps) {
-  const calculation = calculateProductionDay(productionDay)
+  const operationalState = getProductionDayOperationalState(productionDay)
+  const calculation = operationalState.calculation
   const physicalKg100 = calculateFrozenPhysicalKg100(productionDay)
   const linkedKg100 = calculation.processedPreviousBalanceKg100
   const differenceKg100 = kg100(physicalKg100 - linkedKg100)
-  const isBalanced = calculation.status === 'BALANCED' && differenceKg100 === 0
-  const isClosed = productionDay.status === 'CLOSED'
+  const isBalanced = operationalState.isBalanced && differenceKg100 === 0
+  const isClosed = operationalState.lifecycle === 'CLOSED'
+  const isReadyToClose = operationalState.state === 'READY_TO_CLOSE'
 
   return (
     <div className="space-y-5">
@@ -45,16 +48,22 @@ export function FreezingDayDetail({
         description="Producto congelado por turno y vinculado a su jornada de origen en Envasado."
         actions={
           <>
-            <StatusBadge tone={!isClosed ? 'warning' : isBalanced ? 'success' : 'danger'}>
-              {!isClosed ? 'BORRADOR' : isBalanced ? 'CUADRADO' : 'NO CUADRADO'}
+            <StatusBadge tone={isClosed ? (isBalanced ? 'success' : 'danger') : isReadyToClose ? 'success' : 'warning'}>
+              {isClosed
+                ? isBalanced
+                  ? 'CERRADA · SOLO LECTURA'
+                  : 'CERRADA · REVISAR'
+                : isReadyToClose
+                  ? 'LISTA PARA CERRAR'
+                  : 'BORRADOR · REVISAR'}
             </StatusBadge>
             {canEdit ? (
               <ActionLink
                 to={`/jornadas/${productionDay.date}/editar?process=FREEZING`}
-                variant="secondary"
+                variant={isReadyToClose ? 'primary' : 'secondary'}
                 size="sm"
               >
-                Continuar captura
+                {isReadyToClose ? 'Cerrar jornada' : 'Continuar captura'}
               </ActionLink>
             ) : null}
           </>

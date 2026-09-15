@@ -593,7 +593,7 @@ function collectDayIntegrityIssues(
         issues.push(
           dayIssue({
             code: 'BALANCE_PRODUCT_NOT_FOUND',
-            message: `El lote ${lot.id} apunta a un producto que no existe en la jornada.`,
+            message: 'REQUIERE DISTRIBUCIÓN: selecciona el producto comercial exacto del saldo antes de cerrar la jornada.',
             balanceLotId: lot.id,
             productId: lot.productId,
             shift: use.shift,
@@ -619,10 +619,22 @@ function collectDayIntegrityIssues(
       ['NIGHT', product.night],
     ] as const) {
       if (entry.ownProductionKg100 < 0) {
+        const maximumConsumableKg100 = kg100(
+          entry.reportedKg100 + entry.adjustmentKg100,
+        )
+        const excessKg100 = kg100(
+          entry.previousBalanceProcessedKg100 - maximumConsumableKg100,
+        )
+        const shiftLabel = shift === 'DAY' ? 'Día' : 'Noche'
         issues.push(
           dayIssue({
             code: 'NEGATIVE_OWN_PRODUCTION',
-            message: `La producción propia de ${product.productId} en el turno ${shift} es negativa.`,
+            message:
+              `${product.productName} · Turno ${shiftLabel}: el saldo anterior asignado ` +
+              `supera el reporte físico en ${(excessKg100 / 100).toLocaleString('es-PE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} kg. Redistribuye el consumo entre Día/Noche o deja el remanente pendiente.`,
             productId: product.productId,
             shift,
           }),
@@ -859,7 +871,7 @@ export function calculateOutstandingBalances(
       const matchingUses = laterLots.flatMap((lot) =>
         lot.originDayId === originDay.id &&
         lot.familyId === product.familyId &&
-        lot.productId === product.productId
+        (lot.sourceProductId ?? lot.productId) === product.productId
           ? lot.uses.filter(
               (use) =>
                 laterDayIds.has(use.targetDayId) ||
