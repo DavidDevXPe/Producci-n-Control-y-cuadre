@@ -39,6 +39,7 @@ const seedIds = [
   'anillas-espana-segunda-mixta',
   'anillas-espana-p-cm-sp-st-mixta',
   'recorte-crudo-anillas-sm-sp-st',
+  'recorte-crudo-anillas-cm-sp-st',
   'recorte-crudo-manto-japones',
   'recorte-crudo-aleta',
   'recortes-crudos-labios',
