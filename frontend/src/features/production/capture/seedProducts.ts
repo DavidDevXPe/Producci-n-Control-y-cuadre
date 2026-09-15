@@ -22,6 +22,7 @@ const seedNames = [
     ['RECORTES CRUDOS - LABIOS CONGELADOS BLOCK S/TTO 100% P.N.', 'RECORTE_CRUDO'],
     ['CONOS CON PIEL CRUDOS CONGELADOS BLOCK S/TTO 100% P.N.', 'MANTO'],
     ['NUCAS CRUDAS CONGELADAS BLOCK S/TTO SEMI-LIMPIAS 300-UP 100% P.N.', 'NUCA_SEMILIMPIA'],
+    ['MEMBRANAS COCIDAS CONGELADAS 100% P.N.', 'MEMBRANA'],
 ] as const
 
 const seedIds = [
@@ -45,6 +46,7 @@ const seedIds = [
     'recortes-crudos-labios',
     'conos-con-piel-crudos',
     'nuca-semilimpia-codificada',
+    'membranas-cocidas',
 ] as const
 
 const familyMetadata = {
@@ -54,6 +56,7 @@ const familyMetadata = {
     NUCA_SEMILIMPIA: { familyId: 'nuca-semilimpia', familyName: 'NUCA SEMILIMPIA', summaryGroupId: 'NUCA_SEMILIMPIA' },
     REJOS: { familyId: 'rejos-crudo', familyName: 'REJOS CRUDO', summaryGroupId: 'REJOS' },
     REPRODUCTOR: { familyId: 'reproductor-crudo', familyName: 'REPRODUCTOR CRUDO', summaryGroupId: 'REPRODUCTOR' },
+    MEMBRANA: { familyId: 'membrana', familyName: 'MEMBRANA', summaryGroupId: 'RECORTE_COCIDO'},
     RECORTE_CRUDO: { familyId: 'recorte-crudo', familyName: 'RECORTE CRUDO', summaryGroupId: 'RECORTE_CRUDO' },
 } as const
 
