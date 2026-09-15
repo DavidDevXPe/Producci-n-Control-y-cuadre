@@ -8,6 +8,7 @@ import {
   Search,
   Trash2,
   Upload,
+  ImagePlus,
 } from 'lucide-react'
 import { Fragment, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -37,9 +38,14 @@ import {
   type ProductionCaptureRow,
 } from '../capture/productionCapture'
 import {
-  filterProductionCatalogItems,
+  CAPTURE_CATALOG_ITEMS,
+  confirmProductionCatalogItem,
+  filterCaptureCatalogItems,
   PRODUCTION_CATALOG_ITEMS,
+  type ProductionCatalogItem,
 } from '../capture/productionCatalog'
+import { normalizeProductName } from '../capture/productNormalizer'
+import { addAliasToActiveProduct } from '../capture/productCatalogRepository'
 import type { ParsedProductionSheet } from '../capture/parseProductionWorkbook'
 import {
   buildBalanceShiftDiagnostics,
@@ -64,7 +70,7 @@ import {
 import type { ProductionProcess } from '../model/types'
 import { useProductionData } from '../state/ProductionDataContext'
 
-type CaptureMode = 'MANUAL' | 'EXCEL'
+type CaptureMode = 'MANUAL' | 'EXCEL' | 'SCREENSHOT'
 
 interface QuantityInputProps {
   label: string
@@ -132,9 +138,9 @@ function QuantityInput({
 }
 
 function createRow(productId: string, index: number): ProductionCaptureRow | null {
-  const product = PRODUCTION_CATALOG_ITEMS.find(
+  const product = CAPTURE_CATALOG_ITEMS.find(
     (item) => item.productId === productId,
-  )
+  ) ?? PRODUCTION_CATALOG_ITEMS.find((item) => item.productId === productId)
   if (!product) return null
 
   return {
@@ -270,7 +276,9 @@ export function ProductionEntryPage() {
     existingDay?.lines.at(0)?.source.sheet === 'CAPTURA WEB'
       ? 'MANUAL'
       : existingDay
-        ? 'EXCEL'
+        ? existingDay.lines.at(0)?.source.sheet === 'CAPTURA IMAGEN'
+          ? 'SCREENSHOT'
+          : 'EXCEL'
         : 'MANUAL',
   )
   const [draft, setDraft] = useState<ProductionCaptureDraft>(() =>
@@ -313,6 +321,12 @@ export function ProductionEntryPage() {
   const [importState, setImportState] = useState<
     'IDLE' | 'READING' | 'READY' | 'ERROR'
   >('IDLE')
+  const [screenshotShift, setScreenshotShift] = useState<'DAY' | 'NIGHT'>('DAY')
+  const [screenshotWarnings, setScreenshotWarnings] = useState<readonly string[]>([])
+  const [pendingProducts, setPendingProducts] = useState<ProductionCatalogItem[]>([])
+  const [possibleMatches, setPossibleMatches] = useState<readonly { sourceText: string; product: ProductionCatalogItem; date: string | null; totalKg: number }[]>([])
+  const [otherDateRows, setOtherDateRows] = useState<readonly { product: ProductionCatalogItem; date: string | null; totalKg: number }[]>([])
+  const [captureSummary, setCaptureSummary] = useState<{ sourceGrandTotalKg: number | null; reconstructedGrandTotalKg: number; selectedDateTotalKg: number } | null>(null)
   const [saveError, setSaveError] = useState('')
   const isSunday = isSundayIsoDate(draft.date)
   const isFreezing = draft.process === 'FREEZING'
@@ -431,7 +445,7 @@ export function ProductionEntryPage() {
   }, [freezingAvailabilityPositions, isFreezing])
   const filteredCatalogItems = useMemo(
     () =>
-      filterProductionCatalogItems(productSearch).filter(
+      filterCaptureCatalogItems(productSearch).filter(
         (product) =>
           !draft.rows.some((row) => row.product.productId === product.productId),
       ).sort((first, second) =>
@@ -440,30 +454,30 @@ export function ProductionEntryPage() {
             (freezingAvailabilityByProduct.get(first.productId) ?? 0)
           : 0,
       ),
-    [draft.rows, freezingAvailabilityByProduct, isFreezing, productSearch],
+    [CAPTURE_CATALOG_ITEMS.length, draft.rows, freezingAvailabilityByProduct, isFreezing, productSearch, pendingProducts.length],
   )
   const treatmentCatalogItems = useMemo(
     () =>
-      filterProductionCatalogItems(treatmentSearch).filter(
+      filterCaptureCatalogItems(treatmentSearch).filter(
         (product) =>
           !draft.rows.some((row) => row.product.productId === product.productId),
       ),
-    [draft.rows, treatmentSearch],
+    [CAPTURE_CATALOG_ITEMS.length, draft.rows, pendingProducts.length, treatmentSearch],
   )
   const tunnelCatalogItems = useMemo(
     () =>
-      filterProductionCatalogItems(tunnelSearch).filter(
+      filterCaptureCatalogItems(tunnelSearch).filter(
         (product) =>
           !draft.rows.some((row) => row.product.productId === product.productId),
       ),
-    [draft.rows, tunnelSearch],
+    [CAPTURE_CATALOG_ITEMS.length, draft.rows, pendingProducts.length, tunnelSearch],
   )
   const closingCatalogItems = useMemo(
     () =>
-      filterProductionCatalogItems(closingSearch).filter(
+      filterCaptureCatalogItems(closingSearch).filter(
         (product) => !closingProductIds.has(product.productId),
       ),
-    [closingProductIds, closingSearch],
+    [CAPTURE_CATALOG_ITEMS.length, closingProductIds, closingSearch, pendingProducts.length],
   )
   const closingRows = useMemo(
     () =>
@@ -562,6 +576,11 @@ export function ProductionEntryPage() {
     setSelectedSheetName('')
     setFileName('')
     setImportState('IDLE')
+    setScreenshotWarnings([])
+    setPendingProducts([])
+    setPossibleMatches([])
+    setOtherDateRows([])
+    setCaptureSummary(null)
     setClosingProductIds(new Set())
     setSaveError('')
   }
@@ -843,6 +862,96 @@ export function ProductionEntryPage() {
     }
   }
 
+  const handleScreenshot = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setImportState('READING')
+    setFileName(file.name)
+    setSaveError('')
+    setScreenshotWarnings([])
+
+    try {
+      const { extractProductionScreenshot, mergeScreenshotIntoDraft } = await import(
+        '../capture/parseProductionScreenshot'
+      )
+      const parsed = await extractProductionScreenshot(file, { targetDate: draft.date })
+      if (parsed.rows.length === 0) {
+        throw new Error('No se detectaron productos en la captura.')
+      }
+      const { replaceScreenshotShift } = await import(
+        '../capture/parseProductionScreenshot'
+      )
+      setDraft((current) =>
+        mergeScreenshotIntoDraft(
+          replaceScreenshotShift(current, screenshotShift),
+          parsed,
+          screenshotShift,
+        ),
+      )
+      setScreenshotWarnings(parsed.warnings)
+      setPendingProducts((current) => [
+        ...current,
+        ...parsed.newProducts.filter(
+          (candidate) => !current.some((existing) => existing.productId === candidate.productId),
+        ),
+      ])
+      setPossibleMatches((current) => [
+        ...current,
+        ...parsed.possibleMatches.filter(
+          (candidate) => !current.some((existing) => existing.sourceText === candidate.sourceText),
+        ),
+      ])
+      setOtherDateRows((current) => [
+        ...current,
+        ...parsed.otherDateRows.map((row) => ({ product: row.product, date: row.date, totalKg: row.totalKg })),
+      ])
+      setCaptureSummary({
+        sourceGrandTotalKg: parsed.sourceGrandTotalKg,
+        reconstructedGrandTotalKg: parsed.reconstructedGrandTotalKg,
+        selectedDateTotalKg: parsed.selectedDateTotalKg,
+      })
+      setImportState('READY')
+    } catch (error) {
+      setScreenshotWarnings([
+        error instanceof Error
+          ? error.message
+          : 'No se pudo leer la captura. Verifica la calidad de la imagen.',
+      ])
+      setImportState('ERROR')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  const updatePendingProduct = (
+    productId: string,
+    field: 'canonicalName' | 'familyName' | 'familyId' | 'summaryGroupId' | 'technicalClassification',
+    value: string,
+  ) => {
+    setPendingProducts((current) =>
+      current.map((product) =>
+        product.productId === productId
+          ? {
+              ...product,
+              [field]: value,
+              ...(field === 'canonicalName' ? { productName: value, normalizedName: normalizeProductName(value) } : {}),
+            }
+          : product,
+      ),
+    )
+    if (field === 'canonicalName') {
+      setDraft((current) => ({
+        ...current,
+        rows: current.rows.map((row) =>
+          row.product.productId === productId
+            ? { ...row, product: { ...row.product, productName: value, canonicalName: value, normalizedName: normalizeProductName(value) } }
+            : row,
+        ),
+      }))
+    }
+  }
+
   const applyImportedSheet = async () => {
     const sheet = parsedSheets.find(
       (candidate) => candidate.sheetName === selectedSheetName,
@@ -1014,6 +1123,19 @@ export function ProductionEntryPage() {
         >
           Importar Excel
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'SCREENSHOT'}
+          className={`min-h-9 rounded-lg px-4 text-xs font-bold transition ${
+            mode === 'SCREENSHOT'
+              ? 'bg-brand-700 text-white'
+              : 'text-slate-600 hover:bg-slate-50'
+          }`}
+          onClick={() => setMode('SCREENSHOT')}
+        >
+          Captura de imagen
+        </button>
         </div>
       </div>
 
@@ -1082,11 +1204,204 @@ export function ProductionEntryPage() {
         </SectionCard>
       ) : null}
 
+      {mode === 'SCREENSHOT' ? (
+        <SectionCard
+          title="Cargar captura de producción"
+          description="Sube una captura por turno. La lectura se realiza en este navegador y siempre se revisa antes de guardar."
+          action={<ImagePlus className="size-5 text-brand-700" aria-hidden="true" />}
+        >
+          <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[14rem_1fr] lg:items-end">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-slate-700">
+                Turno de esta captura
+              </span>
+              <select
+                value={screenshotShift}
+                onChange={(event) => setScreenshotShift(event.target.value as 'DAY' | 'NIGHT')}
+                className="h-10 w-full rounded-lg border border-[#2B5268] bg-[#07141F] px-3 text-sm font-semibold text-[#F3F8FB] focus:border-[#169FD0]"
+              >
+                <option value="DAY">Turno Día</option>
+                <option value="NIGHT">Turno Noche</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-slate-700">
+                Imagen del reporte
+              </span>
+              <span className="relative block">
+                <Upload className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-brand-700" aria-hidden="true" />
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="block h-10 w-full cursor-pointer rounded-lg border border-dashed border-[#2B5268] bg-[#07141F] pl-9 text-xs font-semibold text-[#F3F8FB] file:mr-3 file:h-10 file:border-0 file:border-r file:border-[#2B5268] file:bg-transparent file:px-3 file:text-xs file:font-bold file:text-[#58C8EA] focus:outline-none focus:ring-2 focus:ring-[#169FD0]"
+                  onChange={handleScreenshot}
+                />
+              </span>
+              <span className="mt-1 block truncate text-[0.6875rem] text-slate-500">
+                {fileName || 'PNG, JPG o WEBP. Sube primero un turno y luego el otro.'}
+              </span>
+            </label>
+          </div>
+          {importState === 'READING' ? (
+            <p className="px-5 pb-4 text-xs font-semibold text-brand-800" role="status">
+              Leyendo la captura y detectando productos…
+            </p>
+          ) : null}
+          {screenshotWarnings.length > 0 ? (
+            <div className="mx-5 mb-5 rounded-lg border border-[#805f22] bg-[#2a2414] px-3 py-2 text-xs leading-5 text-[#f2c866]" role="status">
+              {screenshotWarnings.map((warning) => <p key={warning}>{warning}</p>)}
+            </div>
+          ) : null}
+          {captureSummary ? (
+            <div className="mx-5 mb-5 grid gap-2 rounded-lg border border-[#203E50] bg-[#07141F] p-3 text-xs sm:grid-cols-4" role="region" aria-label="Validación de captura">
+              <div><p className="text-[0.625rem] font-bold uppercase tracking-[0.08em] text-[#7F9BAD]">Total captura KG</p><p className="number-tabular mt-1 font-bold text-[#F3F8FB]">{captureSummary.sourceGrandTotalKg === null ? 'No confirmado' : formatCentiKg(captureQuantityKg100(String(captureSummary.sourceGrandTotalKg)))}</p></div>
+              <div><p className="text-[0.625rem] font-bold uppercase tracking-[0.08em] text-[#7F9BAD]">Total jornada KG</p><p className="number-tabular mt-1 font-bold text-[#F3F8FB]">{formatCentiKg(captureQuantityKg100(String(captureSummary.selectedDateTotalKg)))}</p></div>
+              <div><p className="text-[0.625rem] font-bold uppercase tracking-[0.08em] text-[#7F9BAD]">Total reconstruido KG</p><p className="number-tabular mt-1 font-bold text-[#F3F8FB]">{formatCentiKg(captureQuantityKg100(String(captureSummary.reconstructedGrandTotalKg)))}</p></div>
+              <div><p className="text-[0.625rem] font-bold uppercase tracking-[0.08em] text-[#7F9BAD]">Estado</p><p className={`mt-1 font-extrabold ${captureSummary.sourceGrandTotalKg !== null && captureSummary.sourceGrandTotalKg === captureSummary.reconstructedGrandTotalKg ? 'text-[#32D094]' : 'text-[#E4AC35]'}`}>{captureSummary.sourceGrandTotalKg !== null && captureSummary.sourceGrandTotalKg === captureSummary.reconstructedGrandTotalKg ? 'CAPTURA RECONCILIADA' : 'CAPTURA REQUIERE REVISIÓN'}</p></div>
+            </div>
+          ) : null}
+          {otherDateRows.length > 0 ? (
+            <div className="mx-5 mb-5 rounded-lg border border-[#805f22] bg-[#2a2414] px-4 py-3" role="region" aria-label="Otras fechas detectadas">
+              <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#E4AC35]">Otra fecha detectada</p>
+              <p className="mt-1 text-xs leading-5 text-[#A5BED0]">Estas filas no se aplicaron a la jornada seleccionada.</p>
+              {otherDateRows.map((row, index) => (
+                <p key={`${row.product.productId}-${row.date}-${index}`} className="mt-2 text-xs text-[#F3F8FB]">
+                  {row.product.productName} · {row.date ?? 'Fecha no confirmada'} · {formatCentiKg(captureQuantityKg100(String(row.totalKg)))}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          {pendingProducts.length > 0 ? (
+            <div className="mx-5 mb-5 rounded-lg border border-[#2B5268] bg-[#0D2534] px-4 py-3" role="region" aria-label="Productos detectados">
+              <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#F3F8FB]">
+                Productos detectados
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[#A5BED0]">
+                Confirma cada producto antes de incorporarlo al catálogo activo.
+              </p>
+              <div className="mt-3 space-y-2">
+                {pendingProducts.map((product) => (
+                  <div key={product.productId} className="flex flex-col gap-3 rounded-lg border border-[#2B5268] bg-[#123247] p-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[0.625rem] font-extrabold uppercase tracking-[0.08em] text-[#58C8EA]">NUEVO PRODUCTO</p>
+                        <span className="rounded-md border border-[#2B5268] px-2 py-1 text-[0.625rem] font-bold text-[#A5BED0]">TOTAL KG: {formatCentiKg(sumKg100(draft.rows.filter((row) => row.product.productId === product.productId).map((row) => captureQuantityKg100(screenshotShift === 'DAY' ? row.dayReportedKg : row.nightReportedKg))))}</span>
+                      </div>
+                      <label className="mt-2 block text-[0.6875rem] font-bold text-[#A5BED0]">
+                        Descripción
+                        <input
+                          value={product.canonicalName ?? product.productName}
+                          onChange={(event) => updatePendingProduct(product.productId, 'canonicalName', event.target.value)}
+                          className="mt-1 h-9 w-full min-w-0 rounded-lg border border-[#2B5268] bg-[#07141F] px-2 text-xs text-[#F3F8FB] placeholder:text-[#7F9BAD] focus:border-[#169FD0] sm:w-[34rem]"
+                        />
+                      </label>
+                      <label className="mt-2 block text-[0.6875rem] font-bold text-[#A5BED0]">
+                        Familia
+                        <select
+                          value={product.familyId}
+                          onChange={(event) => {
+                            const family = event.target.value
+                            const metadata: Record<string, [string, string]> = {
+                              'aleta-cruda': ['ALETA CRUDA', 'ALETA'],
+                              'manto-crudo': ['MANTO CRUDO', 'MANTO'],
+                              anillas: ['ANILLAS', 'ANILLAS'],
+                              'nuca-semilimpia': ['NUCA SEMILIMPIA', 'NUCA_SEMILIMPIA'],
+                              'rejos-crudo': ['REJOS CRUDO', 'REJOS'],
+                              'reproductor-crudo': ['REPRODUCTOR CRUDO', 'REPRODUCTOR'],
+                              'recorte-crudo': ['RECORTE CRUDO', 'RECORTE_CRUDO'],
+                            }
+                            const [familyName, summaryGroupId] = metadata[family] ?? ['PRODUCTO IMPORTADO', 'MANTO']
+                            updatePendingProduct(product.productId, 'familyId', family)
+                            updatePendingProduct(product.productId, 'familyName', familyName)
+                            updatePendingProduct(product.productId, 'summaryGroupId', summaryGroupId)
+                          }}
+                          className="mt-1 h-9 w-full rounded-lg border border-[#2B5268] bg-[#07141F] px-2 text-xs text-[#F3F8FB] focus:border-[#169FD0] sm:w-64"
+                        >
+                          <option value="aleta-cruda">ALETA CRUDA</option>
+                          <option value="manto-crudo">MANTO CRUDO</option>
+                          <option value="anillas">ANILLAS</option>
+                          <option value="nuca-semilimpia">NUCA SEMILIMPIA</option>
+                          <option value="rejos-crudo">REJOS CRUDO</option>
+                          <option value="reproductor-crudo">REPRODUCTOR CRUDO</option>
+                          <option value="recorte-crudo">RECORTE CRUDO</option>
+                        </select>
+                      </label>
+                      {product.familyId === 'anillas' ? (
+                        <label className="mt-2 block text-[0.6875rem] font-bold text-[#A5BED0]">
+                          Clasificación técnica
+                          <select
+                            value={product.technicalClassification ?? 'UNCLASSIFIED'}
+                            onChange={(event) => updatePendingProduct(product.productId, 'technicalClassification', event.target.value)}
+                            className="mt-1 h-9 w-full rounded-lg border border-[#2B5268] bg-[#07141F] px-2 text-xs text-[#F3F8FB] focus:border-[#169FD0] sm:w-64"
+                          >
+                            <option value="UNCLASSIFIED">REQUIERE CLASIFICACIÓN TÉCNICA</option>
+                            <option value="POLAR">POLAR · 36%</option>
+                            <option value="USA">USA · 34%</option>
+                            <option value="GENERAL">GENERAL · 42%</option>
+                          </select>
+                        </label>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg bg-[#169FD0] px-3 text-xs font-bold text-white hover:bg-[#58C8EA] hover:text-[#07141F]"
+                      onClick={() => {
+                        confirmProductionCatalogItem(product)
+                        setPendingProducts((current) => current.filter((candidate) => candidate.productId !== product.productId))
+                      }}
+                    >
+                      Agregar al catálogo
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-3 text-xs font-bold text-[#7F9BAD] underline hover:text-[#F3F8FB]"
+                onClick={() => setPendingProducts([])}
+              >
+                Ignorar productos nuevos
+              </button>
+            </div>
+          ) : null}
+          {possibleMatches.length > 0 ? (
+            <div className="mx-5 mb-5 rounded-lg border border-[#805f22] bg-[#2a2414] px-4 py-3" role="region" aria-label="Posibles coincidencias">
+              <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#E4AC35]">Revisar coincidencia</p>
+              <p className="mt-1 text-xs leading-5 text-[#A5BED0]">Confirma si la variante OCR corresponde al producto existente.</p>
+              {possibleMatches.map((candidate) => (
+                <div key={candidate.sourceText} className="mt-3 flex flex-col gap-2 rounded-lg border border-[#805f22] bg-[#123247] p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 text-xs text-[#A5BED0]">
+                    <p><span className="font-bold text-[#7F9BAD]">Texto detectado:</span> {candidate.sourceText}</p>
+                    <p className="mt-1"><span className="font-bold text-[#7F9BAD]">Coincidencia:</span> <strong className="text-[#F3F8FB]">{candidate.product.canonicalName ?? candidate.product.productName}</strong></p>
+                    <p className="mt-1 text-[0.6875rem]">Fecha: {candidate.date ?? 'No confirmada'} · Total KG: {formatCentiKg(captureQuantityKg100(String(candidate.totalKg)))}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg bg-[#E4AC35] px-3 text-xs font-bold text-[#07141F] hover:bg-[#f2c866]"
+                    onClick={() => {
+                      addAliasToActiveProduct(candidate.product.productId, candidate.sourceText)
+                      setPossibleMatches((current) => current.filter((item) => item.sourceText !== candidate.sourceText))
+                    }}
+                  >
+                    Usar existente y guardar alias
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {mode === 'SCREENSHOT' && draft.rows.length > 0 ? (
+            <p className="border-t border-[#203E50] bg-[#0D2534] px-5 py-3 text-xs font-semibold leading-5 text-[#A5BED0]">
+              Captura acumulada. Puedes subir la imagen del otro turno y los productos se combinarán por producto. Los productos nuevos se agregan al catálogo local para futuras capturas.
+            </p>
+          ) : null}
+        </SectionCard>
+      ) : null}
+
       <SectionCard
         title="Datos generales"
         description={
-          draft.source === 'EXCEL'
-            ? `Vista previa de ${draft.sourceSheet}; todos los campos siguen siendo editables antes de guardar.`
+          draft.source === 'EXCEL' || draft.source === 'SCREENSHOT'
+            ? `Vista previa de ${draft.source === 'SCREENSHOT' ? 'las capturas cargadas' : draft.sourceSheet}; todos los campos siguen siendo editables antes de guardar.`
             : 'Totales independientes usados para validar el cuadre y el aprovechamiento.'
         }
       >
@@ -1349,7 +1664,7 @@ export function ProductionEntryPage() {
                 <option value="">
                   {filteredCatalogItems.length === 0
                     ? 'Sin productos coincidentes'
-                    : `Seleccionar entre ${filteredCatalogItems.length} resultado${filteredCatalogItems.length === 1 ? '' : 's'}…`}
+                    : `Seleccionar entre ${filteredCatalogItems.length} producto${filteredCatalogItems.length === 1 ? '' : 's'} detectado${filteredCatalogItems.length === 1 ? '' : 's'}…`}
                 </option>
                 {filteredCatalogItems.map((product) => (
                   <option key={product.productId} value={product.productId}>
@@ -1378,7 +1693,7 @@ export function ProductionEntryPage() {
 
         {draft.rows.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-slate-500">
-            Agrega un producto manualmente o carga una hoja desde Excel.
+            Carga una captura de producción para construir la lista de productos de esta jornada.
           </div>
         ) : (
           <DataTableScroll label="Captura por producto y turno">

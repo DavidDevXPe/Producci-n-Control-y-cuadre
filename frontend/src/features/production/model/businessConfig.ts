@@ -27,6 +27,9 @@ const ANILLA_YIELD_CLASS_BY_PRODUCT_ID: Readonly<
   'anillas-block-tratamiento-usa-sm-cp-st': 'USA',
   'anillas-block-tratamiento-usa-cm-sp-st': 'USA',
   'anillas-block-tratamiento-usa-sm-sp-st': 'USA',
+  'capture-seed-11': 'POLAR',
+  'capture-seed-12': 'GENERAL',
+  'capture-seed-13': 'GENERAL',
 }
 
 const ANILLAS_PROCESS_ORIGIN_PRODUCT_IDS = new Set([

@@ -4,6 +4,8 @@ import {
   filterProductionCatalogItems,
   PRODUCTION_CATALOG_ITEMS,
 } from './productionCatalog'
+import { CAPTURE_CATALOG_ITEMS } from './productionCatalog'
+import { SEED_CAPTURE_PRODUCTS } from './seedProducts'
 
 describe('production catalog filtering', () => {
   it.each(['aleta', 'MANTO', 'nuca', 'semi limpia'])(
@@ -42,6 +44,18 @@ describe('production catalog filtering', () => {
       expect.arrayContaining([
         expect.objectContaining({ productId: 'aleta-cruda-codificada' }),
       ]),
+    )
+  })
+})
+
+describe('active capture catalog', () => {
+  it('starts from the capture seed without replacing legacy resolution', () => {
+    expect(CAPTURE_CATALOG_ITEMS).toEqual(
+      expect.arrayContaining([...SEED_CAPTURE_PRODUCTS]),
+    )
+    expect(CAPTURE_CATALOG_ITEMS).toHaveLength(SEED_CAPTURE_PRODUCTS.length)
+    expect(PRODUCTION_CATALOG_ITEMS.length).toBeGreaterThan(
+      CAPTURE_CATALOG_ITEMS.length,
     )
   })
 })

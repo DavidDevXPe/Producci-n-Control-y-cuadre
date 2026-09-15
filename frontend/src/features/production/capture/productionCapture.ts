@@ -30,7 +30,7 @@ import {
   type ProductionCatalogItem,
 } from './productionCatalog'
 
-export type CaptureSource = 'MANUAL' | 'EXCEL'
+export type CaptureSource = 'MANUAL' | 'EXCEL' | 'SCREENSHOT'
 export type ShiftAllocationMode = 'EXPLICIT' | 'RECONCILED_INFERENCE'
 
 export interface ProductionCaptureRow {
@@ -302,6 +302,8 @@ export function createCaptureDraftFromDay(
     source:
       productionDay.lines.at(0)?.source.sheet === 'CAPTURA WEB'
         ? 'MANUAL'
+        : productionDay.lines.at(0)?.source.sheet === 'CAPTURA IMAGEN'
+          ? 'SCREENSHOT'
         : 'EXCEL',
     sourceSheet: productionDay.lines.at(0)?.source.sheet ?? 'CAPTURA WEB',
     shiftAllocationMode:
@@ -485,7 +487,12 @@ export function buildProductionDayFromCapture(
       summaryGroupId: row.product.summaryGroupId,
       source: {
         sheet: draft.sourceSheet,
-        cell: draft.source === 'EXCEL' ? `B${index + 1}` : `WEB-${index + 1}`,
+        cell:
+          draft.source === 'EXCEL'
+            ? `B${index + 1}`
+            : draft.source === 'SCREENSHOT'
+              ? `IMG-${index + 1}`
+              : `WEB-${index + 1}`,
       },
       shiftBreakdownConfidence:
         draft.shiftAllocationMode === 'EXPLICIT'

@@ -132,7 +132,7 @@ describe('ProductionEntryPage product selector', () => {
 
     fireEvent.change(
       screen.getByRole('searchbox', { name: 'Buscar producto' }),
-      { target: { value: 'aleta cruda codificada' } },
+      { target: { value: 'aleta 1000 2000' } },
     )
     const selector = screen.getByRole('combobox', {
       name: 'Producto con movimiento',
@@ -310,9 +310,9 @@ describe('ProductionEntryPage product selector', () => {
     completeShiftReport({
       rawMaterial: '100',
       dayReport: '15.6',
-      productSearch: 'aleta cruda codificada',
+      productSearch: 'aleta 1000 2000',
     })
-    addClosingBalanceProduct('aleta cruda codificada')
+    addClosingBalanceProduct('aleta 1000 2000')
 
     const aletaCard = screen.getByRole('heading', { name: 'Aleta' }).closest('article')!
     expect(within(aletaCard).getAllByText('78.00%')).toHaveLength(3)
@@ -441,7 +441,7 @@ describe('ProductionEntryPage product selector', () => {
     completeShiftReport({
       rawMaterial: '100',
       dayReport: '15.6',
-      productSearch: 'aleta cruda codificada',
+      productSearch: 'aleta 1000 2000',
     })
     const treatmentInput = screen.getByLabelText(/^Kg tratamiento/)
     fireEvent.change(treatmentInput, { target: { value: '1.2' } })
