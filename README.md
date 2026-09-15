@@ -43,7 +43,7 @@ El alcance actual es de uso local por una sola persona, por lo que no requiere a
 
 La aplicación se publica automáticamente en GitHub Pages al enviar cambios a `main`:
 
-https://daviddevxpe.github.io/Producci-n-Control-y-cuadre/
+https://daviddevxpe.github.io/Produccion-Control-y-Cuadre/
 
 El flujo `.github/workflows/deploy-pages.yml` instala dependencias, valida TypeScript y ESLint, ejecuta las pruebas, genera el sitio y publica el artefacto. El Excel de referencia permanece únicamente en el entorno local y está excluido del repositorio.
 
