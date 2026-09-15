@@ -11,6 +11,7 @@ const seedNames = [
     ['ALETA CRUDA CONGELADA BLOCK S/TTO 500 g - 1000 g 100% P.N.', 'ALETA'],
     ['ALETA CRUDA CONGELADA BLOCK S/TTO 2000 g - 3000 g 100% P.N.', 'ALETA'],
     ['REJO CRUDO CONGELADO BLOCK S/TTO BAA S/R 1-2 100% P.N.', 'REJOS'],
+    ['REJO CRUDO CONGELADO BLOCK S/TTO BAA S/R 2-3 100% P.N.', 'REJOS'],
     ['REJOS CRUDOS CONGELADOS BLOCK S/TTO BAILARINA S/R 500 G - 1000 G SEMI LIMPIOS 100% P.N.', 'REJOS'],
     ['ANILLAS CRUDAS CONGELADAS BLOCK S/TTO ESPAÑA P POLAR SM SP ST MIXTA 100% P.N.', 'ANILLAS'],
     ['ANILLAS CRUDAS CONGELADAS BLOCK S/TTO ESPAÑA SM 2DA MIXTA 100% P.N.', 'ANILLAS'],
@@ -20,6 +21,7 @@ const seedNames = [
     ['RECORTE CRUDO CONGELADO BLOCK S/TTO MANTO JAPONÉS 100% P.N.', 'RECORTE_CRUDO'],
     ['RECORTE CRUDO CONGELADO BLOCK S/TTO ALETA 100% P.N.', 'RECORTE_CRUDO'],
     ['RECORTES CRUDOS - LABIOS CONGELADOS BLOCK S/TTO 100% P.N.', 'RECORTE_CRUDO'],
+    ['RECORTE COCIDO CONGELADO BLOCK S/TTO PB 100% P.N.', 'RECORTE_COCIDO'],
     ['CONOS CON PIEL CRUDOS CONGELADOS BLOCK S/TTO 100% P.N.', 'MANTO'],
     ['NUCAS CRUDAS CONGELADAS BLOCK S/TTO SEMI-LIMPIAS 300-UP 100% P.N.', 'NUCA_SEMILIMPIA'],
     ['MEMBRANAS COCIDAS CONGELADAS 100% P.N.', 'MEMBRANA'],
@@ -35,6 +37,7 @@ const seedIds = [
     'capture-seed-7',
     'capture-seed-8',
     'rejo-baa-1-2',
+    'rejo-baa-2-3',
     'rejo-bailarina-500-1000',
     'anillas-espana-polar-mixta',
     'anillas-espana-segunda-mixta',
@@ -44,6 +47,7 @@ const seedIds = [
     'recorte-crudo-manto-japones',
     'recorte-crudo-aleta',
     'recortes-crudos-labios',
+    'recorte-cocido-pb',
     'conos-con-piel-crudos',
     'nuca-semilimpia-codificada',
     'membranas-cocidas',
@@ -58,6 +62,8 @@ const familyMetadata = {
     REPRODUCTOR: { familyId: 'reproductor-crudo', familyName: 'REPRODUCTOR CRUDO', summaryGroupId: 'REPRODUCTOR' },
     MEMBRANA: { familyId: 'membrana', familyName: 'MEMBRANA', summaryGroupId: 'RECORTE_COCIDO'},
     RECORTE_CRUDO: { familyId: 'recorte-crudo', familyName: 'RECORTE CRUDO', summaryGroupId: 'RECORTE_CRUDO' },
+    RECORTE_COCIDO: { familyId: 'recorte-cocido', familyName: 'RECORTE COCIDO', summaryGroupId: 'RECORTE_COCIDO',
+},
 } as const
 
 function technicalClassification(canonicalName: string): NonNullable<ProductionCatalogItem['technicalClassification']> {
