@@ -324,6 +324,9 @@ export function ProductionEntryPage() {
   const [screenshotShift, setScreenshotShift] = useState<'DAY' | 'NIGHT'>('DAY')
   const [screenshotWarnings, setScreenshotWarnings] = useState<readonly string[]>([])
   const [pendingProducts, setPendingProducts] = useState<ProductionCatalogItem[]>([])
+  const [catalogItems, setCatalogItems] = useState<ProductionCatalogItem[]>(
+    () => [...CAPTURE_CATALOG_ITEMS],
+  )
   const [possibleMatches, setPossibleMatches] = useState<readonly { sourceText: string; product: ProductionCatalogItem; date: string | null; totalKg: number }[]>([])
   const [otherDateRows, setOtherDateRows] = useState<readonly { product: ProductionCatalogItem; date: string | null; totalKg: number }[]>([])
   const [captureSummary, setCaptureSummary] = useState<{ sourceGrandTotalKg: number | null; reconstructedGrandTotalKg: number; selectedDateTotalKg: number } | null>(null)
@@ -445,7 +448,7 @@ export function ProductionEntryPage() {
   }, [freezingAvailabilityPositions, isFreezing])
   const filteredCatalogItems = useMemo(
     () =>
-      filterCaptureCatalogItems(productSearch).filter(
+      filterCaptureCatalogItems(productSearch, catalogItems).filter(
         (product) =>
           !draft.rows.some((row) => row.product.productId === product.productId),
       ).sort((first, second) =>
@@ -454,30 +457,30 @@ export function ProductionEntryPage() {
             (freezingAvailabilityByProduct.get(first.productId) ?? 0)
           : 0,
       ),
-    [CAPTURE_CATALOG_ITEMS.length, draft.rows, freezingAvailabilityByProduct, isFreezing, productSearch, pendingProducts.length],
+    [catalogItems, draft.rows, freezingAvailabilityByProduct, isFreezing, productSearch],
   )
   const treatmentCatalogItems = useMemo(
     () =>
-      filterCaptureCatalogItems(treatmentSearch).filter(
+      filterCaptureCatalogItems(treatmentSearch, catalogItems).filter(
         (product) =>
           !draft.rows.some((row) => row.product.productId === product.productId),
       ),
-    [CAPTURE_CATALOG_ITEMS.length, draft.rows, pendingProducts.length, treatmentSearch],
+    [catalogItems, draft.rows, treatmentSearch],
   )
   const tunnelCatalogItems = useMemo(
     () =>
-      filterCaptureCatalogItems(tunnelSearch).filter(
+      filterCaptureCatalogItems(tunnelSearch, catalogItems).filter(
         (product) =>
           !draft.rows.some((row) => row.product.productId === product.productId),
       ),
-    [CAPTURE_CATALOG_ITEMS.length, draft.rows, pendingProducts.length, tunnelSearch],
+    [catalogItems, draft.rows, tunnelSearch],
   )
   const closingCatalogItems = useMemo(
     () =>
-      filterCaptureCatalogItems(closingSearch).filter(
+      filterCaptureCatalogItems(closingSearch, catalogItems).filter(
         (product) => !closingProductIds.has(product.productId),
       ),
-    [CAPTURE_CATALOG_ITEMS.length, closingProductIds, closingSearch, pendingProducts.length],
+    [catalogItems, closingProductIds, closingSearch],
   )
   const closingRows = useMemo(
     () =>
@@ -1346,8 +1349,26 @@ export function ProductionEntryPage() {
                       type="button"
                       className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg bg-[#169FD0] px-3 text-xs font-bold text-white hover:bg-[#58C8EA] hover:text-[#07141F]"
                       onClick={() => {
-                        confirmProductionCatalogItem(product)
-                        setPendingProducts((current) => current.filter((candidate) => candidate.productId !== product.productId))
+                        const confirmedProduct = confirmProductionCatalogItem(product)
+
+                        setCatalogItems((current) => {
+                          const alreadyExists = current.some(
+                            (candidate) =>
+                              candidate.productId === confirmedProduct.productId,
+                          )
+                        
+                          if (alreadyExists) {
+                            return current
+                          }
+                        
+                          return [...current, confirmedProduct]
+                        })
+                      
+                        setPendingProducts((current) =>
+                          current.filter(
+                            (candidate) => candidate.productId !== product.productId,
+                          ),
+                        )
                       }}
                     >
                       Agregar al catálogo

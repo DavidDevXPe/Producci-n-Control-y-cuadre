@@ -25,56 +25,56 @@ const seedNames = [
 ] as const
 
 const seedIds = [
-  'reproductor-70-up',
-  'reproductor-50-70',
-  'manto-estandar-crudo-2-4',
-  'manto-japones-crudo',
-  'capture-seed-5',
-  'capture-seed-6',
-  'capture-seed-7',
-  'capture-seed-8',
-  'rejo-baa-1-2',
-  'rejo-bailarina-500-1000',
-  'anillas-espana-polar-mixta',
-  'anillas-espana-segunda-mixta',
-  'anillas-espana-p-cm-sp-st-mixta',
-  'recorte-crudo-anillas-sm-sp-st',
-  'recorte-crudo-anillas-cm-sp-st',
-  'recorte-crudo-manto-japones',
-  'recorte-crudo-aleta',
-  'recortes-crudos-labios',
-  'conos-con-piel-crudos',
-  'nuca-semilimpia-codificada',
+    'reproductor-70-up',
+    'reproductor-50-70',
+    'manto-estandar-crudo-2-4',
+    'manto-japones-crudo',
+    'capture-seed-5',
+    'capture-seed-6',
+    'capture-seed-7',
+    'capture-seed-8',
+    'rejo-baa-1-2',
+    'rejo-bailarina-500-1000',
+    'anillas-espana-polar-mixta',
+    'anillas-espana-segunda-mixta',
+    'anillas-espana-p-cm-sp-st-mixta',
+    'recorte-crudo-anillas-sm-sp-st',
+    'recorte-crudo-anillas-cm-sp-st',
+    'recorte-crudo-manto-japones',
+    'recorte-crudo-aleta',
+    'recortes-crudos-labios',
+    'conos-con-piel-crudos',
+    'nuca-semilimpia-codificada',
 ] as const
 
 const familyMetadata = {
-  ALETA: { familyId: 'aleta-cruda', familyName: 'ALETA CRUDA', summaryGroupId: 'ALETA' },
-  MANTO: { familyId: 'manto-crudo', familyName: 'MANTO CRUDO', summaryGroupId: 'MANTO' },
-  ANILLAS: { familyId: 'anillas', familyName: 'ANILLAS', summaryGroupId: 'ANILLAS' },
-  NUCA_SEMILIMPIA: { familyId: 'nuca-semilimpia', familyName: 'NUCA SEMILIMPIA', summaryGroupId: 'NUCA_SEMILIMPIA' },
-  REJOS: { familyId: 'rejos-crudo', familyName: 'REJOS CRUDO', summaryGroupId: 'REJOS' },
-  REPRODUCTOR: { familyId: 'reproductor-crudo', familyName: 'REPRODUCTOR CRUDO', summaryGroupId: 'REPRODUCTOR' },
-  RECORTE_CRUDO: { familyId: 'recorte-crudo', familyName: 'RECORTE CRUDO', summaryGroupId: 'RECORTE_CRUDO' },
+    ALETA: { familyId: 'aleta-cruda', familyName: 'ALETA CRUDA', summaryGroupId: 'ALETA' },
+    MANTO: { familyId: 'manto-crudo', familyName: 'MANTO CRUDO', summaryGroupId: 'MANTO' },
+    ANILLAS: { familyId: 'anillas', familyName: 'ANILLAS', summaryGroupId: 'ANILLAS' },
+    NUCA_SEMILIMPIA: { familyId: 'nuca-semilimpia', familyName: 'NUCA SEMILIMPIA', summaryGroupId: 'NUCA_SEMILIMPIA' },
+    REJOS: { familyId: 'rejos-crudo', familyName: 'REJOS CRUDO', summaryGroupId: 'REJOS' },
+    REPRODUCTOR: { familyId: 'reproductor-crudo', familyName: 'REPRODUCTOR CRUDO', summaryGroupId: 'REPRODUCTOR' },
+    RECORTE_CRUDO: { familyId: 'recorte-crudo', familyName: 'RECORTE CRUDO', summaryGroupId: 'RECORTE_CRUDO' },
 } as const
 
 function technicalClassification(canonicalName: string): NonNullable<ProductionCatalogItem['technicalClassification']> {
-  if (!canonicalName.includes('ANILLAS')) return 'UNCLASSIFIED'
-  if (canonicalName.includes('POLAR')) return 'POLAR'
-  if (canonicalName.includes('USA')) return 'USA'
-  return 'GENERAL'
+    if (!canonicalName.includes('ANILLAS')) return 'UNCLASSIFIED'
+    if (canonicalName.includes('POLAR')) return 'POLAR'
+    if (canonicalName.includes('USA')) return 'USA'
+    return 'GENERAL'
 }
 
 export const SEED_CAPTURE_PRODUCTS: readonly ProductionCatalogItem[] = seedNames.map(
-  ([canonicalName, family], index) => ({
-    ...familyMetadata[family],
-    productId: seedIds[index]!,
-    productName: canonicalName,
-    canonicalName,
-    normalizedName: normalizeProductName(canonicalName),
-    aliases: [],
-    source: 'CAPTURE' as const,
-    createdAt: '2026-09-15T00:00:00.000Z',
-    active: true,
-    technicalClassification: technicalClassification(canonicalName),
-  }),
+    ([canonicalName, family], index) => ({
+        ...familyMetadata[family],
+        productId: seedIds[index]!,
+        productName: canonicalName,
+        canonicalName,
+        normalizedName: normalizeProductName(canonicalName),
+        aliases: [],
+        source: 'CAPTURE' as const,
+        createdAt: '2026-09-15T00:00:00.000Z',
+        active: true,
+        technicalClassification: technicalClassification(canonicalName),
+    }),
 )

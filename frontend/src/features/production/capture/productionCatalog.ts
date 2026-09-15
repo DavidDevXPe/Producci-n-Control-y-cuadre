@@ -204,28 +204,35 @@ export function filterProductionCatalogItems(
   query: string,
 ): readonly ProductionCatalogItem[] {
   const normalizedQuery = normalizeProductName(query)
+
   if (!normalizedQuery) return PRODUCTION_CATALOG_ITEMS
+
   const queryWords = normalizedQuery.split(' ')
 
   return PRODUCTION_CATALOG_ITEMS.filter((item) => {
     const searchableText = normalizeProductName(
       `${item.familyName} ${item.productName}`,
     )
+
     return queryWords.every((word) => searchableText.includes(word))
   })
 }
 
 export function filterCaptureCatalogItems(
   query: string,
+  items: readonly ProductionCatalogItem[] = CAPTURE_CATALOG_ITEMS,
 ): readonly ProductionCatalogItem[] {
   const normalizedQuery = normalizeProductName(query)
-  if (!normalizedQuery) return CAPTURE_CATALOG_ITEMS
+
+  if (!normalizedQuery) return items
+
   const queryWords = normalizedQuery.split(' ')
 
-  return CAPTURE_CATALOG_ITEMS.filter((item) => {
+  return items.filter((item) => {
     const searchableText = normalizeProductName(
       `${item.familyName} ${item.productName}`,
     )
+
     return queryWords.every((word) => searchableText.includes(word))
   })
 }
